@@ -1,0 +1,24 @@
+{
+  "name": "momentplan",
+  "productName": "MomentPlan",
+  "version": "0.92.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": { "start": "electron .", "dist": "electron-builder --win" },
+  "devDependencies": { "electron": "^31.0.0", "electron-builder": "^24.13.3" },
+  "build": {
+    "appId": "com.momentplan.app",
+    "productName": "MomentPlan",
+    "files": ["main.js", "dist/**"],
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "signAndEditExecutable": false, "icon": "build/mp-icon.ico" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "shortcutName": "MomentPlan", "license": "license.txt", "installerIcon": "build/mp-icon.ico", "uninstallerIcon": "build/mp-icon.ico" },
+    "mac": { "target": [{ "target": "dmg", "arch": ["universal"] }], "category": "public.app-category.productivity", "identity": null, "icon": "build/source-icon.png" },
+    "dmg": { "title": "MomentPlan" },
+    "extraResources": [
+      { "from": "../docs/EULA.txt", "to": "docs/EULA.txt" },
+      { "from": "../docs/개인정보처리방침.txt", "to": "docs/개인정보처리방침.txt" },
+      { "from": "../docs/THIRD-PARTY-NOTICES.txt", "to": "docs/THIRD-PARTY-NOTICES.txt" }
+    ],
+    "directories": { "output": "release" }
+  }
+}

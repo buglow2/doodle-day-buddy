@@ -1,0 +1,83 @@
+# 두들 데이 버디 — 클라우드 자동 빌드 (Mac + Windows + Windows 7)
+# 사용법: 이 저장소를 GitHub에 올리면 자동 실행됩니다.
+#         수동 실행: 저장소 → Actions 탭 → "Build installers" → Run workflow
+
+name: Build installers
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:   # 버튼으로 수동 실행 가능
+
+jobs:
+  # ── 1) Mac 설치본 (.dmg) ─────────────────────────────
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: 앱 파일 복사
+        run: |
+          rm -rf electron-app/dist
+          cp -R dist electron-app/dist
+      - name: 의존성 설치
+        working-directory: electron-app
+        run: npm install --no-audit --no-fund
+      - name: Mac 빌드
+        working-directory: electron-app
+        run: npx electron-builder --mac --publish never
+      - name: 결과물 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: DoodleDayBuddy-Mac
+          path: electron-app/release/*.dmg
+
+  # ── 2) Windows 10/11 설치본 (.exe) ───────────────────
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: 앱 파일 복사
+        run: |
+          if (Test-Path electron-app/dist) { Remove-Item -Recurse -Force electron-app/dist }
+          Copy-Item -Recurse dist electron-app/dist
+      - name: 의존성 설치
+        working-directory: electron-app
+        run: npm install --no-audit --no-fund
+      - name: Windows 빌드
+        working-directory: electron-app
+        run: npx electron-builder --win --publish never
+      - name: 결과물 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: DoodleDayBuddy-Windows
+          path: electron-app/release/*.exe
+
+  # ── 3) Windows 7 전용 설치본 (Electron 22) ───────────
+  windows7:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: 앱 파일 복사
+        run: |
+          if (Test-Path electron-app/dist) { Remove-Item -Recurse -Force electron-app/dist }
+          Copy-Item -Recurse dist electron-app/dist
+      - name: 의존성 설치
+        working-directory: electron-app
+        run: npm install --no-audit --no-fund
+      - name: Windows 7 호환 Electron(22)으로 교체
+        working-directory: electron-app
+        run: npm install --save-dev electron@22.3.27
+      - name: Windows 7 빌드 (32비트 = 32·64비트 윈7 모두 실행)
+        working-directory: electron-app
+        run: npx electron-builder --win nsis --ia32 --publish never
+      - name: 결과물 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: DoodleDayBuddy-Windows7
+          path: electron-app/release/*.exe

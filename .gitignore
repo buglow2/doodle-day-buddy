@@ -1,0 +1,9 @@
+node_modules/
+electron-app/node_modules/
+electron-app/dist/
+electron-app/release/
+electron-app/package-lock.json
+release/
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,12 @@
+Third-Party Software Notices — Doodle Day Buddy
+
+This software includes the following open-source components.
+Full license texts: https://opensource.org/licenses
+
+- React, React DOM (MIT License) — Copyright (c) Meta Platforms, Inc.
+- @supabase/supabase-js (MIT License) — Copyright (c) Supabase
+- lucide-react (ISC License) — Copyright (c) Lucide Contributors
+- SheetJS Community Edition / xlsx (Apache License 2.0) — Copyright (C) SheetJS LLC
+- korean-lunar-calendar (MIT License)
+- Electron (MIT License) — Copyright (c) Electron contributors, GitHub Inc.
+- Vite (MIT License) — Copyright (c) VoidZero Inc. and Vite contributors
