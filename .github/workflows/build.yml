@@ -109,8 +109,8 @@ jobs:
           name: MomentPlan v${{ steps.ver.outputs.v }}
           body: |
             MomentPlan 설치파일입니다. 자기 OS에 맞는 파일을 받으세요.
-            · Windows(윈7·10·11 공용): ...ia32.exe
-            · Windows 10/11 전용: ...Setup.exe
-            · Mac: ...dmg
+            · Windows(윈7·10·11 공용): MomentPlan-Setup-...-ia32.exe
+            · Windows 10/11 전용: MomentPlan-Setup-...-x64.exe
+            · Mac: MomentPlan-...-universal.dmg
           files: artifacts/**/*
           fail_on_unmatched_files: false
