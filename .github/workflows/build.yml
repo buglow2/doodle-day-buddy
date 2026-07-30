@@ -81,3 +81,36 @@ jobs:
         with:
           name: DoodleDayBuddy-Windows7
           path: electron-app/release/*.exe
+
+  # ── 4) 설치파일을 Release 에 자동 게시 ────────────────
+  #  · 위 3개 빌드가 끝나면 결과물을 모아 하나의 Release 로 공개합니다.
+  #  · 버전은 electron-app/package.json 의 version 을 태그로 사용 (예: v0.96.1)
+  #  · 다운로드 주소로는 https://github.com/<아이디>/<저장소>/releases/latest 를
+  #    app_meta.download_url 에 넣으면, 사용자가 자기 OS 파일을 골라 받습니다.
+  release:
+    needs: [ mac, windows, windows7 ]
+    if: ${{ always() }}          # 일부 OS 빌드가 실패해도 성공한 것만 게시
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write            # Release 생성 권한
+    steps:
+      - uses: actions/checkout@v4
+      - name: 버전 읽기
+        id: ver
+        run: echo "v=$(node -p "require('./electron-app/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: 빌드 결과물 모두 내려받기
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Release 만들기/갱신
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.v }}
+          name: MomentPlan v${{ steps.ver.outputs.v }}
+          body: |
+            MomentPlan 설치파일입니다. 자기 OS에 맞는 파일을 받으세요.
+            · Windows(윈7·10·11 공용): ...ia32.exe
+            · Windows 10/11 전용: ...Setup.exe
+            · Mac: ...dmg
+          files: artifacts/**/*
+          fail_on_unmatched_files: false

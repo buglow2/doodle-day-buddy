@@ -27,7 +27,7 @@ async function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 800, minWidth: 900, minHeight: 600,
     autoHideMenuBar: true, title: 'MomentPlan',
-    icon: path.join(__dirname, 'build', 'source-icon.png'),
+    icon: path.join(__dirname, process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     webPreferences: { contextIsolation: true }
   });
   win.loadURL(`http://127.0.0.1:${port}/`);
