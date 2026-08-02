@@ -1,0 +1,28 @@
+# MomentPlan — Supabase 자동 접속(keep-alive)
+# · 매일 1회 Supabase DB에 가벼운 요청을 보내 "7일 미사용 → 일시정지"를 방지합니다.
+# · anon(공개) 키만 사용하며 데이터는 노출되지 않습니다(keepalive 함수는 현재 시각만 반환).
+# · 수동 실행: 저장소 → Actions 탭 → "Supabase keep-alive" → Run workflow
+#
+# ※ 먼저 keepalive.sql 을 Supabase SQL Editor 에서 한 번 실행해 두어야 합니다.
+
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: "17 3 * * *"   # 매일 UTC 03:17 (한국시간 12:17경) 자동 실행
+  workflow_dispatch:        # 버튼으로 수동 실행 가능
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supabase DB 깨우기
+        run: |
+          SUPABASE_URL="https://hqeukjoalmcpmjuslxmm.supabase.co"
+          ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhxZXVram9hbG1jcG1qdXNseG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNTQ5MTUsImV4cCI6MjEwMDczMDkxNX0.f4tlaie_OcXDpzyrizcicLC2KFWYMDbchrof2ibUGQk"
+          echo "keepalive 호출..."
+          curl -sS -X POST "$SUPABASE_URL/rest/v1/rpc/keepalive" \
+            -H "apikey: $ANON" \
+            -H "Authorization: Bearer $ANON" \
+            -H "Content-Type: application/json" \
+            -d '{}' -w "\nHTTP %{http_code}\n"
