@@ -1573,7 +1573,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.97.63";
+const DDB_VERSION = "0.97.58";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3117,7 +3117,7 @@ function um({
                 className: "flex-1"
             }), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono",
-                children: "v200"
+                children: "v195"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -7411,7 +7411,6 @@ function ddbToBlocks(body) {
 function ddbHasTable(body) { return ddbToBlocks(body).some(b => b.t === "table"); }
 function ddbBlocksToMd(blocks) { return (blocks || []).map(b => b.t === "table" ? ddbGridToMd(b.headers, b.rows).trim() : (b.s == null ? "" : b.s)).join("\n\n"); }
 function ddbColToIdx(s) { let n = 0; const S = String(s).toUpperCase(); for (let i = 0; i < S.length; i++) n = n * 26 + (S.charCodeAt(i) - 64); return n - 1; }
-function ddbIdxToCol(i) { let s = ""; i = i + 1; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; }
 function ddbNum(v) { if (typeof v === "number") return v; const n = parseFloat(String(v == null ? "" : v).replace(/,/g, "").trim()); return isNaN(n) ? 0 : n; }
 function ddbFmtNum(v) { if (typeof v !== "number" || !isFinite(v)) return String(v); return Number.isInteger(v) ? String(v) : String(Math.round(v * 1e6) / 1e6); }
 function ddbTokenize(s) {
@@ -7419,7 +7418,6 @@ function ddbTokenize(s) {
     while (i < n) {
         const c = s[i];
         if (c === " " || c === "\t") { i++; continue; }
-        if (c === '"' || c === "'") { const q = c; let j = i + 1, str = ""; while (j < n && s[j] !== q) { str += s[j]; j++; } i = j + 1; toks.push({ t: "str", v: str }); continue; }
         if (isD(c) || (c === "." && isD(s[i + 1]))) { let j = i; while (j < n && (isD(s[j]) || s[j] === ".")) j++; toks.push({ t: "num", v: parseFloat(s.slice(i, j)) }); i = j; continue; }
         if (isA(c)) { let j = i; while (j < n && /[A-Za-z0-9]/.test(s[j])) j++; const word = s.slice(i, j); i = j; const m = /^([A-Za-z]+)([0-9]+)$/.exec(word); if (m) { if (s[i] === ":") { const m2 = /^([A-Za-z]+)([0-9]+)/.exec(s.slice(i + 1)); if (m2) { i += 1 + m2[0].length; toks.push({ t: "range", a: [ddbColToIdx(m[1]), +m[2]], b: [ddbColToIdx(m2[1]), +m2[2]] }); continue; } } toks.push({ t: "ref", c: ddbColToIdx(m[1]), r: +m[2] }); continue; } toks.push({ t: "func", v: word.toUpperCase() }); continue; }
         if (c === "(") { toks.push({ t: "(" }); i++; continue; }
@@ -7431,55 +7429,28 @@ function ddbTokenize(s) {
         if (c === "<") { toks.push({ t: "cmp", v: "<" }); i++; continue; }
         if (c === ">") { toks.push({ t: "cmp", v: ">" }); i++; continue; }
         if (c === "=") { toks.push({ t: "cmp", v: "=" }); i++; continue; }
-        if ("+-*/^".indexOf(c) >= 0) { toks.push({ t: "op", v: c }); i++; continue; }
+        if ("+-*/".indexOf(c) >= 0) { toks.push({ t: "op", v: c }); i++; continue; }
         i++;
     }
     return toks;
-}
-function ddbMatchCrit(cell, crit) {
-    const cs = String(crit == null ? "" : crit).trim();
-    const m = /^(<=|>=|<>|=|<|>)\s*(.*)$/.exec(cs);
-    if (m) { const op = m[1], rhs = m[2], rn = parseFloat(rhs.replace(/,/g, "")); if (rhs !== "" && !isNaN(rn) && String(cell).trim() !== "" && !isNaN(parseFloat(String(cell).replace(/,/g, "")))) { const cn = ddbNum(cell); if (op === "<=") return cn <= rn; if (op === ">=") return cn >= rn; if (op === "<>") return cn !== rn; if (op === "=") return cn === rn; if (op === "<") return cn < rn; if (op === ">") return cn > rn; } const cstr = String(cell == null ? "" : cell).trim(); if (op === "=") return cstr === rhs; if (op === "<>") return cstr !== rhs; return false; }
-    const rn = parseFloat(cs.replace(/,/g, "")); if (cs !== "" && !isNaN(rn) && String(cell).trim() !== "" && !isNaN(parseFloat(String(cell).replace(/,/g, "")))) return ddbNum(cell) === rn;
-    return String(cell == null ? "" : cell).trim() === cs;
 }
 function ddbEvalTokens(tokens, ctx) {
     let p = 0; const peek = () => tokens[p]; const next = () => tokens[p++];
     function parseCompare() { let v = parseExpr(); if (peek() && peek().t === "cmp") { const op = next().v; const r = parseExpr(); if (op === ">") return v > r ? 1 : 0; if (op === "<") return v < r ? 1 : 0; if (op === ">=") return v >= r ? 1 : 0; if (op === "<=") return v <= r ? 1 : 0; if (op === "=") return v === r ? 1 : 0; if (op === "<>") return v !== r ? 1 : 0; } return v; }
     function parseExpr() { let v = parseTerm(); while (peek() && peek().t === "op" && (peek().v === "+" || peek().v === "-")) { const op = next().v; const r = parseTerm(); v = op === "+" ? v + r : v - r; } return v; }
-    function parseTerm() { let v = parsePow(); while (peek() && peek().t === "op" && (peek().v === "*" || peek().v === "/")) { const op = next().v; const r = parsePow(); v = op === "*" ? v * r : (r === 0 ? 0 : v / r); } return v; }
-    function parsePow() { let v = parseFactor(); while (peek() && peek().t === "op" && peek().v === "^") { next(); const r = parseFactor(); v = Math.pow(v, r); } return v; }
+    function parseTerm() { let v = parseFactor(); while (peek() && peek().t === "op" && (peek().v === "*" || peek().v === "/")) { const op = next().v; const r = parseFactor(); v = op === "*" ? v * r : (r === 0 ? 0 : v / r); } return v; }
     function parseFactor() { const tk = peek(); if (!tk) return 0; if (tk.t === "op" && tk.v === "-") { next(); return -parseFactor(); } if (tk.t === "op" && tk.v === "+") { next(); return parseFactor(); } if (tk.t === "num") { next(); return tk.v; } if (tk.t === "ref") { next(); return ddbNum(ctx.ref(tk.c, tk.r)); } if (tk.t === "range") { next(); return ctx.range(tk.a, tk.b).reduce((s, x) => s + ddbNum(x), 0); } if (tk.t === "(") { next(); const v = parseExpr(); if (peek() && peek().t === ")") next(); return v; } if (tk.t === "func") return parseFunc(); next(); return 0; }
-    function collectArgs() { const args = []; if (peek() && peek().t === "(") next(); else return args; if (peek() && peek().t === ")") { next(); return args; } while (true) { if (peek() && peek().t === "range") { const tk = next(); args.push({ range: ctx.range(tk.a, tk.b) }); } else if (peek() && peek().t === "str") { args.push({ str: next().v }); } else args.push({ val: parseCompare() }); if (peek() && peek().t === ",") { next(); continue; } break; } if (peek() && peek().t === ")") next(); return args; }
+    function collectArgs() { const args = []; if (peek() && peek().t === "(") next(); else return args; if (peek() && peek().t === ")") { next(); return args; } while (true) { if (peek() && peek().t === "range") { const tk = next(); args.push({ range: ctx.range(tk.a, tk.b) }); } else args.push({ val: parseCompare() }); if (peek() && peek().t === ",") { next(); continue; } break; } if (peek() && peek().t === ")") next(); return args; }
     function flat(args) { let out = []; args.forEach(a => { if (a.range) out = out.concat(a.range.map(ddbNum)); else out.push(ddbNum(a.val)); }); return out; }
-    function argVal(a) { return a ? (a.range ? ddbNum(a.range[0]) : (a.str !== void 0 ? a.str : a.val)) : 0; }
     function parseFunc() { const name = next().v; if (!(peek() && peek().t === "(")) return 0; const args = collectArgs(); const f = flat(args);
         if (name === "SUM") return f.reduce((s, x) => s + x, 0);
         if (name === "AVERAGE" || name === "AVG") return f.length ? f.reduce((s, x) => s + x, 0) / f.length : 0;
         if (name === "MIN") return f.length ? Math.min.apply(null, f) : 0;
         if (name === "MAX") return f.length ? Math.max.apply(null, f) : 0;
-        if (name === "PRODUCT") return f.length ? f.reduce((s, x) => s * x, 1) : 0;
-        if (name === "MEDIAN") { if (!f.length) return 0; const g = f.slice().sort((x, y) => x - y); const mid = Math.floor(g.length / 2); return g.length % 2 ? g[mid] : (g[mid - 1] + g[mid]) / 2; }
         if (name === "COUNT") { let cnt = 0; args.forEach(a => { const arr = a.range ? a.range : [a.val]; arr.forEach(x => { const str = String(x == null ? "" : x).trim(); if (str !== "" && !isNaN(parseFloat(str.replace(/,/g, "")))) cnt++; }); }); return cnt; }
-        if (name === "COUNTA") { let cnt = 0; args.forEach(a => { const arr = a.range ? a.range : [a.str !== void 0 ? a.str : a.val]; arr.forEach(x => { if (String(x == null ? "" : x).trim() !== "") cnt++; }); }); return cnt; }
-        if (name === "COUNTBLANK") { let cnt = 0; args.forEach(a => { const arr = a.range || []; arr.forEach(x => { if (String(x == null ? "" : x).trim() === "") cnt++; }); }); return cnt; }
         if (name === "ROUND") { const x = f[0] || 0, d = f[1] || 0, m = Math.pow(10, d); return Math.round(x * m) / m; }
-        if (name === "ROUNDUP") { const x = f[0] || 0, d = f[1] || 0, m = Math.pow(10, d); return (x < 0 ? -1 : 1) * Math.ceil(Math.abs(x) * m) / m; }
-        if (name === "ROUNDDOWN") { const x = f[0] || 0, d = f[1] || 0, m = Math.pow(10, d); return (x < 0 ? -1 : 1) * Math.floor(Math.abs(x) * m) / m; }
-        if (name === "INT") return Math.floor(f[0] || 0);
-        if (name === "CEILING") { const x = f[0] || 0, sig = f.length > 1 ? (f[1] || 1) : 1; return sig === 0 ? 0 : Math.ceil(x / sig) * sig; }
-        if (name === "FLOOR") { const x = f[0] || 0, sig = f.length > 1 ? (f[1] || 1) : 1; return sig === 0 ? 0 : Math.floor(x / sig) * sig; }
         if (name === "ABS") return Math.abs(f[0] || 0);
-        if (name === "SQRT") { const x = f[0] || 0; return x < 0 ? 0 : Math.sqrt(x); }
-        if (name === "POWER") return Math.pow(f[0] || 0, f[1] || 0);
-        if (name === "MOD") { const a = f[0] || 0, b = f[1] || 0; return b === 0 ? 0 : a - b * Math.floor(a / b); }
-        if (name === "AND") return f.length && f.every(x => x !== 0) ? 1 : 0;
-        if (name === "OR") return f.some(x => x !== 0) ? 1 : 0;
-        if (name === "NOT") return f[0] ? 0 : 1;
-        if (name === "IF") { const cond = argVal(args[0]); const a1 = args[1] ? argVal(args[1]) : 0; const a2 = args[2] ? argVal(args[2]) : 0; return (cond !== 0 && cond !== "" && cond != null) ? a1 : a2; }
-        if (name === "SUMIF" || name === "AVERAGEIF") { const a0 = (args[0] && args[0].range) || []; const crit = args[1] ? (args[1].str !== void 0 ? args[1].str : args[1].val) : ""; const sr = (args[2] && args[2].range) || a0; let s = 0, cnt = 0; for (let k = 0; k < a0.length; k++) { if (ddbMatchCrit(a0[k], crit)) { s += ddbNum(sr[k]); cnt++; } } return name === "SUMIF" ? s : (cnt ? s / cnt : 0); }
-        if (name === "COUNTIF") { const a0 = (args[0] && args[0].range) || []; const crit = args[1] ? (args[1].str !== void 0 ? args[1].str : args[1].val) : ""; let cnt = 0; a0.forEach(x => { if (ddbMatchCrit(x, crit)) cnt++; }); return cnt; }
-        if (name === "LEN") return String(argVal(args[0]) == null ? "" : argVal(args[0])).length;
+        if (name === "IF") { const cond = args[0] ? (args[0].range ? ddbNum(args[0].range[0]) : args[0].val) : 0; const a1 = args[1] ? (args[1].range ? ddbNum(args[1].range[0]) : args[1].val) : 0; const a2 = args[2] ? (args[2].range ? ddbNum(args[2].range[0]) : args[2].val) : 0; return cond ? a1 : a2; }
         return 0;
     }
     return parseCompare();
@@ -7667,7 +7638,7 @@ function jw({
         else if (R.key === "ArrowUp") { R.preventDefault(); setSelIdx(v => Math.max(0, v - 1)) }
         else if (R.key === "ArrowRight") { R.preventDefault(); it && !it.expanded && r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !0 } }) }
         else if (R.key === "ArrowLeft") { R.preventDefault(); it && it.expanded && r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !1 } }) }
-        else if (R.key === "Enter") { R.preventDefault(); if (it) { if (ddbHasTable(ddbSplitFmt(it.content).body)) { setFocusId(it.id) } else { c(it.content); setEditId(it.id); setMo("input"); setTimeout(() => u.current && u.current.focus(), 20) } } }
+        else if (R.key === "Enter") { R.preventDefault(); if (it) { c(it.content); setEditId(it.id); setMo("input"); setTimeout(() => u.current && u.current.focus(), 20) } }
     }
     O.useEffect(() => { if (mo === "list" && t.settings.memoKbdNav && ml.current) { ml.current.focus(); const el = ml.current.querySelector('[data-midx="' + Math.min(selIdx, Math.max(0, A.length - 1)) + '"]'); el && el.scrollIntoView({ block: "nearest" }) } }, [mo, selIdx]);
 
@@ -7834,29 +7805,18 @@ function jw({
 }
 
 const DDB_CELL_COLORS = ["rgba(239,68,68,0.35)", "rgba(245,158,11,0.35)", "rgba(234,179,8,0.35)", "rgba(34,197,94,0.35)", "rgba(59,130,246,0.35)", "rgba(168,85,247,0.35)", "rgba(236,72,153,0.35)", "rgba(255,255,255,0.18)", "rgba(100,116,139,0.5)"];
-function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloOn }) {
+function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH }) {
     const t = fontSize || 13;
     const [blocks, setBlocks] = O.useState(() => ddbToBlocks(ddbSplitFmt(content).body));
     const [fmt, setFmt] = O.useState(() => ddbSplitFmt(content).fmt || {});
     const [sel, setSel] = O.useState(null);
     const [hov, setHov] = O.useState(false);
     const [editKey, setEditKey] = O.useState(null);
-    const [palOpen, setPalOpen] = O.useState(false);
-    const [dragBi, setDragBi] = O.useState(null);
-    const [dropBi, setDropBi] = O.useState(null);
-    const rootRef = O.useRef(null);
-    const dragRef = O.useRef({ from: null, to: null });
     const lastSaved = O.useRef(content);
-    const undoRef = O.useRef({ stack: [], idx: -1 });
-    O.useEffect(() => { const u = undoRef.current; if (u.stack.length === 0) { u.stack.push({ blocks: blocks, fmt: fmt, kind: "init", t: Date.now() }); u.idx = 0; } }, []);
-    O.useEffect(() => { if (content !== lastSaved.current) { const sf = ddbSplitFmt(content); const nb = ddbToBlocks(sf.body), nf = sf.fmt || {}; setBlocks(nb); setFmt(nf); lastSaved.current = content; undoRef.current = { stack: [{ blocks: nb, fmt: nf, kind: "init", t: Date.now() }], idx: 0 }; } }, [content]);
-    function snapshot(nb, nf, kind) { const u = undoRef.current; const now = Date.now(); if (u.idx < u.stack.length - 1) u.stack = u.stack.slice(0, u.idx + 1); const top = u.stack[u.idx]; if ((kind === "cell" || kind === "text") && top && top.kind === kind && (now - top.t) < 900) { u.stack[u.idx] = { blocks: nb, fmt: nf, kind: kind, t: now }; } else { u.stack.push({ blocks: nb, fmt: nf, kind: kind, t: now }); u.idx = u.stack.length - 1; if (u.stack.length > 120) { u.stack.shift(); u.idx--; } } }
-    function save(nb, nf, kind) { const out = ddbJoinFmt(ddbBlocksToMd(nb), nf); lastSaved.current = out; onCommit(out); snapshot(nb, nf, kind || "edit"); }
-    function applyState(nb, nf) { setBlocks(nb); setFmt(nf); setSel(null); setEditKey(null); const out = ddbJoinFmt(ddbBlocksToMd(nb), nf); lastSaved.current = out; onCommit(out); }
-    function undo() { const u = undoRef.current; if (u.idx <= 0) return; u.idx--; const s = u.stack[u.idx]; applyState(s.blocks, s.fmt); }
-    function redo() { const u = undoRef.current; if (u.idx >= u.stack.length - 1) return; u.idx++; const s = u.stack[u.idx]; applyState(s.blocks, s.fmt); }
-    function setCell(bi, r, c, val) { const nb = blocks.map((b, i) => { if (i !== bi || b.t !== "table") return b; const k = { ...b, headers: b.headers.slice(), rows: b.rows.map(x => x.slice()) }; if (r < 0) k.headers[c] = val; else { while (k.rows.length <= r) k.rows.push(k.headers.map(() => "")); k.rows[r] = (k.rows[r] || []).slice(); k.rows[r][c] = val; } return k; }); setBlocks(nb); save(nb, fmt, "cell"); }
-    function setText(bi, s) { const nb = blocks.map((b, i) => i === bi ? { ...b, s: s } : b); setBlocks(nb); save(nb, fmt, "text"); }
+    O.useEffect(() => { if (content !== lastSaved.current) { const sf = ddbSplitFmt(content); setBlocks(ddbToBlocks(sf.body)); setFmt(sf.fmt || {}); lastSaved.current = content; } }, [content]);
+    function save(nb, nf) { const out = ddbJoinFmt(ddbBlocksToMd(nb), nf); lastSaved.current = out; onCommit(out); }
+    function setCell(bi, r, c, val) { const nb = blocks.map((b, i) => { if (i !== bi || b.t !== "table") return b; const k = { ...b, headers: b.headers.slice(), rows: b.rows.map(x => x.slice()) }; if (r < 0) k.headers[c] = val; else { while (k.rows.length <= r) k.rows.push(k.headers.map(() => "")); k.rows[r] = (k.rows[r] || []).slice(); k.rows[r][c] = val; } return k; }); setBlocks(nb); save(nb, fmt); }
+    function setText(bi, s) { const nb = blocks.map((b, i) => i === bi ? { ...b, s: s } : b); setBlocks(nb); save(nb, fmt); }
     function addRow(bi) { const nb = blocks.map((b, i) => i === bi && b.t === "table" ? { ...b, rows: [...b.rows.map(x => x.slice()), b.headers.map(() => "")] } : b); setBlocks(nb); save(nb, fmt); }
     function addCol(bi) { const nb = blocks.map((b, i) => i === bi && b.t === "table" ? { ...b, headers: [...b.headers, "열" + (b.headers.length + 1)], rows: b.rows.map(x => [...x, ""]) } : b); setBlocks(nb); save(nb, fmt); }
     function delRow(bi) { const b = blocks[bi]; if (!b || b.t !== "table" || b.rows.length <= 1) return; const li = b.rows.length - 1; const nb = blocks.map((x, i) => i === bi ? { ...x, rows: x.rows.slice(0, -1) } : x); const nf = { ...fmt }; Object.keys(nf).forEach(k => { if (k.indexOf(bi + ":" + li + ",") === 0) delete nf[k]; }); setBlocks(nb); setFmt(nf); save(nb, nf); }
@@ -7871,63 +7831,47 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     const colW = (bi, ci) => { const a = tws[bi]; return (a && a[ci] && a[ci] > 20) ? a[ci] : 96; };
     function setColW(bi, ci, w) { setTws(prev => { const n = { ...prev }; const a = (n[bi] || []).slice(); a[ci] = Math.max(40, Math.min(600, Math.round(w))); n[bi] = a; try { localStorage.setItem(twKey, JSON.stringify(n)); } catch {} return n; }); }
     function colDrag(bi, ci, ev) { ev.preventDefault(); ev.stopPropagation(); const sx = ev.clientX, ow = colW(bi, ci); const mm = e2 => setColW(bi, ci, ow + (e2.clientX - sx)); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
-    function focusCell(bi, r, c) { const el = rootRef.current && rootRef.current.querySelector('[data-cell="' + bi + ':' + r + ':' + c + '"]'); if (el) { el.focus(); try { el.select(); } catch {} return true; } return false; }
-    function cellNav(ev, bi, r, c) { const b = blocks[bi]; if (!b || b.t !== "table") return; if (ev.ctrlKey || ev.metaKey || ev.altKey) return; const rows = b.rows.length, cols = b.headers.length, key = ev.key; const tgt = ev.target; if (key === "Enter") { ev.preventDefault(); const nr = ev.shiftKey ? r - 1 : r + 1; if (nr >= -1 && nr <= rows - 1) focusCell(bi, nr, c); else if (nr > rows - 1) { addRow(bi); setTimeout(() => focusCell(bi, rows, c), 20); } return; } if (key === "Tab") { ev.preventDefault(); let nc = c + (ev.shiftKey ? -1 : 1), nr = r; if (nc >= cols) { nc = 0; nr = r + 1; } if (nc < 0) { nc = cols - 1; nr = r - 1; } if (nr >= -1 && nr <= rows - 1) focusCell(bi, nr, nc); return; } if (key === "ArrowDown") { ev.preventDefault(); if (r + 1 <= rows - 1) focusCell(bi, r + 1, c); return; } if (key === "ArrowUp") { ev.preventDefault(); if (r - 1 >= -1) focusCell(bi, r - 1, c); return; } if (key === "ArrowLeft") { if (tgt.selectionStart === 0 && tgt.selectionEnd === 0) { ev.preventDefault(); if (c - 1 >= 0) focusCell(bi, r, c - 1); } return; } if (key === "ArrowRight") { const L = (tgt.value || "").length; if (tgt.selectionStart === L && tgt.selectionEnd === L) { ev.preventDefault(); if (c + 1 <= cols - 1) focusCell(bi, r, c + 1); } return; } }
-    function reorderBlock(from, to) { if (from == null || to == null || from === to) return; const nb = blocks.slice(); const it = nb.splice(from, 1)[0]; nb.splice(to, 0, it); const order = blocks.map((_, i) => i); const oi = order.splice(from, 1)[0]; order.splice(to, 0, oi); const map = {}; order.forEach((old, ni) => map[old] = ni); const nf = remapFmt(fmt, old => map[old] == null ? -1 : map[old]); const ntw = {}; order.forEach((old, ni) => { if (tws[old]) ntw[ni] = tws[old]; }); setTws(ntw); try { localStorage.setItem(twKey, JSON.stringify(ntw)); } catch {} setBlocks(nb); setFmt(nf); save(nb, nf); setSel(null); }
-    function startBlockDrag(bi, ev) { ev.preventDefault(); ev.stopPropagation(); dragRef.current = { from: bi, to: bi }; setDragBi(bi); setDropBi(bi); const mm = e2 => { const els = rootRef.current ? [].slice.call(rootRef.current.querySelectorAll("[data-block]")) : []; let t = null; for (let k = 0; k < els.length; k++) { const rc = els[k].getBoundingClientRect(); if (e2.clientY >= rc.top && e2.clientY <= rc.bottom) { t = +els[k].getAttribute("data-block"); break; } if (e2.clientY < rc.top && t === null) { t = +els[k].getAttribute("data-block"); } } if (t !== null) { dragRef.current.to = t; setDropBi(t); } }; const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); const d = dragRef.current; setDragBi(null); setDropBi(null); reorderBlock(d.from, d.to); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
     const inRange = (bi, r, c) => sel && sel.bi === bi && r >= Math.min(sel.r, sel.r2) && r <= Math.max(sel.r, sel.r2) && c >= Math.min(sel.c, sel.c2) && c <= Math.max(sel.c, sel.c2);
     function cellDown(bi, r, c, ev) { if (ev.shiftKey && sel && sel.bi === bi) setSel({ bi: bi, r: sel.r, c: sel.c, r2: r, c2: c }); else setSel({ bi: bi, r: r, c: c, r2: r, c2: c }); }
     const baseB = "1px solid rgba(255,255,255,0.35)";
-    const lblSty = { border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)", fontSize: "9px", textAlign: "center", padding: "1px 3px", fontWeight: 600, width: 22, minWidth: 22, userSelect: "none" };
     function cellSty(bi, r, c, header) { const f = fmt[bi + ":" + r + "," + c] || {}; const border = f.bw != null ? (f.bw > 0 ? f.bw + "px " + (f.bs || "solid") + " rgba(255,255,255,0.7)" : "1px solid rgba(255,255,255,0.08)") : baseB; return { border: border, width: colW(bi, c), minWidth: colW(bi, c), maxWidth: colW(bi, c), padding: "2px 4px", position: "relative", background: f.bg || (header ? "rgba(255,255,255,0.12)" : "transparent"), outline: inRange(bi, r, c) ? "2px solid #60a5fa" : void 0, outlineOffset: "-2px" }; }
     function inSty(bi, r, c, header) { const f = fmt[bi + ":" + r + "," + c] || {}; return { fontSize: "11px", width: "100%", textAlign: f.al || (header ? "center" : "left"), fontWeight: header ? 600 : 400, color: header ? "#fff" : "rgba(255,255,255,0.85)", background: "transparent", outline: "none", border: "none" }; }
     const btn = "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer";
     const btnDel = "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/60 hover:bg-red-500/25 border-none cursor-pointer";
     const mini = "px-1 py-0.5 rounded text-[10px] bg-white/5 text-white/50 hover:text-white border-none cursor-pointer";
     const addB = "px-2 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer";
-    const ctrl = bi => [o.jsx("button", { onMouseDown: ev => startBlockDrag(bi, ev), title: "잡고 드래그해서 이동", className: mini + " cursor-grab", style: { touchAction: "none" }, children: "⠿" }, "g"), o.jsx("button", { onClick: () => moveBlock(bi, -1), className: mini, title: "위로", children: "▲" }, "u"), o.jsx("button", { onClick: () => moveBlock(bi, 1), className: mini, title: "아래로", children: "▼" }, "d"), o.jsx("button", { onClick: () => delBlock(bi), className: mini, title: "이 블록 삭제", children: "✕" }, "x")];
+    const ctrl = bi => [o.jsx("button", { onClick: () => moveBlock(bi, -1), className: mini, title: "위로", children: "▲" }, "u"), o.jsx("button", { onClick: () => moveBlock(bi, 1), className: mini, title: "아래로", children: "▼" }, "d"), o.jsx("button", { onClick: () => delBlock(bi), className: mini, title: "이 블록 삭제", children: "✕" }, "x")];
     const selOpt = (ph, opts, cb) => o.jsxs("select", { onChange: ev => { const v = ev.target.value; ev.target.value = ""; if (v !== "") cb(v); }, defaultValue: "", className: "text-[10px] bg-white/10 text-white/80 rounded px-1 py-0.5 border-none", style: { outline: "none" }, children: [o.jsx("option", { value: "", children: ph }, "ph"), ...opts.map(op => o.jsx("option", { value: op[0], children: op[1] }, op[0]))] });
-    const iconBtn = "p-1 rounded bg-white/10 text-white/75 hover:bg-white/20 border-none cursor-pointer flex items-center justify-center";
-    const svgWrap = kids => o.jsx("svg", { viewBox: "0 0 24 24", width: 13, height: 13, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", children: kids });
-    const IcUndo = svgWrap([o.jsx("path", { d: "M9 14 4 9l5-5" }, "a"), o.jsx("path", { d: "M4 9h11a5 5 0 0 1 0 10h-2" }, "b")]);
-    const IcRedo = svgWrap([o.jsx("path", { d: "M15 14l5-5-5-5" }, "a"), o.jsx("path", { d: "M20 9H9a5 5 0 0 0 0 10h2" }, "b")]);
-    const IcFill = o.jsx("svg", { viewBox: "0 0 24 24", width: 13, height: 13, fill: "currentColor", children: o.jsx("path", { d: "M12 3s6 6.4 6 10.5A6 6 0 0 1 6 13.5C6 9.4 12 3 12 3z" }) });
-    const alignIc = kind => { const rows = kind === "left" ? [[3, 16], [3, 10], [3, 16]] : kind === "center" ? [[4, 16], [7, 10], [4, 16]] : [[5, 16], [11, 10], [5, 16]]; return o.jsx("svg", { viewBox: "0 0 24 24", width: 13, height: 13, fill: "currentColor", children: rows.map((rr, ri) => o.jsx("rect", { x: rr[0], y: 4 + ri * 6, width: rr[1], height: 2.4, rx: 1 }, ri)) }); };
-    const divider = o.jsx("span", { className: "inline-block w-px h-4 bg-white/15 mx-0.5" });
     const toolbar = o.jsxs("div", { className: "flex items-center gap-1 mb-1 flex-wrap sticky top-0 z-10 py-1", style: { background: "rgba(12,16,26,0.97)" }, children: [
-        o.jsx("button", { onClick: undo, title: "되돌리기 (Ctrl+Z)", className: iconBtn, children: IcUndo }, "undo"),
-        o.jsx("button", { onClick: redo, title: "다시 실행 (Ctrl+Y)", className: iconBtn, children: IcRedo }, "redo"),
-        o.jsx("span", { children: divider }, "d1"),
-        o.jsx("button", { onClick: () => setPalOpen(v => !v), title: "칸 색", className: iconBtn + (palOpen ? " ring-1 ring-white/40" : ""), children: IcFill }, "fill"),
-        palOpen ? o.jsxs("span", { className: "inline-flex items-center gap-1 flex-wrap", children: [...DDB_CELL_COLORS.map((col, i) => o.jsx("button", { onClick: () => applyFmt("bg", col), title: "칸 색", style: { width: 15, height: 15, borderRadius: 3, background: col, border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", padding: 0 } }, "c" + i)), o.jsx("button", { onClick: () => applyFmt("bg", null), className: btnDel, children: "지움" }, "clr")] }, "pal") : null,
-        o.jsx("span", { children: divider }, "d2"),
-        o.jsx("button", { onClick: () => applyFmt("al", "left"), title: "왼쪽 정렬", className: iconBtn, children: alignIc("left") }, "al"),
-        o.jsx("button", { onClick: () => applyFmt("al", "center"), title: "가운데 정렬", className: iconBtn, children: alignIc("center") }, "ac"),
-        o.jsx("button", { onClick: () => applyFmt("al", "right"), title: "오른쪽 정렬", className: iconBtn, children: alignIc("right") }, "ar"),
-        o.jsx("span", { children: divider }, "d3"),
-        selOpt("테두리", [["1", "실선 1px"], ["2", "실선 2px"], ["3", "실선 3px"], ["0", "없음"]], v => applyFmt("bw", +v)),
-        selOpt("선모양", [["solid", "실선"], ["dashed", "파선"], ["dotted", "점선"], ["double", "이중"]], v => applyFmt("bs", v))
+        o.jsx("span", { className: "text-white/45 text-[10px]", children: "채우기" }),
+        ...DDB_CELL_COLORS.map((col, i) => o.jsx("button", { onClick: () => applyFmt("bg", col), title: "칸 색", style: { width: 15, height: 15, borderRadius: 3, background: col, border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", padding: 0 } }, "c" + i)),
+        o.jsx("button", { onClick: () => applyFmt("bg", null), className: btn, children: "지움" }),
+        o.jsx("span", { className: "text-white/45 text-[10px] ml-1", children: "정렬" }),
+        o.jsx("button", { onClick: () => applyFmt("al", "left"), className: btn, children: "좌" }),
+        o.jsx("button", { onClick: () => applyFmt("al", "center"), className: btn, children: "중" }),
+        o.jsx("button", { onClick: () => applyFmt("al", "right"), className: btn, children: "우" }),
+        o.jsx("span", { className: "text-white/45 text-[10px] ml-1", children: "테두리" }),
+        selOpt("두께", [["0", "없음"], ["1", "1px"], ["2", "2px"], ["3", "3px"]], v => applyFmt("bw", +v)),
+        selOpt("모양", [["solid", "실선"], ["dashed", "파선"], ["dotted", "점선"], ["double", "이중"]], v => applyFmt("bs", v)),
+        o.jsx("span", { className: "text-white/30 text-[9px] ml-1", children: sel ? "칸 선택됨 (Shift+클릭=범위)" : "칸 클릭 후 적용" })
     ] });
     function renderTable(b, bi) {
-        return o.jsxs("div", { "data-block": bi, className: "mb-1.5" + (dragBi === bi ? " opacity-40" : ""), style: (dropBi === bi && dragBi !== null && dragBi !== bi) ? { boxShadow: "0 -3px 0 0 #60a5fa" } : void 0, children: [
-            hov ? o.jsxs("div", { className: "flex gap-1 mb-0.5 flex-wrap items-center", children: [...ctrl(bi), o.jsx("span", { className: "text-white/15 mx-0.5", children: "|" }), o.jsx("button", { onClick: () => addRow(bi), className: btn, children: "＋행" }), o.jsx("button", { onClick: () => addCol(bi), className: btn, children: "＋열" }), o.jsx("button", { onClick: () => delRow(bi), className: btnDel, children: "행－" }), o.jsx("button", { onClick: () => delCol(bi), className: btnDel, children: "열－" }), o.jsx("span", { className: "text-white/30 text-[9px] self-center ml-1", children: "칸에 =수식 · SUM AVERAGE IF SUMIF COUNTIF ROUND 등" })] }) : null,
+        return o.jsxs("div", { className: "mb-1.5", children: [
+            hov ? o.jsxs("div", { className: "flex gap-1 mb-0.5 flex-wrap items-center", children: [...ctrl(bi), o.jsx("span", { className: "text-white/15 mx-0.5", children: "|" }), o.jsx("button", { onClick: () => addRow(bi), className: btn, children: "＋행" }), o.jsx("button", { onClick: () => addCol(bi), className: btn, children: "＋열" }), o.jsx("button", { onClick: () => delRow(bi), className: btnDel, children: "행－" }), o.jsx("button", { onClick: () => delCol(bi), className: btnDel, children: "열－" })] }) : null,
             o.jsxs("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: "auto" }, children: [
-                o.jsxs("thead", { children: [
-                    hov ? o.jsxs("tr", { children: [o.jsx("th", { style: lblSty }, "corner"), ...b.headers.map((_hh, Y) => o.jsx("th", { style: { ...lblSty, width: colW(bi, Y), minWidth: colW(bi, Y), maxWidth: colW(bi, Y) }, children: ddbIdxToCol(Y) }, "cl" + Y))] }, "coord") : null,
-                    o.jsxs("tr", { children: [hov ? o.jsx("th", { style: lblSty, children: "1" }, "rl") : null, ...b.headers.map((hh, Y) => o.jsxs("th", { style: cellSty(bi, -1, Y, true), children: [o.jsx("input", { value: editKey === (bi + ":-1," + Y) ? (hh == null ? "" : hh) : ddbCellDisp(b, -1, Y), "data-cell": bi + ":-1:" + Y, onKeyDown: ev => cellNav(ev, bi, -1, Y), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, -1, Y, ev); }, onFocus: () => { setEditKey(bi + ":-1," + Y); if (onSolo && !soloOn) onSolo(); }, onBlur: () => setEditKey(null), onChange: ev => setCell(bi, -1, Y, ev.target.value), style: inSty(bi, -1, Y, true) }), o.jsx("div", { onMouseDown: ev => colDrag(bi, Y, ev), onClick: ev => ev.stopPropagation(), title: "열 너비", style: { position: "absolute", top: 0, right: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 3 } })] }, Y))] }, "hdr")
-                ] }),
-                o.jsx("tbody", { children: b.rows.map((rw, R) => o.jsxs("tr", { children: [hov ? o.jsx("td", { style: lblSty, children: String(R + 2) }, "rl") : null, ...b.headers.map((_h, C) => o.jsx("td", { style: cellSty(bi, R, C, false), children: o.jsx("input", { value: editKey === (bi + ":" + R + "," + C) ? ((rw && rw[C]) == null ? "" : rw[C]) : ddbCellDisp(b, R, C), "data-cell": bi + ":" + R + ":" + C, onKeyDown: ev => cellNav(ev, bi, R, C), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, R, C, ev); }, onFocus: () => { setEditKey(bi + ":" + R + "," + C); if (onSolo && !soloOn) onSolo(); }, onBlur: () => setEditKey(null), onChange: ev => setCell(bi, R, C, ev.target.value), style: inSty(bi, R, C, false) }) }, C))] }, R)) })
+                o.jsx("thead", { children: o.jsx("tr", { children: b.headers.map((hh, Y) => o.jsxs("th", { style: cellSty(bi, -1, Y, true), children: [o.jsx("input", { value: editKey === (bi + ":-1," + Y) ? (hh == null ? "" : hh) : ddbCellDisp(b, -1, Y), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, -1, Y, ev); }, onFocus: () => setEditKey(bi + ":-1," + Y), onBlur: () => setEditKey(null), onChange: ev => setCell(bi, -1, Y, ev.target.value), style: inSty(bi, -1, Y, true) }), o.jsx("div", { onMouseDown: ev => colDrag(bi, Y, ev), onClick: ev => ev.stopPropagation(), title: "열 너비", style: { position: "absolute", top: 0, right: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 3 } })] }, Y)) }) }),
+                o.jsx("tbody", { children: b.rows.map((rw, R) => o.jsx("tr", { children: b.headers.map((_h, C) => o.jsx("td", { style: cellSty(bi, R, C, false), children: o.jsx("input", { value: editKey === (bi + ":" + R + "," + C) ? ((rw && rw[C]) == null ? "" : rw[C]) : ddbCellDisp(b, R, C), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, R, C, ev); }, onFocus: () => setEditKey(bi + ":" + R + "," + C), onBlur: () => setEditKey(null), onChange: ev => setCell(bi, R, C, ev.target.value), style: inSty(bi, R, C, false) }) }, C)) }, R)) })
             ] })
         ] }, "b" + bi);
     }
     function renderText(b, bi) {
-        return o.jsxs("div", { "data-block": bi, className: "mb-1.5" + (dragBi === bi ? " opacity-40" : ""), style: (dropBi === bi && dragBi !== null && dragBi !== bi) ? { boxShadow: "0 -3px 0 0 #60a5fa" } : void 0, children: [
+        return o.jsxs("div", { className: "mb-1.5", children: [
             hov ? o.jsx("div", { className: "flex gap-1 mb-0.5", children: ctrl(bi) }) : null,
             o.jsx("textarea", { value: b.s == null ? "" : b.s, onMouseDown: ev => ev.stopPropagation(), onChange: ev => setText(bi, ev.target.value), placeholder: "메모 입력…", rows: Math.max(2, (String(b.s || "").match(/\n/g) || []).length + 1), className: "w-full rounded px-2 py-1 text-white/85 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)" } })
         ] }, "b" + bi);
     }
-    return o.jsxs("div", { ref: rootRef, onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false), onKeyDown: ev => { if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && (ev.key === "z" || ev.key === "Z")) { ev.preventDefault(); ev.stopPropagation(); undo(); } else if (((ev.ctrlKey || ev.metaKey) && (ev.key === "y" || ev.key === "Y")) || ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === "z" || ev.key === "Z"))) { ev.preventDefault(); ev.stopPropagation(); redo(); } }, onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: maxH || "400px", maxWidth: "100%" }, children: [
-        hov ? toolbar : null,
+    return o.jsxs("div", { onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false), onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: maxH || "400px", maxWidth: "100%" }, children: [
+        (hov && sel) ? toolbar : null,
         ...blocks.map((b, bi) => b.t === "table" ? renderTable(b, bi) : renderText(b, bi)),
         hov ? o.jsxs("div", { className: "flex gap-1 mt-1 pt-1 border-t border-white/10", children: [o.jsx("button", { onClick: () => addBlock("text", blocks.length), className: addB, children: "＋ 글 추가" }), o.jsx("button", { onClick: () => addBlock("table", blocks.length), className: addB, children: "＋ 표 추가" })] }) : null
     ] });
@@ -8036,7 +7980,7 @@ function qT({
             style: {
                 fontSize: Math.max(10, t - 1)
             }
-        }) : isDoc ? o.jsx(DDBDocEditor, { content: e.content, fontSize: t, onCommit: a, itemId: e.id, maxH: soloOn ? "72vh" : "400px", onSolo: onSolo, soloOn: soloOn }) : g ? o.jsx("div", { onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: "320px", maxWidth: "100%" }, children: o.jsxs("div", { children: [o.jsxs("div", { className: "flex gap-1 mb-1 flex-wrap", children: [o.jsx("button", { onClick: ev => { ev.stopPropagation(); gAddRow(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer", children: "＋행" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gAddCol(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer", children: "＋열" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gDelRow(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/60 hover:bg-red-500/25 border-none cursor-pointer", children: "행－" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gDelCol(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/60 hover:bg-red-500/25 border-none cursor-pointer", children: "열－" }), o.jsx("span", { className: "text-white/25 text-[9px] self-center ml-1", children: "열경계 드래그·Ctrl+←→ 너비" })] }), o.jsxs("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: "auto" }, children: [o.jsx("thead", { children: o.jsx("tr", { children: grid.headers.map((hh, Y) => o.jsxs("th", { style: { ...z, position: "relative", width: colW(Y), minWidth: colW(Y), maxWidth: colW(Y), padding: "2px 4px" }, children: [o.jsx("input", { value: hh == null ? "" : hh, onFocus: () => setSelCol(Y), onChange: ev => gEdit("h", 0, Y, ev.target.value), onKeyDown: ev => cellKey(ev, Y), onMouseDown: ev => ev.stopPropagation(), className: "bg-transparent text-white text-center outline-none", style: { fontSize: "11px", fontWeight: 600, width: "100%" } }), o.jsx("div", { onMouseDown: ev => colDrag(Y, ev), onClick: ev => ev.stopPropagation(), title: "열 너비 조절", style: { position: "absolute", top: 0, right: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 3 } })] }, Y)) }) }), o.jsx("tbody", { children: grid.rows.map((re, Y) => o.jsx("tr", { children: grid.headers.map((_h, X) => o.jsx("td", { style: { ...G, width: colW(X), minWidth: colW(X), maxWidth: colW(X), padding: "2px 4px" }, children: o.jsx("input", { value: (re && re[X]) == null ? "" : re[X], onFocus: () => setSelCol(X), onChange: ev => gEdit("r", Y, X, ev.target.value), onKeyDown: ev => cellKey(ev, X), onMouseDown: ev => ev.stopPropagation(), className: "bg-transparent text-white/85 outline-none", style: { fontSize: "11px", width: "100%" } }) }, X)) }, Y)) })] }), o.jsx("textarea", { value: trail, onChange: ev => trailCommit(ev.target.value), onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), placeholder: "표 아래에 메모 입력…", rows: Math.max(2, (String(trail).match(/\n/g) || []).length + 1), className: "w-full mt-1.5 rounded px-2 py-1 text-white/85 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)" } })] })}) : o.jsxs("div", {
+        }) : isDoc ? o.jsx(DDBDocEditor, { content: e.content, fontSize: t, onCommit: a, itemId: e.id, maxH: soloOn ? "72vh" : "400px" }) : g ? o.jsx("div", { onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: "320px", maxWidth: "100%" }, children: o.jsxs("div", { children: [o.jsxs("div", { className: "flex gap-1 mb-1 flex-wrap", children: [o.jsx("button", { onClick: ev => { ev.stopPropagation(); gAddRow(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer", children: "＋행" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gAddCol(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer", children: "＋열" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gDelRow(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/60 hover:bg-red-500/25 border-none cursor-pointer", children: "행－" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gDelCol(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/60 hover:bg-red-500/25 border-none cursor-pointer", children: "열－" }), o.jsx("span", { className: "text-white/25 text-[9px] self-center ml-1", children: "열경계 드래그·Ctrl+←→ 너비" })] }), o.jsxs("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: "auto" }, children: [o.jsx("thead", { children: o.jsx("tr", { children: grid.headers.map((hh, Y) => o.jsxs("th", { style: { ...z, position: "relative", width: colW(Y), minWidth: colW(Y), maxWidth: colW(Y), padding: "2px 4px" }, children: [o.jsx("input", { value: hh == null ? "" : hh, onFocus: () => setSelCol(Y), onChange: ev => gEdit("h", 0, Y, ev.target.value), onKeyDown: ev => cellKey(ev, Y), onMouseDown: ev => ev.stopPropagation(), className: "bg-transparent text-white text-center outline-none", style: { fontSize: "11px", fontWeight: 600, width: "100%" } }), o.jsx("div", { onMouseDown: ev => colDrag(Y, ev), onClick: ev => ev.stopPropagation(), title: "열 너비 조절", style: { position: "absolute", top: 0, right: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 3 } })] }, Y)) }) }), o.jsx("tbody", { children: grid.rows.map((re, Y) => o.jsx("tr", { children: grid.headers.map((_h, X) => o.jsx("td", { style: { ...G, width: colW(X), minWidth: colW(X), maxWidth: colW(X), padding: "2px 4px" }, children: o.jsx("input", { value: (re && re[X]) == null ? "" : re[X], onFocus: () => setSelCol(X), onChange: ev => gEdit("r", Y, X, ev.target.value), onKeyDown: ev => cellKey(ev, X), onMouseDown: ev => ev.stopPropagation(), className: "bg-transparent text-white/85 outline-none", style: { fontSize: "11px", width: "100%" } }) }, X)) }, Y)) })] }), o.jsx("textarea", { value: trail, onChange: ev => trailCommit(ev.target.value), onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), placeholder: "표 아래에 메모 입력…", rows: Math.max(2, (String(trail).match(/\n/g) || []).length + 1), className: "w-full mt-1.5 rounded px-2 py-1 text-white/85 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)" } })] })}) : o.jsxs("div", {
             className: "pr-10",
             children: [o.jsxs("div", {
                 className: "flex items-center gap-1.5",
