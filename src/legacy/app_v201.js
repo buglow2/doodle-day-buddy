@@ -1573,7 +1573,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.97.66";
+const DDB_VERSION = "0.97.64";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3117,7 +3117,7 @@ function um({
                 className: "flex-1"
             }), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono",
-                children: "v203"
+                children: "v201"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -7573,7 +7573,7 @@ function jw({
     } = vt(), {
         memoTabs: n,
         activeTab: s
-    } = t, a = e ?? s, i = n.find(R => R.id === a), [l, c] = O.useState(""), u = O.useRef(null), ml = O.useRef(null), [h, d] = O.useState(!1), [f, x] = O.useState([0, 0]), p = O.useRef(null), [m, y] = O.useState(() => M0(a ?? "").input), [w, v] = O.useState(() => M0(a ?? "").list); const [mo, setMo] = O.useState("input"); const [selIdx, setSelIdx] = O.useState(0); const escRef = O.useRef(0); const [editId, setEditId] = O.useState(null); const [focusId, setFocusId] = O.useState(null); const [listFocused, setListFocused] = O.useState(false);
+    } = t, a = e ?? s, i = n.find(R => R.id === a), [l, c] = O.useState(""), u = O.useRef(null), ml = O.useRef(null), [h, d] = O.useState(!1), [f, x] = O.useState([0, 0]), p = O.useRef(null), [m, y] = O.useState(() => M0(a ?? "").input), [w, v] = O.useState(() => M0(a ?? "").list); const [mo, setMo] = O.useState("input"); const [selIdx, setSelIdx] = O.useState(0); const escRef = O.useRef(0); const [editId, setEditId] = O.useState(null); const [focusId, setFocusId] = O.useState(null);
     O.useEffect(() => {
         if (!a) return;
         const R = M0(a);
@@ -7662,17 +7662,15 @@ function jw({
     });
     const A = [...i.items].sort((R, K) => (K.pinned ? 1 : 0) - (R.pinned ? 1 : 0));
     function onListKey(R) {
-        if (!A.length || focusId) return;
+        if (!t.settings.memoKbdNav || !A.length) return;
         const ix = Math.min(selIdx, A.length - 1), it = A[ix];
-        const isTbl = it && ddbHasTable(ddbSplitFmt(it.content).body);
         if (R.key === "ArrowDown") { R.preventDefault(); setSelIdx(v => Math.min(A.length - 1, v + 1)) }
         else if (R.key === "ArrowUp") { R.preventDefault(); setSelIdx(v => Math.max(0, v - 1)) }
-        else if ((R.ctrlKey || R.metaKey) && R.key === "ArrowLeft") { R.preventDefault(); ml.current && ml.current.blur(); }
-        else if (R.key === "ArrowRight") { R.preventDefault(); if (it) { if (isTbl) setFocusId(it.id); else if (!it.expanded) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !0 } }); } }
-        else if (R.key === "ArrowLeft") { R.preventDefault(); if (it && !isTbl && it.expanded) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !1 } }); }
-        else if (R.key === "Enter") { R.preventDefault(); if (it) { if (isTbl) { setFocusId(it.id) } else { c(it.content); setEditId(it.id); setMo("input"); setTimeout(() => u.current && u.current.focus(), 20) } } }
+        else if (R.key === "ArrowRight") { R.preventDefault(); it && !it.expanded && r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !0 } }) }
+        else if (R.key === "ArrowLeft") { R.preventDefault(); it && it.expanded && r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !1 } }) }
+        else if (R.key === "Enter") { R.preventDefault(); if (it) { if (ddbHasTable(ddbSplitFmt(it.content).body)) { setFocusId(it.id) } else { c(it.content); setEditId(it.id); setMo("input"); setTimeout(() => u.current && u.current.focus(), 20) } } }
     }
-    O.useEffect(() => { if (mo === "list" && !focusId && ml.current) { ml.current.focus(); const el = ml.current.querySelector('[data-midx="' + Math.min(selIdx, Math.max(0, A.length - 1)) + '"]'); el && el.scrollIntoView({ block: "nearest" }) } }, [mo, selIdx, focusId]);
+    O.useEffect(() => { if (mo === "list" && t.settings.memoKbdNav && ml.current) { ml.current.focus(); const el = ml.current.querySelector('[data-midx="' + Math.min(selIdx, Math.max(0, A.length - 1)) + '"]'); el && el.scrollIntoView({ block: "nearest" }) } }, [mo, selIdx]);
 
     function H() {
         var R;
@@ -7790,14 +7788,12 @@ function jw({
             ref: ml,
             tabIndex: 0,
             onKeyDown: onListKey,
-            onFocus: () => setListFocused(true),
-            onBlur: () => setListFocused(false),
             style: { outline: "none" },
             className: "overflow-y-auto thin-scroll px-2 py-1 flex flex-col gap-1 flex-1 min-h-0",
             children: [A.length === 0 && o.jsx("p", {
                 className: "text-white/20 text-xs text-center mt-3",
                 children: DDBTR("메모가 없습니다")
-            }), (focusId ? A.filter(_it => _it.id === focusId) : A).map((R, _mi) => o.jsx("div", { "data-midx": _mi, className: (listFocused && !focusId && _mi === selIdx) ? "rounded-lg ring-2 ring-blue-400/60" : "", children: o.jsx(qT, {
+            }), (focusId ? A.filter(_it => _it.id === focusId) : A).map((R, _mi) => o.jsx("div", { "data-midx": _mi, className: (t.settings.memoKbdNav && _mi === selIdx) ? "rounded-lg ring-2 ring-blue-400/60" : "", children: o.jsx(qT, {
                 item: R,
                 fontSize: t.fontSize,
                 tabColor: i.color,
@@ -7833,7 +7829,7 @@ function jw({
                 onFeedback: () => F(R),
                 onSolo: () => setFocusId(R.id),
                 soloOn: focusId === R.id,
-                onExitSolo: () => { setFocusId(null); setTimeout(() => { if (ml.current) { ml.current.focus(); setListFocused(true); } }, 30); }
+                onExitSolo: () => setFocusId(null)
             }) }, R.id))]
         })]
     })
@@ -7855,7 +7851,6 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     const lastSaved = O.useRef(content);
     const undoRef = O.useRef({ stack: [], idx: -1 });
     O.useEffect(() => { const u = undoRef.current; if (u.stack.length === 0) { u.stack.push({ blocks: blocks, fmt: fmt, kind: "init", t: Date.now() }); u.idx = 0; } }, []);
-    O.useEffect(() => { if (!soloOn) return; const id = setTimeout(() => { const ae = document.activeElement; if (ae && ae.getAttribute && ae.getAttribute("data-cell")) return; const el = rootRef.current && rootRef.current.querySelector('[data-cell]'); el && el.focus(); }, 50); return () => clearTimeout(id); }, [soloOn]);
     O.useEffect(() => { if (content !== lastSaved.current) { const sf = ddbSplitFmt(content); const nb = ddbToBlocks(sf.body), nf = sf.fmt || {}; setBlocks(nb); setFmt(nf); lastSaved.current = content; undoRef.current = { stack: [{ blocks: nb, fmt: nf, kind: "init", t: Date.now() }], idx: 0 }; } }, [content]);
     function snapshot(nb, nf, kind) { const u = undoRef.current; const now = Date.now(); if (u.idx < u.stack.length - 1) u.stack = u.stack.slice(0, u.idx + 1); const top = u.stack[u.idx]; if ((kind === "cell" || kind === "text") && top && top.kind === kind && (now - top.t) < 900) { u.stack[u.idx] = { blocks: nb, fmt: nf, kind: kind, t: now }; } else { u.stack.push({ blocks: nb, fmt: nf, kind: kind, t: now }); u.idx = u.stack.length - 1; if (u.stack.length > 120) { u.stack.shift(); u.idx--; } } }
     function save(nb, nf, kind) { const out = ddbJoinFmt(ddbBlocksToMd(nb), nf); lastSaved.current = out; onCommit(out); snapshot(nb, nf, kind || "edit"); }
@@ -7919,14 +7914,13 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     ] });
     function renderTable(b, bi) {
         return o.jsxs("div", { "data-block": bi, className: "mb-1.5" + (dragBi === bi ? " opacity-40" : ""), style: (dropBi === bi && dragBi !== null && dragBi !== bi) ? { boxShadow: "0 -3px 0 0 #60a5fa" } : void 0, children: [
-            hov ? o.jsxs("div", { className: "flex gap-1 mb-0.5 flex-wrap items-center", children: [...ctrl(bi), o.jsx("span", { className: "text-white/15 mx-0.5", children: "|" }), o.jsx("span", { className: "text-white/50 text-[10px]", children: "행" }), o.jsx("button", { onClick: () => addRow(bi), className: btn, title: "행 추가", children: "＋" }), o.jsx("button", { onClick: () => delRow(bi), className: btnDel, title: "행 삭제", children: "－" }), o.jsx("span", { className: "text-white/50 text-[10px] ml-1.5", children: "열" }), o.jsx("button", { onClick: () => addCol(bi), className: btn, title: "열 추가", children: "＋" }), o.jsx("button", { onClick: () => delCol(bi), className: btnDel, title: "열 삭제", children: "－" }), o.jsx("span", { className: "text-white/30 text-[9px] self-center ml-1", children: "=수식 (예 =SUM(A2:A5))" })] }) : null,
+            hov ? o.jsxs("div", { className: "flex gap-1 mb-0.5 flex-wrap items-center", children: [...ctrl(bi), o.jsx("span", { className: "text-white/15 mx-0.5", children: "|" }), o.jsx("button", { onClick: () => addRow(bi), className: btn, children: "＋행" }), o.jsx("button", { onClick: () => addCol(bi), className: btn, children: "＋열" }), o.jsx("button", { onClick: () => delRow(bi), className: btnDel, children: "행－" }), o.jsx("button", { onClick: () => delCol(bi), className: btnDel, children: "열－" }), o.jsx("span", { className: "text-white/30 text-[9px] self-center ml-1", children: "칸에 =수식 · SUM AVERAGE IF SUMIF COUNTIF ROUND 등" })] }) : null,
             o.jsxs("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: "auto" }, children: [
                 o.jsxs("thead", { children: [
-                    o.jsxs("tr", { children: [o.jsx("th", { style: lblSty }, "cLc"), ...b.headers.map((_hh, Y) => o.jsx("th", { style: { ...lblSty, width: colW(bi, Y), minWidth: colW(bi, Y), maxWidth: colW(bi, Y) }, children: ddbIdxToCol(Y) }, "cl" + Y)), o.jsx("th", { style: lblSty }, "cRc")] }, "coordTop"),
-                    o.jsxs("tr", { children: [o.jsx("th", { style: lblSty, children: "1" }, "rlL"), ...b.headers.map((hh, Y) => o.jsxs("th", { style: cellSty(bi, -1, Y, true), children: [o.jsx("textarea", { value: editKey === (bi + ":-1," + Y) ? (hh == null ? "" : hh) : ddbCellDisp(b, -1, Y), rows: cellRows(editKey === (bi + ":-1," + Y) ? hh : ddbCellDisp(b, -1, Y)), "data-cell": bi + ":-1:" + Y, onKeyDown: ev => cellNav(ev, bi, -1, Y), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, -1, Y, ev); }, onFocus: () => { setEditKey(bi + ":-1," + Y); if (onSolo && !soloOn) onSolo(); }, onBlur: () => setEditKey(null), onChange: ev => setCell(bi, -1, Y, ev.target.value), style: taSty(inSty(bi, -1, Y, true)) }), o.jsx("div", { onMouseDown: ev => colDrag(bi, Y, ev), onClick: ev => ev.stopPropagation(), title: "열 너비", style: { position: "absolute", top: 0, right: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 3 } })] }, Y)), o.jsx("th", { style: lblSty, children: "1" }, "rlR")] }, "hdr")
+                    hov ? o.jsxs("tr", { children: [o.jsx("th", { style: lblSty }, "corner"), ...b.headers.map((_hh, Y) => o.jsx("th", { style: { ...lblSty, width: colW(bi, Y), minWidth: colW(bi, Y), maxWidth: colW(bi, Y) }, children: ddbIdxToCol(Y) }, "cl" + Y))] }, "coord") : null,
+                    o.jsxs("tr", { children: [hov ? o.jsx("th", { style: lblSty, children: "1" }, "rl") : null, ...b.headers.map((hh, Y) => o.jsxs("th", { style: cellSty(bi, -1, Y, true), children: [o.jsx("textarea", { value: editKey === (bi + ":-1," + Y) ? (hh == null ? "" : hh) : ddbCellDisp(b, -1, Y), rows: cellRows(editKey === (bi + ":-1," + Y) ? hh : ddbCellDisp(b, -1, Y)), "data-cell": bi + ":-1:" + Y, onKeyDown: ev => cellNav(ev, bi, -1, Y), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, -1, Y, ev); }, onFocus: () => { setEditKey(bi + ":-1," + Y); if (onSolo && !soloOn) onSolo(); }, onBlur: () => setEditKey(null), onChange: ev => setCell(bi, -1, Y, ev.target.value), style: taSty(inSty(bi, -1, Y, true)) }), o.jsx("div", { onMouseDown: ev => colDrag(bi, Y, ev), onClick: ev => ev.stopPropagation(), title: "열 너비", style: { position: "absolute", top: 0, right: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 3 } })] }, Y))] }, "hdr")
                 ] }),
-                o.jsx("tbody", { children: b.rows.map((rw, R) => o.jsxs("tr", { children: [o.jsx("td", { style: lblSty, children: String(R + 2) }, "rlL"), ...b.headers.map((_h, C) => o.jsx("td", { style: cellSty(bi, R, C, false), children: o.jsx("textarea", { value: editKey === (bi + ":" + R + "," + C) ? ((rw && rw[C]) == null ? "" : rw[C]) : ddbCellDisp(b, R, C), rows: cellRows(editKey === (bi + ":" + R + "," + C) ? (rw && rw[C]) : ddbCellDisp(b, R, C)), "data-cell": bi + ":" + R + ":" + C, onKeyDown: ev => cellNav(ev, bi, R, C), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, R, C, ev); }, onFocus: () => { setEditKey(bi + ":" + R + "," + C); if (onSolo && !soloOn) onSolo(); }, onBlur: () => setEditKey(null), onChange: ev => setCell(bi, R, C, ev.target.value), style: taSty(inSty(bi, R, C, false)) }) }, C)), o.jsx("td", { style: lblSty, children: String(R + 2) }, "rlR")] }, R)) }),
-                o.jsxs("tfoot", { children: [o.jsxs("tr", { children: [o.jsx("th", { style: lblSty }, "fLc"), ...b.headers.map((_hh, Y) => o.jsx("th", { style: { ...lblSty, width: colW(bi, Y), minWidth: colW(bi, Y), maxWidth: colW(bi, Y) }, children: ddbIdxToCol(Y) }, "fl" + Y)), o.jsx("th", { style: lblSty }, "fRc")] }, "coordBot")] })
+                o.jsx("tbody", { children: b.rows.map((rw, R) => o.jsxs("tr", { children: [hov ? o.jsx("td", { style: lblSty, children: String(R + 2) }, "rl") : null, ...b.headers.map((_h, C) => o.jsx("td", { style: cellSty(bi, R, C, false), children: o.jsx("textarea", { value: editKey === (bi + ":" + R + "," + C) ? ((rw && rw[C]) == null ? "" : rw[C]) : ddbCellDisp(b, R, C), rows: cellRows(editKey === (bi + ":" + R + "," + C) ? (rw && rw[C]) : ddbCellDisp(b, R, C)), "data-cell": bi + ":" + R + ":" + C, onKeyDown: ev => cellNav(ev, bi, R, C), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, R, C, ev); }, onFocus: () => { setEditKey(bi + ":" + R + "," + C); if (onSolo && !soloOn) onSolo(); }, onBlur: () => setEditKey(null), onChange: ev => setCell(bi, R, C, ev.target.value), style: taSty(inSty(bi, R, C, false)) }) }, C))] }, R)) })
             ] })
         ] }, "b" + bi);
     }
@@ -7936,7 +7930,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
             o.jsx("textarea", { value: b.s == null ? "" : b.s, onMouseDown: ev => ev.stopPropagation(), onChange: ev => setText(bi, ev.target.value), placeholder: "메모 입력…", rows: Math.max(2, (String(b.s || "").match(/\n/g) || []).length + 1), className: "w-full rounded px-2 py-1 text-white/85 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)" } })
         ] }, "b" + bi);
     }
-    return o.jsxs("div", { ref: rootRef, tabIndex: -1, onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false), onKeyDown: ev => { ev.stopPropagation(); const ae = document.activeElement; const inCell = !!(ae && ae.getAttribute && ae.getAttribute("data-cell")); if (ev.key === "Escape") { ev.preventDefault(); if (inCell) { try { ae.blur(); } catch {} setSel(null); setEditKey(null); try { rootRef.current && rootRef.current.focus(); } catch {} } return; } if ((ev.ctrlKey || ev.metaKey) && ev.key === "ArrowLeft") { ev.preventDefault(); if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && (ev.key === "z" || ev.key === "Z")) { ev.preventDefault(); undo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "y" || ev.key === "Y")) || ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === "z" || ev.key === "Z"))) { ev.preventDefault(); redo(); return; } }, onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: maxH || "400px", maxWidth: "100%" }, children: [
+    return o.jsxs("div", { ref: rootRef, onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false), onKeyDown: ev => { ev.stopPropagation(); if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && (ev.key === "z" || ev.key === "Z")) { ev.preventDefault(); undo(); } else if (((ev.ctrlKey || ev.metaKey) && (ev.key === "y" || ev.key === "Y")) || ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === "z" || ev.key === "Z"))) { ev.preventDefault(); redo(); } else if (ev.key === "Escape") { ev.preventDefault(); try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch {} setSel(null); setEditKey(null); if (onExit) onExit(); } }, onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: maxH || "400px", maxWidth: "100%" }, children: [
         hov ? toolbar : null,
         ...blocks.map((b, bi) => b.t === "table" ? renderTable(b, bi) : renderText(b, bi)),
         hov ? o.jsxs("div", { className: "flex gap-1 mt-1 pt-1 border-t border-white/10", children: [o.jsx("button", { onClick: () => addBlock("text", blocks.length), className: addB, children: "＋ 글 추가" }), o.jsx("button", { onClick: () => addBlock("table", blocks.length), className: addB, children: "＋ 표 추가" })] }) : null
