@@ -338,9 +338,6 @@ function DDBImageEditor() {
     const [dirName, setDirName] = O.useState("");
     const [showCfg, setShowCfg] = O.useState(false);
     const [toast, setToast] = O.useState("");
-    const [ocr, setOcr] = O.useState(null);
-    const [clova, setClova] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_clova") || "null"); if (v) return { on: !!v.on, url: v.url || "", key: v.key || "" }; } catch {} return { on: false, url: "", key: "" }; });
-    const [clovaOpen, setClovaOpen] = O.useState(false);
     const [, force] = O.useReducer(x => x + 1, 0);
     const cvRef = O.useRef(null);
     const drawing = O.useRef(false);
@@ -355,11 +352,6 @@ function DDBImageEditor() {
     const lblOf = (arr, k) => { const f = arr.find(x => x[0] === k); return f ? f[1] : arr[0][1]; };
     const persistSv = v => { try { localStorage.setItem("ddb_img_save", JSON.stringify(v)); } catch {} };
     function applyImage(url, shp) { const im = new Image(); im.onload = () => { setImg(im); setShapes(shp || []); setCrop(null); setPoly([]); setDraft(null); setZoom(Math.min(1, 1100 / (im.width || 1))); }; im.src = url; }
-    function ensureTesseract() { return new Promise((res, rej) => { if (window.Tesseract) return res(window.Tesseract); const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"; s.async = true; s.onload = () => window.Tesseract ? res(window.Tesseract) : rej(new Error("no")); s.onerror = () => rej(new Error("load")); document.head.appendChild(s); }); }
-    function ocrPrep(cv) { const maxDim = Math.max(cv.width, cv.height); let scale = 1; if (maxDim < 2200) scale = Math.min(3.5, 2200 / maxDim); const w = Math.round(cv.width * scale), h = Math.round(cv.height * scale); const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d"); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high"; g.fillStyle = "#ffffff"; g.fillRect(0, 0, w, h); g.drawImage(cv, 0, 0, w, h); try { const id = g.getImageData(0, 0, w, h), d = id.data, n = w * h, gray = new Uint8Array(n), hist = new Array(256).fill(0); for (let i = 0, p = 0; i < d.length; i += 4, p++) { const v = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0; gray[p] = v; hist[v]++; } let sum = 0; for (let t = 0; t < 256; t++) sum += t * hist[t]; let sumB = 0, wB = 0, mx = -1, thr = 160; for (let t = 0; t < 256; t++) { wB += hist[t]; if (!wB) continue; const wF = n - wB; if (!wF) break; sumB += t * hist[t]; const mB = sumB / wB, mF = (sum - sumB) / wF, bt = wB * wF * (mB - mF) * (mB - mF); if (bt > mx) { mx = bt; thr = t; } } for (let i = 0, p = 0; i < d.length; i += 4, p++) { const v = gray[p] < thr ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = v; } g.putImageData(id, 0, 0); } catch {} return c; }
-    function saveClova(c) { setClova(c); try { localStorage.setItem("ddb_clova", JSON.stringify(c)); } catch {} }
-    async function runClova() { const cv = cvRef.current; if (!cv) return; setOcr({ busy: true, prog: 15, text: "" }); try { const b64 = cv.toDataURL("image/png").split(",")[1]; let resp; try { resp = await fetch("/ocr-proxy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: clova.url, secret: clova.key, format: "png", data: b64 }) }); } catch (e) { setOcr({ busy: false, err: "클라우드 OCR 연결 실패 — 정확 OCR은 설치형 데스크톱 앱에서만 동작합니다." }); return; } if (!resp.ok) { setOcr({ busy: false, err: "요청 실패 (" + resp.status + "). Invoke URL·시크릿키를 확인하세요." }); return; } const jr = await resp.json(); if (jr && jr.error) { setOcr({ busy: false, err: "오류: " + jr.error }); return; } const imgs = (jr && jr.images) || []; let out = ""; imgs.forEach(im => { (im.fields || []).forEach(f => { out += (f.inferText || ""); out += f.lineBreak ? "\n" : " "; }); }); out = out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); if (!out && imgs[0] && imgs[0].message) { setOcr({ busy: false, err: "인식 결과 없음: " + imgs[0].message }); return; } setOcr({ busy: false, prog: 100, text: out }); } catch (e) { setOcr({ busy: false, err: "클라우드 OCR 실패: " + ((e && e.message) || "") }); } }
-    async function runOcr() { if (clova.on && clova.url && clova.key) return runClova(); const cv = cvRef.current; if (!cv) return; setOcr({ busy: true, prog: 0, text: "" }); let T; try { T = await ensureTesseract(); } catch (e) { setOcr({ busy: false, prog: 0, text: "", err: "OCR 엔진을 불러오지 못했습니다. 처음 사용 시 인터넷 연결이 필요합니다." }); return; } let worker = null; try { const src = ocrPrep(cv); const lg = m => { if (m && m.status && m.status.indexOf("recogn") >= 0) setOcr(o2 => (o2 && o2.busy) ? { ...o2, prog: Math.round((m.progress || 0) * 100) } : o2); }; if (T.createWorker) { worker = await T.createWorker("kor+eng", 1, { langPath: "https://tessdata.projectnaptha.com/4.0.0_best", logger: lg }); try { await worker.setParameters({ preserve_interword_spaces: "1", tessedit_pageseg_mode: "6", user_defined_dpi: "300" }); } catch {} const r = await worker.recognize(src); const txt = ((r && r.data && r.data.text) || "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); setOcr({ busy: false, prog: 100, text: txt }); } else { const r = await T.recognize(src, "kor+eng", { logger: lg }); const txt = ((r && r.data && r.data.text) || "").replace(/\n{3,}/g, "\n\n").trim(); setOcr({ busy: false, prog: 100, text: txt }); } } catch (e) { setOcr({ busy: false, prog: 0, text: "", err: "인식에 실패했습니다. (" + ((e && e.message) || "") + ")" }); } finally { try { worker && worker.terminate(); } catch {} } }
     function resetHist(url) { hist.current = [{ url, shapes: [] }]; hi.current = 0; force(); }
     function pushState(url, shp) { const h = hist.current.slice(0, hi.current + 1); h.push({ url, shapes: shp }); while (h.length > 40) h.shift(); hist.current = h; hi.current = h.length - 1; force(); }
     function applySnap(s) { if (img && img.src === s.url) { setShapes(s.shapes); setDraft(null); setCrop(null); setPoly([]); } else applyImage(s.url, s.shapes); }
@@ -487,8 +479,6 @@ function DDBImageEditor() {
             ((crop && crop.w > 4 && isCropDrag(tool)) || (tool === "cropPoly" && poly.length >= 3)) && o.jsx("button", { onClick: applyCrop, className: "px-2.5 py-1 rounded-lg text-[13px] bg-emerald-500/40 border border-emerald-400/60 text-emerald-50 cursor-pointer", children: "잘라내기 적용" }),
             tbtn("wand", "🪄 매직완드"),
             o.jsx("button", { onClick: autoBg, disabled: !img, title: "인터넷 없이 로컬로 배경(테두리에서 이어진 비슷한 색) 제거", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: "🧹 배경 자동제거" }),
-            o.jsx("button", { onClick: runOcr, disabled: !img || (ocr && ocr.busy), title: "이미지에서 글자 추출(OCR)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: (ocr && ocr.busy) ? ("🔤 인식중 " + (ocr.prog || 0) + "%") : ((clova.on && clova.url && clova.key) ? "🔤 텍스트 추출(정확)" : "🔤 텍스트 추출") }),
-            o.jsx("button", { onClick: () => setClovaOpen(true), title: "정확 OCR(네이버 CLOVA) 설정 — 켜면 훨씬 정확, 단 인터넷·이미지 전송", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + ((clova.on && clova.url && clova.key) ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100" : "bg-white/8 border-white/15 text-white/70 hover:bg-white/15"), children: (clova.on && clova.url && clova.key) ? "☁ 정확OCR ON" : "☁ 정확OCR" }),
             o.jsxs("label", { className: "flex items-center gap-1 text-white/85 text-xs", children: ["허용치", o.jsx("input", { type: "range", min: 3, max: 160, value: tol, onChange: e => setTol(Number(e.target.value)), className: "w-16 accent-teal-400" }), tol] }),
             o.jsx("span", { className: "w-px h-6 bg-white/15 mx-0.5" }),
             dropBtn("dash", "선: " + lblOf(DASHOPTS, dash).split(" ")[1], false, DASHOPTS, k => setDash(k)),
@@ -529,27 +519,7 @@ function DDBImageEditor() {
         o.jsx("div", { className: "flex-1 overflow-auto flex items-center justify-center p-4", children: img ? o.jsx("canvas", { ref: cvRef, onMouseDown: down, onMouseMove: move, onMouseUp: up, onMouseLeave: up, style: { width: img.width * zoom, height: img.height * zoom, cursor: (tool === "wand" ? "pointer" : tool.indexOf("crop") === 0 ? "crosshair" : "cell"), boxShadow: "0 0 0 1px rgba(255,255,255,0.15)", background: "#fff" } }) : o.jsxs("div", { className: "text-white/45 text-center", children: [o.jsx("div", { className: "text-5xl mb-3", children: "🖼" }), o.jsx("div", { className: "text-sm leading-relaxed", children: "이미지 파일을 이 창으로 끌어놓거나," }), o.jsx("div", { className: "text-sm leading-relaxed", children: "PrintScreen(캡처) 후 Ctrl+V 로 붙여넣으세요." })] }) }),
         tool === "cropPoly" && img && o.jsx("div", { className: "absolute left-1/2 top-[150px] px-3 py-1 rounded-full text-white/80 text-xs", style: { transform: "translateX(-50%)", backgroundColor: "rgba(30,41,59,0.9)" }, children: "다각형: 꼭짓점 클릭 → Enter(또는 적용). Esc 취소" }),
         tool === "wand" && img && o.jsx("div", { className: "absolute left-1/2 top-[150px] px-3 py-1 rounded-full text-white/80 text-xs", style: { transform: "translateX(-50%)", backgroundColor: "rgba(30,41,59,0.9)" }, children: "매직완드: 지우고 싶은 색 영역 클릭 (허용치로 범위 조절, 뒤로/앞으로 됨)" }),
-        toast && o.jsx("div", { className: "absolute left-1/2 bottom-8 px-4 py-2 rounded-lg text-white text-sm", style: { transform: "translateX(-50%)", backgroundColor: "rgba(30,41,59,0.97)", border: "1px solid rgba(255,255,255,0.22)" }, children: toast }),
-        ocr && o.jsx("div", { className: "absolute inset-0 flex items-center justify-center", style: { zIndex: 60, background: "rgba(0,0,0,0.55)" }, onMouseDown: () => { if (!ocr.busy) setOcr(null); }, children: o.jsxs("div", { onMouseDown: e => e.stopPropagation(), className: "rounded-2xl shadow-2xl flex flex-col", style: { width: "min(560px,92vw)", maxHeight: "80vh", background: "#141824", border: "1px solid rgba(255,255,255,0.15)" }, children: [
-            o.jsxs("div", { className: "flex items-center gap-2 px-4 py-2 border-b border-white/10", children: [o.jsx("span", { className: "text-white font-semibold text-sm flex-1", children: "🔤 텍스트 추출 (OCR)" }), o.jsx("button", { onClick: () => setOcr(null), disabled: ocr.busy, className: "text-white/50 hover:text-white text-base bg-transparent border-none cursor-pointer disabled:opacity-30", children: "✕" })] }),
-            ocr.busy ? o.jsxs("div", { className: "px-6 py-8 text-center text-white/70 text-sm", children: [o.jsx("div", { className: "mb-3", children: "글자 인식 중… " + (ocr.prog || 0) + "%" }), o.jsx("div", { className: "w-full h-1.5 rounded bg-white/10 overflow-hidden", children: o.jsx("div", { className: "h-full bg-blue-400", style: { width: (ocr.prog || 0) + "%" } }) }), o.jsx("div", { className: "mt-3 text-white/35 text-[11px]", children: "처음 사용 시 인식 데이터를 받느라 시간이 걸릴 수 있어요" })] })
-                : ocr.err ? o.jsx("div", { className: "px-6 py-8 text-center text-red-300 text-sm", children: ocr.err })
-                    : o.jsxs("div", { className: "flex flex-col min-h-0 flex-1", children: [
-                        o.jsx("textarea", { value: ocr.text, onChange: e => setOcr(o2 => ({ ...o2, text: e.target.value })), className: "m-3 flex-1 bg-white/5 border border-white/15 rounded-lg p-2 text-white/90 text-sm resize-none focus:outline-none", style: { minHeight: 160 }, placeholder: "인식된 글자가 없습니다" }),
-                        o.jsxs("div", { className: "flex items-center gap-2 px-3 pb-3", children: [o.jsx("span", { className: "text-white/40 text-[11px] flex-1", children: ocr.text ? "글자를 수정한 뒤 복사할 수 있어요" : "결과가 비면 이미지를 더 선명하게(확대·대비) 해보세요" }), o.jsx("button", { onClick: () => { try { navigator.clipboard && navigator.clipboard.writeText(ocr.text || ""); setToast("클립보드에 복사됨"); setTimeout(() => setToast(""), 1800); } catch {} }, className: "px-3 py-1.5 rounded-lg text-sm bg-blue-500/80 hover:bg-blue-500 text-white border-none cursor-pointer", children: "복사" }), o.jsx("button", { onClick: () => setOcr(null), className: "px-3 py-1.5 rounded-lg text-sm bg-white/10 hover:bg-white/20 text-white/80 border-none cursor-pointer", children: "닫기" })] })
-                    ] })
-        ] }) }),
-        clovaOpen && o.jsx("div", { className: "absolute inset-0 flex items-center justify-center", style: { zIndex: 62, background: "rgba(0,0,0,0.6)" }, onMouseDown: () => setClovaOpen(false), children: o.jsxs("div", { onMouseDown: e => e.stopPropagation(), className: "rounded-2xl shadow-2xl flex flex-col", style: { width: "min(520px,94vw)", maxHeight: "88vh", overflow: "auto", background: "#141824", border: "1px solid rgba(255,255,255,0.15)" }, children: [
-            o.jsxs("div", { className: "flex items-center gap-2 px-4 py-2 border-b border-white/10", children: [o.jsx("span", { className: "text-white font-semibold text-sm flex-1", children: "☁ 정확 OCR (네이버 CLOVA) 설정" }), o.jsx("button", { onClick: () => setClovaOpen(false), className: "text-white/50 hover:text-white text-base bg-transparent border-none cursor-pointer", children: "✕" })] }),
-            o.jsxs("div", { className: "px-4 py-3 flex flex-col gap-3 text-white/85 text-xs", children: [
-                o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer", children: [o.jsx("input", { type: "checkbox", checked: clova.on, onChange: e => saveClova({ ...clova, on: e.target.checked }), className: "w-4 h-4 accent-emerald-400" }), o.jsx("span", { className: "font-semibold text-white text-sm", children: "정확 OCR 사용 (네이버 CLOVA)" })] }),
-                o.jsx("div", { className: "text-amber-200/80 leading-relaxed", children: "⚠ 켜면 텍스트 추출 시 이미지가 네이버 CLOUD 서버로 전송됩니다. 계좌·주민번호 등 민감 문서는 주의하세요. (설치형 데스크톱 앱에서만 동작)" }),
-                o.jsxs("label", { className: "flex flex-col gap-1", children: [o.jsx("span", { children: "Invoke URL (APIGW)" }), o.jsx("input", { value: clova.url, onChange: e => saveClova({ ...clova, url: e.target.value.trim() }), placeholder: "https://xxxxx.apigw.ntruss.com/custom/v1/.../general", className: "bg-white/10 border border-white/20 rounded px-2 py-1.5 text-white outline-none" })] }),
-                o.jsxs("label", { className: "flex flex-col gap-1", children: [o.jsx("span", { children: "Secret Key (X-OCR-SECRET)" }), o.jsx("input", { type: "password", value: clova.key, onChange: e => saveClova({ ...clova, key: e.target.value.trim() }), placeholder: "시크릿 키", className: "bg-white/10 border border-white/20 rounded px-2 py-1.5 text-white outline-none" })] }),
-                o.jsxs("div", { className: "text-white/45 leading-relaxed border-t border-white/10 pt-2", children: [o.jsx("div", { className: "font-semibold text-white/70 mb-1", children: "키 발급 방법 (일반 OCR 월 5,000건 무료)" }), o.jsx("div", { children: "1) 네이버 클라우드 플랫폼 가입 → 콘솔 → Services → AI·Application → CLOVA OCR" }), o.jsx("div", { children: "2) Domain 생성 시 ‘General’ 선택 → APIGW 자동 연동" }), o.jsx("div", { children: "3) 만든 도메인의 ‘APIGW Invoke URL’ 과 ‘Secret Key’ 를 위에 붙여넣기" })] }),
-                o.jsx("div", { className: "flex justify-end", children: o.jsx("button", { onClick: () => setClovaOpen(false), className: "px-4 py-1.5 rounded-lg text-sm bg-blue-500/80 hover:bg-blue-500 text-white border-none cursor-pointer", children: "완료" }) })
-            ] })
-        ] }) })
+        toast && o.jsx("div", { className: "absolute left-1/2 bottom-8 px-4 py-2 rounded-lg text-white text-sm", style: { transform: "translateX(-50%)", backgroundColor: "rgba(30,41,59,0.97)", border: "1px solid rgba(255,255,255,0.22)" }, children: toast })
     ] }), document.body);
 }
 
@@ -634,46 +604,6 @@ function DDBTableWindow() {
         o.jsx("div", { className: "flex-1 overflow-auto p-2", children: o.jsx("table", { style: { borderCollapse: "collapse" }, children: o.jsx("tbody", { children: cells.map((row, r) => o.jsx("tr", { children: row.map((v, c) => o.jsx("td", { onMouseDown: e => { if (edit && (edit.r !== r || edit.c !== c)) commitEdit(); if (e.shiftKey) setSel(s => ({ ...s, r2: r, c2: c })); else { setSel({ r, c, r2: r, c2: c }); dragging.current = true; } }, onMouseEnter: () => { if (dragging.current) setSel(s => ({ ...s, r2: r, c2: c })); }, onMouseUp: () => { dragging.current = false; }, onDoubleClick: () => startEdit(r, c), style: { border: "1px solid rgba(255,255,255,0.18)", minWidth: 74, maxWidth: 320, height: 26, padding: 0, background: inSel(r, c) ? "rgba(59,130,246,0.25)" : (r === sel.r && c === sel.c ? "rgba(59,130,246,0.15)" : "transparent"), outline: (r === sel.r && c === sel.c) ? "2px solid #3b82f6" : "none", outlineOffset: -2 }, children: (edit && edit.r === r && edit.c === c) ? o.jsx("input", { "data-tblcell": "1", autoFocus: !0, value: draft, onChange: e => setDraft(e.target.value), onBlur: commitEdit, className: "w-full h-full bg-transparent text-white text-xs px-1.5 outline-none", style: { minWidth: 72 } }) : o.jsx("div", { className: "text-white/85 text-xs px-1.5 py-1 whitespace-pre truncate", style: { minWidth: 72, maxWidth: 320, cursor: "cell" }, children: v }) }, c)) }, r)) }) }) }),
         o.jsx("textarea", { ref: taRef, "data-tblcatch": "1", value: "", onChange: () => {}, "aria-hidden": "true", style: { position: "absolute", left: -9999, top: 0, width: 1, height: 1, opacity: 0 } }),
         o.jsx("div", { onMouseDown: resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) })
-    ] }), document.body);
-}
-
-function DDBPomodoro() {
-    const [open, setOpen] = O.useState(false);
-    const [work, setWork] = O.useState(() => { const v = +localStorage.getItem("ddb_pomo_work"); return v > 0 ? v : 25; });
-    const [brk, setBrk] = O.useState(() => { const v = +localStorage.getItem("ddb_pomo_break"); return v > 0 ? v : 5; });
-    const [mode, setMode] = O.useState("work");
-    const [sec, setSec] = O.useState(25 * 60);
-    const [run, setRun] = O.useState(false);
-    const [done, setDone] = O.useState(() => { try { const d = JSON.parse(localStorage.getItem("ddb_pomo_done") || "{}"); const today = new Date().toISOString().slice(0, 10); return d.date === today ? (d.n || 0) : 0; } catch { return 0; } });
-    const [pos, setPos] = O.useState(() => { try { const p = JSON.parse(localStorage.getItem("ddb_pomo_pos") || "null"); if (p && typeof p.x === "number") return p; } catch {} return { x: Math.round(((typeof window !== "undefined" ? window.innerWidth : 900) || 900) / 2 - 130), y: 110 }; });
-    const modeRef = O.useRef(mode); modeRef.current = mode;
-    function beep() { try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; const ac = new AC(); let ti = 0; [880, 1320, 880].forEach((fr, i) => { const o1 = ac.createOscillator(), g = ac.createGain(); o1.connect(g); g.connect(ac.destination); o1.type = "sine"; o1.frequency.value = fr; const t0 = ac.currentTime + ti; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35); o1.start(t0); o1.stop(t0 + 0.37); ti += 0.4; }); setTimeout(() => { try { ac.close(); } catch {} }, 1600); } catch {} }
-    O.useEffect(() => { const h = () => { setOpen(v => !v); try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch {} }; window.addEventListener("ddb-open-pomodoro", h); return () => window.removeEventListener("ddb-open-pomodoro", h); }, []);
-    O.useEffect(() => { if (!run) setSec((mode === "work" ? work : brk) * 60); }, [work, brk, mode]);
-    O.useEffect(() => { if (!run) return; const id = setInterval(() => setSec(s => s - 1), 1000); return () => clearInterval(id); }, [run]);
-    O.useEffect(() => { if (run && sec <= 0) { beep(); if (modeRef.current === "work") { const nd = done + 1; setDone(nd); try { localStorage.setItem("ddb_pomo_done", JSON.stringify({ date: new Date().toISOString().slice(0, 10), n: nd })); } catch {} try { if (window.Notification && Notification.permission === "granted") new Notification("🍅 집중 완료! 잠시 휴식하세요"); } catch {} setMode("break"); setSec(brk * 60); setRun(true); } else { try { if (window.Notification && Notification.permission === "granted") new Notification("💪 휴식 끝! 다시 집중해요"); } catch {} setMode("work"); setSec(work * 60); setRun(false); } } }, [sec, run]);
-    function drag(e) { if (e.target.closest && (e.target.closest("button") || e.target.closest("input"))) return; e.preventDefault(); const sx = e.clientX, sy = e.clientY, ox = pos.x, oy = pos.y; const mm = ev => { const np = { x: Math.max(0, ox + ev.clientX - sx), y: Math.max(0, oy + ev.clientY - sy) }; setPos(np); }; const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); setPos(p => { try { localStorage.setItem("ddb_pomo_pos", JSON.stringify(p)); } catch {} return p; }); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
-    if (!open) return null;
-    const mm = String(Math.floor(Math.max(0, sec) / 60)).padStart(2, "0"), ss = String(Math.max(0, sec) % 60).padStart(2, "0");
-    const isWork = mode === "work";
-    const setW = v => { const n = Math.max(1, Math.min(120, v)); setWork(n); try { localStorage.setItem("ddb_pomo_work", String(n)); } catch {} };
-    const setB = v => { const n = Math.max(1, Math.min(60, v)); setBrk(n); try { localStorage.setItem("ddb_pomo_break", String(n)); } catch {} };
-    const stepBtn = "w-6 h-6 rounded bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer text-sm leading-none";
-    return Rr.createPortal(o.jsxs("div", { className: "fixed rounded-2xl shadow-2xl select-none", style: { zIndex: 2147483300, left: pos.x + "px", top: pos.y + "px", width: 260, background: "#141824", border: "1px solid rgba(255,255,255,0.15)" }, children: [
-        o.jsxs("div", { onMouseDown: drag, style: { cursor: "grab" }, className: "flex items-center gap-2 px-3 py-2 border-b border-white/10", children: [o.jsx("span", { className: "text-white font-semibold text-sm flex-1", children: "🍅 포모도로" }), o.jsxs("span", { className: "text-white/40 text-[11px]", children: ["오늘 ", done, "회"] }), o.jsx("button", { onClick: () => setOpen(false), className: "text-white/50 hover:text-white text-base leading-none bg-transparent border-none cursor-pointer", children: "✕" })] }),
-        o.jsxs("div", { className: "px-4 py-3 flex flex-col items-center gap-2", children: [
-            o.jsx("div", { className: "text-[11px] font-semibold px-2 py-0.5 rounded-full", style: { background: isWork ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.25)", color: isWork ? "#fca5a5" : "#86efac" }, children: isWork ? "집중" : "휴식" }),
-            o.jsx("div", { className: "font-mono font-bold text-white", style: { fontSize: 46, letterSpacing: 1 }, children: mm + ":" + ss }),
-            o.jsxs("div", { className: "flex items-center gap-2 mt-1", children: [
-                o.jsx("button", { onClick: () => { if (!run && sec <= 0) setSec((isWork ? work : brk) * 60); setRun(r => !r); }, className: "px-4 py-1.5 rounded-lg text-sm font-semibold border-none cursor-pointer " + (run ? "bg-white/15 text-white" : "bg-red-500/80 text-white hover:bg-red-500"), children: run ? "일시정지" : "시작" }),
-                o.jsx("button", { onClick: () => { setRun(false); setSec((isWork ? work : brk) * 60); }, className: "px-3 py-1.5 rounded-lg text-sm bg-white/10 text-white/70 hover:bg-white/20 border-none cursor-pointer", children: "리셋" }),
-                o.jsx("button", { onClick: () => { setRun(false); setMode(isWork ? "break" : "work"); }, className: "px-3 py-1.5 rounded-lg text-sm bg-white/10 text-white/70 hover:bg-white/20 border-none cursor-pointer", title: "집중/휴식 전환", children: "전환" })
-            ] }),
-            o.jsxs("div", { className: "flex items-center justify-between w-full mt-2 text-white/60 text-xs", children: [
-                o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("span", { children: "집중" }), o.jsx("button", { onClick: () => setW(work - 5), className: stepBtn, children: "−" }), o.jsxs("span", { className: "w-8 text-center text-white", children: [work, "분"] }), o.jsx("button", { onClick: () => setW(work + 5), className: stepBtn, children: "+" })] }),
-                o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("span", { children: "휴식" }), o.jsx("button", { onClick: () => setB(brk - 1), className: stepBtn, children: "−" }), o.jsxs("span", { className: "w-8 text-center text-white", children: [brk, "분"] }), o.jsx("button", { onClick: () => setB(brk + 1), className: stepBtn, children: "+" })] })
-            ] })
-        ] })
     ] }), document.body);
 }
 
@@ -1643,7 +1573,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.97.81";
+const DDB_VERSION = "0.97.76";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3187,7 +3117,7 @@ function um({
                 className: "flex-1"
             }), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono",
-                children: "v218"
+                children: "v213"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -6177,12 +6107,6 @@ function fd({
                     cls: "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border border-white/15 text-white/60 hover:bg-white/10 hover:text-cyan-300",
                     body: "▦",
                     act: () => window.dispatchEvent(new CustomEvent("ddb-open-table"))
-                }, {
-                    k: "pomodoro",
-                    title: DDBTR("포모도로 타이머"),
-                    cls: "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border border-white/15 text-white/60 hover:bg-white/10 hover:text-red-300",
-                    body: "\u{1F345}",
-                    act: () => window.dispatchEvent(new CustomEvent("ddb-open-pomodoro"))
                 }];
                 const ddbExtraAct = [...["1", "2", "3", "4", "5"].map(nn => ({ k: "memo" + nn, act: () => { const tid = "memo-" + nn, ex = (t.panels || []).find(A => A.type === "memo" && A.memoTabId === tid); n(ex ? { type: "REMOVE_PANEL", id: ex.id } : { type: "ADD_PANEL", panel: { id: `panel-memo-${Ft()}`, type: "memo", memoTabId: tid, slot: "float", order: 0, floatX: 120 + Number(nn) * 26, floatY: 90 + Number(nn) * 26, floatW: 240, floatH: 400, minimized: !1, zIndex: (t.topZIndex || 10) + 1 } }) } })), { k: "calc", act: () => { const ex = (t.panels || []).find(A => A.type === "calculator"); n(ex ? { type: "REMOVE_PANEL", id: ex.id } : { type: "ADD_PANEL", panel: { id: `panel-calculator-${Ft()}`, type: "calculator", slot: "float", order: 0, floatX: 200, floatY: 100, floatW: 240, floatH: 420, minimized: !1, zIndex: (t.topZIndex || 10) + 1 } }) } }, { k: "playNext", act: () => { window.__ddbPlayerCtl && window.__ddbPlayerCtl.next() } }, { k: "playPrev", act: () => { window.__ddbPlayerCtl && window.__ddbPlayerCtl.prev() } }, { k: "playToggle", act: () => { window.__ddbPlayerCtl && window.__ddbPlayerCtl.toggle() } }];
                 window.__ddbCACT = [...q7, ...ddbExtraAct];
@@ -16040,7 +15964,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {})]
         })
     })
 }
