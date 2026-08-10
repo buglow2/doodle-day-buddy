@@ -555,30 +555,84 @@ function DDBImageEditor() {
 
 function DDBTableWindow() {
     const [open, setOpen] = O.useState(false);
-    const [tables, setTables] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_tables") || "null"); if (Array.isArray(v) && v.length) return v.map(t => (t.content != null) ? t : { id: t.id || ("t" + Date.now() + Math.random()), name: t.name || "표", content: ddbGridToMd((t.cells && t.cells[0]) || ["열1", "열2", "열3"], (t.cells || []).slice(1)) }); } catch {} return [{ id: "t" + Date.now(), name: "표 1", content: ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]) }]; });
+    const [tables, setTables] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_tables") || "null"); if (Array.isArray(v) && v.length) return v; } catch {} return [{ id: "t" + Date.now(), name: "표 1", cells: Array.from({ length: 5 }, () => Array.from({ length: 4 }, () => "")) }]; });
     const [ti, setTi] = O.useState(0);
-    const [geo, setGeo] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_table_geo") || "null"); if (v && typeof v.x === "number") return v; } catch {} return { x: 140, y: 90, w: 640, h: 470 }; });
+    const [sel, setSel] = O.useState({ r: 0, c: 0, r2: 0, c2: 0 });
+    const [edit, setEdit] = O.useState(null);
+    const [draft, setDraft] = O.useState("");
+    const [geo, setGeo] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_table_geo") || "null"); if (v && typeof v.x === "number") return v; } catch {} return { x: 140, y: 90, w: 640, h: 440 }; });
+    const dragging = O.useRef(false);
+    const taRef = O.useRef(null);
+    const focusCatch = () => { setTimeout(() => { if (taRef.current) { try { taRef.current.focus(); } catch {} } }, 0); };
     const _dh = ddbDragH(() => geo, setGeo);
+    O.useEffect(() => { if (open && !edit) focusCatch(); }, [open, edit, sel.r, sel.c, ti]);
     O.useEffect(() => { try { localStorage.setItem("ddb_table_geo", JSON.stringify(geo)); } catch {} }, [geo]);
     O.useEffect(() => { const h = () => setOpen(true); window.addEventListener("ddb-open-table", h); return () => window.removeEventListener("ddb-open-table", h); }, []);
     const saveTables = t => { setTables(t); try { localStorage.setItem("ddb_tables", JSON.stringify(t)); } catch {} };
     const tab = tables[Math.min(ti, tables.length - 1)] || tables[0];
-    const _blank = () => ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]);
-    function saveContent(nc) { const t = tables.slice(); const idx = Math.min(ti, t.length - 1); t[idx] = { id: t[idx].id, name: t[idx].name, content: nc }; saveTables(t); }
-    function newTable() { const t = [...tables, { id: "t" + Date.now(), name: "표 " + (tables.length + 1), content: _blank() }]; saveTables(t); setTi(t.length - 1); }
-    function delTable() { if (tables.length <= 1) { saveTables([{ id: "t" + Date.now(), name: "표 1", content: _blank() }]); setTi(0); return; } if (!window.confirm("이 표를 삭제할까요?")) return; const t = tables.filter((_, i) => i !== ti); saveTables(t); setTi(Math.max(0, ti - 1)); }
+    const cells = tab.cells;
+    const nR = cells.length, nC = cells[0] ? cells[0].length : 0;
+    function setCells(nc) { const t = tables.slice(); t[ti] = { ...tab, cells: nc }; saveTables(t); }
+    function normSel() { return { a: Math.min(sel.r, sel.r2), b: Math.max(sel.r, sel.r2), c: Math.min(sel.c, sel.c2), d: Math.max(sel.c, sel.c2) }; }
+    function inSel(r, c) { const n = normSel(); return r >= n.a && r <= n.b && c >= n.c && c <= n.d; }
+    function commitEdit() { if (!edit) return; const nc = cells.map(row => row.slice()); if (nc[edit.r]) nc[edit.r][edit.c] = draft; setCells(nc); setEdit(null); }
+    function startEdit(r, c, init) { setEdit({ r, c }); setDraft(init != null ? init : (cells[r] && cells[r][c]) || ""); }
+    function ensureSize(rr, cc) { let nc = cells.map(row => row.slice()); while (nc.length < rr) nc.push(Array.from({ length: nc[0] ? nc[0].length : cc }, () => "")); const wide = Math.max(cc, nc[0] ? nc[0].length : cc); nc = nc.map(row => { const r = row.slice(); while (r.length < wide) r.push(""); return r; }); return nc; }
+    function addRow() { const nc = cells.map(row => row.slice()); nc.push(Array.from({ length: nC }, () => "")); setCells(nc); }
+    function addCol() { setCells(cells.map(row => [...row, ""])); }
+    function delRows() { const n = normSel(); if (nR - (n.b - n.a + 1) < 1) return; const nc = cells.filter((_, r) => r < n.a || r > n.b); setCells(nc); setSel({ r: Math.min(n.a, nc.length - 1), c: sel.c, r2: Math.min(n.a, nc.length - 1), c2: sel.c }); }
+    function delCols() { const n = normSel(); if (nC - (n.d - n.c + 1) < 1) return; const nc = cells.map(row => row.filter((_, c) => c < n.c || c > n.d)); setCells(nc); setSel({ r: sel.r, c: Math.min(n.c, (nc[0].length) - 1), r2: sel.r, c2: Math.min(n.c, (nc[0].length) - 1) }); }
+    function clearSel() { const n = normSel(); const nc = cells.map((row, r) => row.map((v, c) => (r >= n.a && r <= n.b && c >= n.c && c <= n.d) ? "" : v)); setCells(nc); }
+    async function copySel(cut) { const n = normSel(); const lines = []; for (let r = n.a; r <= n.b; r++) { const row = []; for (let c = n.c; c <= n.d; c++) row.push((cells[r] && cells[r][c]) || ""); lines.push(row.join("\t")); } try { await navigator.clipboard.writeText(lines.join("\n")); } catch {} if (cut) clearSel(); }
+    function pasteFromText(txt, r0, c0) { if (!txt) return; const rows = txt.replace(/\r/g, "").replace(/\n$/, "").split("\n").map(l => l.split("\t")); const wide = Math.max(...rows.map(r => r.length)); let nc = ensureSize(r0 + rows.length, c0 + wide); rows.forEach((row, ri) => row.forEach((v, ci) => { nc[r0 + ri][c0 + ci] = v; })); setCells(nc); setSel({ r: r0, c: c0, r2: r0 + rows.length - 1, c2: c0 + wide - 1 }); setEdit(null); }
+    async function pasteAt(r0, c0) { let txt = ""; try { txt = await navigator.clipboard.readText(); } catch {} pasteFromText(txt, r0, c0); }
+    O.useEffect(() => {
+        if (!open) return;
+        function onKey(e) {
+            if (e.key === "Escape") { if (edit) { setEdit(null); } else setOpen(false); return; }
+            const ae = document.activeElement; const editingInput = ae && ae.getAttribute && ae.getAttribute("data-tblcell");
+            if (editingInput) { if (e.key === "Enter") { e.preventDefault(); commitEdit(); setSel(s => ({ r: Math.min(s.r + 1, nR - 1), c: s.c, r2: Math.min(s.r + 1, nR - 1), c2: s.c })); } else if (e.key === "Tab") { e.preventDefault(); commitEdit(); setSel(s => ({ r: s.r, c: Math.min(s.c + 1, nC - 1), r2: s.r, c2: Math.min(s.c + 1, nC - 1) })); } return; }
+            const isCatch = ae && ae.getAttribute && ae.getAttribute("data-tblcatch");
+            if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA") && !isCatch) return;
+            if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "C")) { e.preventDefault(); copySel(false); return; }
+            if ((e.ctrlKey || e.metaKey) && (e.key === "x" || e.key === "X")) { e.preventDefault(); copySel(true); return; }
+            if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) { return; }
+            if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); clearSel(); return; }
+            if (e.key === "Enter" || e.key === "F2") { e.preventDefault(); startEdit(sel.r, sel.c); return; }
+            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.key) >= 0) { e.preventDefault(); let r = sel.r, c = sel.c; if (e.key === "ArrowUp") r = Math.max(0, r - 1); if (e.key === "ArrowDown") r = Math.min(nR - 1, r + 1); if (e.key === "ArrowLeft") c = Math.max(0, c - 1); if (e.key === "ArrowRight") c = Math.min(nC - 1, c + 1); if (e.shiftKey) setSel(s => ({ ...s, r2: r, c2: c })); else setSel({ r, c, r2: r, c2: c }); return; }
+            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); startEdit(sel.r, sel.c, e.key); }
+        }
+        function onPaste(e) { const cd = e.clipboardData || window.clipboardData; if (!cd) return; const txt = cd.getData("text/plain") || cd.getData("text") || ""; if (!txt) return; const ae = document.activeElement; const editingInput = ae && ae.getAttribute && ae.getAttribute("data-tblcell"); const multi = txt.indexOf("\t") >= 0 || /\n/.test(txt.replace(/\n+$/, "")); if (multi) { e.preventDefault(); e.stopPropagation(); const n = normSel(); pasteFromText(txt, n.a, n.c); } else if (!editingInput) { e.preventDefault(); const n = normSel(); pasteFromText(txt, n.a, n.c); } }
+        window.addEventListener("keydown", onKey, true);
+        window.addEventListener("paste", onPaste, true);
+        return () => { window.removeEventListener("keydown", onKey, true); window.removeEventListener("paste", onPaste, true); };
+    }, [open, edit, sel, tables, ti, draft]);
+    function newTable() { const t = [...tables, { id: "t" + Date.now(), name: "표 " + (tables.length + 1), cells: Array.from({ length: 5 }, () => Array.from({ length: 4 }, () => "")) }]; saveTables(t); setTi(t.length - 1); setSel({ r: 0, c: 0, r2: 0, c2: 0 }); }
+    function delTable() { if (tables.length <= 1) { setCells(Array.from({ length: 5 }, () => Array.from({ length: 4 }, () => ""))); return; } if (!window.confirm("이 표를 삭제할까요?")) return; const t = tables.filter((_, i) => i !== ti); saveTables(t); setTi(Math.max(0, ti - 1)); }
     function renameTable() { const nm = window.prompt("표 이름", tab.name); if (nm == null) return; const t = tables.slice(); t[ti] = { ...tab, name: nm }; saveTables(t); }
     function resize(e) { e.preventDefault(); e.stopPropagation(); const sx = e.clientX, sy = e.clientY, ow = geo.w, oh = geo.h; const mm = ev => setGeo(g => ({ ...g, w: Math.max(360, ow + ev.clientX - sx), h: Math.max(240, oh + ev.clientY - sy) })); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
     if (!open) return null;
     return Rr.createPortal(o.jsxs("div", { className: "fixed rounded-xl shadow-2xl flex flex-col overflow-hidden", style: { zIndex: 2147483350, left: geo.x, top: geo.y, width: geo.w, height: geo.h, backgroundColor: "#0f1420", border: "1px solid rgba(255,255,255,0.18)" }, children: [
         o.jsxs("div", { onMouseDown: _dh.drag, style: { cursor: "grab" }, className: "flex items-center gap-2 px-3 py-2 border-b border-white/10 select-none flex-shrink-0 bg-white/5", children: [
             o.jsx("span", { className: "text-white font-semibold text-sm", children: "▦ 표" }),
-            o.jsx("div", { className: "flex items-center gap-1 overflow-x-auto flex-1", children: tables.map((tb, i) => o.jsx("button", { onClick: () => setTi(i), onDoubleClick: () => { if (i === ti) renameTable(); }, title: "더블클릭: 이름 변경", className: "px-2 py-0.5 rounded text-xs whitespace-nowrap cursor-pointer border " + (i === ti ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"), children: tb.name }, tb.id)) }),
+            o.jsx("div", { className: "flex items-center gap-1 overflow-x-auto flex-1", children: tables.map((tb, i) => o.jsx("button", { onClick: () => { setTi(i); setSel({ r: 0, c: 0, r2: 0, c2: 0 }); setEdit(null); }, onDoubleClick: () => { if (i === ti) renameTable(); }, className: "px-2 py-0.5 rounded text-xs whitespace-nowrap cursor-pointer border " + (i === ti ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"), children: tb.name }, tb.id)) }),
             o.jsx("button", { onClick: newTable, title: "새 표", className: "px-2 py-0.5 rounded text-xs bg-white/10 text-white/70 hover:bg-white/20 cursor-pointer border-none", children: "＋" }),
-            o.jsx("button", { onClick: delTable, title: "이 표 삭제", className: "px-1.5 py-0.5 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none", children: "🗑" }),
             o.jsx("button", { onClick: () => setOpen(false), className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
         ] }),
-        o.jsx("div", { className: "flex-1 overflow-auto p-2", children: o.jsx(DDBDocEditor, { content: tab.content, fontSize: 13, onCommit: saveContent, itemId: "tblwin-" + tab.id, soloOn: true, maxH: "none", onExit: () => setOpen(false) }, tab.id) }),
+        o.jsxs("div", { className: "flex items-center gap-1 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", children: [
+            o.jsx("button", { onClick: addRow, className: "px-2 py-1 rounded text-xs bg-white/8 border border-white/15 text-white/80 hover:bg-white/15 cursor-pointer", children: "＋ 행" }),
+            o.jsx("button", { onClick: addCol, className: "px-2 py-1 rounded text-xs bg-white/8 border border-white/15 text-white/80 hover:bg-white/15 cursor-pointer", children: "＋ 열" }),
+            o.jsx("button", { onClick: delRows, className: "px-2 py-1 rounded text-xs bg-white/8 border border-white/15 text-white/80 hover:bg-red-500/20 cursor-pointer", children: "행 삭제" }),
+            o.jsx("button", { onClick: delCols, className: "px-2 py-1 rounded text-xs bg-white/8 border border-white/15 text-white/80 hover:bg-red-500/20 cursor-pointer", children: "열 삭제" }),
+            o.jsx("span", { className: "w-px h-5 bg-white/15 mx-0.5" }),
+            o.jsx("button", { onClick: () => copySel(false), className: "px-2 py-1 rounded text-xs bg-white/8 border border-white/15 text-white/80 hover:bg-white/15 cursor-pointer", children: "복사" }),
+            o.jsx("button", { onClick: () => copySel(true), className: "px-2 py-1 rounded text-xs bg-white/8 border border-white/15 text-white/80 hover:bg-white/15 cursor-pointer", children: "잘라내기" }),
+            o.jsx("button", { onClick: () => { const n = normSel(); pasteAt(n.a, n.c); }, className: "px-2 py-1 rounded text-xs bg-white/8 border border-white/15 text-white/80 hover:bg-white/15 cursor-pointer", children: "붙여넣기" }),
+            o.jsx("button", { onClick: delTable, className: "px-2 py-1 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none ml-auto", children: "표 삭제" }),
+            o.jsx("span", { className: "text-white/30 text-[10px] w-full", children: "셀 클릭·드래그로 범위 선택 · 더블클릭/타이핑으로 편집 · Ctrl+C/X/V(엑셀 붙여넣기) · Del 지우기" })
+        ] }),
+        o.jsx("div", { className: "flex-1 overflow-auto p-2", children: o.jsx("table", { style: { borderCollapse: "collapse" }, children: o.jsx("tbody", { children: cells.map((row, r) => o.jsx("tr", { children: row.map((v, c) => o.jsx("td", { onMouseDown: e => { if (edit && (edit.r !== r || edit.c !== c)) commitEdit(); if (e.shiftKey) setSel(s => ({ ...s, r2: r, c2: c })); else { setSel({ r, c, r2: r, c2: c }); dragging.current = true; } }, onMouseEnter: () => { if (dragging.current) setSel(s => ({ ...s, r2: r, c2: c })); }, onMouseUp: () => { dragging.current = false; }, onDoubleClick: () => startEdit(r, c), style: { border: "1px solid rgba(255,255,255,0.18)", minWidth: 74, maxWidth: 320, height: 26, padding: 0, background: inSel(r, c) ? "rgba(59,130,246,0.25)" : (r === sel.r && c === sel.c ? "rgba(59,130,246,0.15)" : "transparent"), outline: (r === sel.r && c === sel.c) ? "2px solid #3b82f6" : "none", outlineOffset: -2 }, children: (edit && edit.r === r && edit.c === c) ? o.jsx("input", { "data-tblcell": "1", autoFocus: !0, value: draft, onChange: e => setDraft(e.target.value), onBlur: commitEdit, className: "w-full h-full bg-transparent text-white text-xs px-1.5 outline-none", style: { minWidth: 72 } }) : o.jsx("div", { className: "text-white/85 text-xs px-1.5 py-1 whitespace-pre truncate", style: { minWidth: 72, maxWidth: 320, cursor: "cell" }, children: v }) }, c)) }, r)) }) }) }),
+        o.jsx("textarea", { ref: taRef, "data-tblcatch": "1", value: "", onChange: () => {}, "aria-hidden": "true", style: { position: "absolute", left: -9999, top: 0, width: 1, height: 1, opacity: 0 } }),
         o.jsx("div", { onMouseDown: resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) })
     ] }), document.body);
 }
@@ -1589,7 +1643,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.97.87";
+const DDB_VERSION = "0.97.86";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3133,7 +3187,7 @@ function um({
                 className: "flex-1"
             }), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono",
-                children: "v224"
+                children: "v223"
             }), (() => {
                 const S = [{
                     k: "cal",
