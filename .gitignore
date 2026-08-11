@@ -7,3 +7,20 @@ release/
 *.log
 .DS_Store
 Thumbs.db
+
+# ── 내부 전용 (GitHub 업로드 금지, 내 PC에만 보관) ──
+# 개발/배포 가이드 문서
+*따라하기.txt
+*가이드.txt
+# 데이터베이스 설정 SQL (Supabase에서 수동 실행용)
+*.sql
+# 개발/빌드용 스크립트
+*.bat
+server.js
+server.ps1
+server.py
+team-panel-draft.js
+# 소스 백업본
+src/legacy/app_v*.js
+# 옛 빌드 찌꺼기 폴더
+/assets/

@@ -230,6 +230,13 @@ function ddbSelIcs(dates, events){
   return out.join("\r\n");
 }
 function ddbDownloadIcs(text, name){ try{ const blob=new Blob([text],{type:"text/calendar;charset=utf-8"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=(name||"schedule")+".ics"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500); return true }catch{ return false } }
+function ddbHIcon(k) {
+    const P = (d, i) => o.jsx("path", { d: d }, i);
+    const R = (x, y, w, h, rx, i) => o.jsx("rect", { x: x, y: y, width: w, height: h, rx: rx }, i);
+    const C = (cx, cy, r, i) => o.jsx("circle", { cx: cx, cy: cy, r: r }, i);
+    const kids = { lock: [R(4, 11, 16, 10, 2, 1), P("M8 11V7a4 4 0 0 1 8 0v4", 2)], calendar: [R(3, 5, 18, 16, 2, 1), P("M3 9.5h18M8 3v4M16 3v4", 2)], money: [C(12, 12, 9, 1), o.jsx("text", { x: 12, y: 16, textAnchor: "middle", fontSize: 12, fill: "currentColor", stroke: "none", children: "₩" }, 2)], list: [R(5, 4, 14, 17, 2, 1), P("M9 4h6v3H9zM9 12h6M9 16h6", 2)], team: [C(9, 8, 3, 1), P("M3.5 20a5.5 5.5 0 0 1 11 0", 2), P("M16 6a3 3 0 0 1 0 6M21 20a5.5 5.5 0 0 0-4.5-5.4", 3)], folder: [P("M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", 1)], share: [P("M12 15V3M8 7l4-4 4 4", 1), P("M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5", 2)], image: [R(3, 4, 18, 16, 2, 1), C(8.5, 10, 2, 2), P("M4 18l5-5 4 4 3-3 4 4", 3)], table: [R(3, 4, 18, 16, 1, 1), P("M3 10h18M3 15h18M9 4v16M15 4v16", 2)], timer: [C(12, 14, 7.5, 1), P("M12 14V9.5M10 3h4M12 3v3", 2)], chart: [P("M4 4v16h16", 1), R(7, 12, 3, 5, 1, 2), R(12, 8, 3, 9, 1, 3), R(17, 5, 3, 12, 1, 4)] };
+    return o.jsx("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", style: { display: "inline-block", verticalAlign: "middle" }, children: kids[k] || [] });
+}
 const DDB_MNAMES = { en:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], de:["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"], es:["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"] };
 function ddbMLabel(mm){ return DDB_MNAMES[DDB_LANG] ? DDB_MNAMES[DDB_LANG][mm-1] : (DDB_LANG==="ja"||DDB_LANG==="zh"||DDB_LANG==="zhTW") ? mm+"月" : mm+"월"; }
 function ddbYLabel(y){ return y + (DDB_LANG==="ja"||DDB_LANG==="zh"||DDB_LANG==="zhTW" ? "年" : DDB_LANG==="ko" ? "년" : ""); }
@@ -583,6 +590,44 @@ function DDBTableWindow() {
     ] }), document.body);
 }
 
+function DDBGantt() {
+    const [open, setOpen] = O.useState(false);
+    const { state, dispatch } = vt();
+    const events = (state && state.events) || [];
+    const [ym, setYm] = O.useState(() => ((state && state.currentYear) || new Date().getFullYear()) + "-" + String((state && state.currentMonth) || (new Date().getMonth() + 1)).padStart(2, "0"));
+    const [pos, setPos] = O.useState(() => { try { const p = JSON.parse(localStorage.getItem("ddb_gantt_pos") || "null"); if (p && typeof p.x === "number") return p; } catch {} return { x: 80, y: 92 }; });
+    O.useEffect(() => { const h = () => setOpen(v => { const nv = !v; if (nv) setYm(((state && state.currentYear) || new Date().getFullYear()) + "-" + String((state && state.currentMonth) || (new Date().getMonth() + 1)).padStart(2, "0")); return nv; }); window.addEventListener("ddb-open-gantt", h); return () => window.removeEventListener("ddb-open-gantt", h); }, [state]);
+    function drag(e) { if (e.target.closest && e.target.closest("button")) return; e.preventDefault(); const sx = e.clientX, sy = e.clientY, ox = pos.x, oy = pos.y; const mm = ev => setPos({ x: Math.max(0, ox + ev.clientX - sx), y: Math.max(0, oy + ev.clientY - sy) }); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); setPos(p => { try { localStorage.setItem("ddb_gantt_pos", JSON.stringify(p)); } catch {} return p; }); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
+    function shift(d) { const p = ym.split("-").map(Number); const nd = new Date(p[0], p[1] - 1 + d, 1); setYm(nd.getFullYear() + "-" + String(nd.getMonth() + 1).padStart(2, "0")); }
+    if (!open) return null;
+    const CMAP = { blue: "#3b82f6", green: "#22c55e", red: "#ef4444", yellow: "#eab308", purple: "#a855f7", pink: "#ec4899", orange: "#f97316", gray: "#6b7280", grey: "#6b7280", indigo: "#6366f1", teal: "#14b8a6", cyan: "#06b6d4", amber: "#f59e0b", lime: "#84cc16", rose: "#f43f5e", sky: "#0ea5e9", emerald: "#10b981", violet: "#8b5cf6" };
+    const barColor = c => (typeof c === "string" && c[0] === "#") ? c : (CMAP[c] || "#3b82f6");
+    const PP = ym.split("-").map(Number), Y = PP[0], M = PP[1];
+    const dim = new Date(Y, M, 0).getDate();
+    const mStart = ym + "-01", mEnd = ym + "-" + String(dim).padStart(2, "0");
+    const today = new Date().toISOString().slice(0, 10);
+    const CW = 26, TITLEW = 130, RH = 22;
+    const rows = events.filter(e => e && e.date && !e.bankTx && !e._loanId && !e._savingsId).map(e => { const s = String(e.date).slice(0, 10); const en = String(e.endDate || e.date).slice(0, 10); return { ev: e, s: s, en: (en < s ? s : en) }; }).filter(e => e.s <= mEnd && e.en >= mStart).sort((a, b) => a.s.localeCompare(b.s) || String(a.ev.title || "").localeCompare(String(b.ev.title || "")));
+    const gridW = dim * CW;
+    const dayCells = [];
+    for (let d = 1; d <= dim; d++) { const wd = new Date(Y, M - 1, d).getDay(); const ds = ym + "-" + String(d).padStart(2, "0"); dayCells.push(o.jsx("div", { style: { width: CW, minWidth: CW, textAlign: "center", fontSize: 9, padding: "2px 0", color: ds === today ? "#fff" : (wd === 0 ? "#f87171" : wd === 6 ? "#60a5fa" : "rgba(255,255,255,0.5)"), background: ds === today ? "rgba(96,165,250,0.35)" : (wd === 0 || wd === 6 ? "rgba(255,255,255,0.04)" : "transparent"), borderLeft: "1px solid rgba(255,255,255,0.06)" }, children: d }, d)); }
+    const barRows = rows.map((r, i) => { const cs = r.s < mStart ? 1 : +r.s.slice(8, 10); const ce = r.en > mEnd ? dim : +r.en.slice(8, 10); const left = (cs - 1) * CW, w = Math.max(CW - 2, (ce - cs + 1) * CW - 2); const col = barColor(r.ev.color); const dd = new Date(String(r.ev.date).slice(0, 10)); return o.jsxs("div", { style: { display: "flex", height: RH, alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.05)" }, children: [o.jsx("div", { title: r.ev.title || "", style: { width: TITLEW, minWidth: TITLEW, fontSize: 11, color: "rgba(255,255,255,0.85)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 6px", borderLeft: "3px solid " + col }, children: r.ev.title || "(제목 없음)" }), o.jsx("div", { style: { position: "relative", width: gridW, minWidth: gridW, height: RH }, children: o.jsx("button", { onClick: () => { dispatch({ type: "SET_MONTH", year: dd.getFullYear(), month: dd.getMonth() + 1 }); setOpen(false); }, title: (r.ev.title || "") + " (" + r.s + (r.en !== r.s ? " ~ " + r.en : "") + ")" + (r.ev.memo ? "\n" + r.ev.memo : ""), style: { position: "absolute", left: left + 1, top: 3, width: w, height: RH - 6, background: col, borderRadius: 4, border: "none", cursor: "pointer", color: "#fff", fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px", textAlign: "left", opacity: 0.92 }, children: w > 34 ? (r.ev.title || "") : "" }) })] }, r.ev.id || i); });
+    return o.jsx("div", { style: { position: "fixed", left: pos.x, top: pos.y, zIndex: 2147483200, width: "min(680px, 94vw)", background: "#0f1420", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }, children: o.jsxs("div", { style: { display: "flex", flexDirection: "column", maxHeight: "72vh" }, children: [
+        o.jsxs("div", { onMouseDown: drag, style: { cursor: "grab", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", flexShrink: 0, userSelect: "none" }, children: [
+            o.jsx("span", { style: { color: "#fff", fontWeight: 600, fontSize: 13 }, children: "간트차트" }),
+            o.jsx("div", { style: { flex: 1 } }),
+            o.jsx("button", { onClick: () => shift(-1), style: { background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: 6, width: 24, height: 22, cursor: "pointer" }, title: "이전 달", children: "◀" }),
+            o.jsx("span", { style: { color: "#fff", fontSize: 12, minWidth: 78, textAlign: "center" }, children: Y + "년 " + M + "월" }),
+            o.jsx("button", { onClick: () => shift(1), style: { background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: 6, width: 24, height: 22, cursor: "pointer" }, title: "다음 달", children: "▶" }),
+            o.jsx("button", { onClick: () => setOpen(false), style: { background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", fontSize: 16, cursor: "pointer", marginLeft: 4 }, title: "닫기", children: "✕" })
+        ] }),
+        o.jsx("div", { className: "thin-scroll", style: { overflow: "auto", flex: 1 }, children: o.jsxs("div", { style: { minWidth: TITLEW + gridW }, children: [
+            o.jsxs("div", { style: { display: "flex", position: "sticky", top: 0, background: "#0f1420", zIndex: 2, borderBottom: "1px solid rgba(255,255,255,0.12)" }, children: [o.jsx("div", { style: { width: TITLEW, minWidth: TITLEW, fontSize: 10, color: "rgba(255,255,255,0.4)", padding: "2px 6px" }, children: "일정" }), o.jsx("div", { style: { display: "flex" }, children: dayCells })] }),
+            rows.length ? o.jsx("div", { children: barRows }) : o.jsx("div", { style: { padding: "24px 12px", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 12 }, children: "이 달에 표시할 일정이 없어요." })
+        ] }) }),
+        o.jsx("div", { style: { padding: "5px 12px", borderTop: "1px solid rgba(255,255,255,0.08)", fontSize: 10, color: "rgba(255,255,255,0.35)", flexShrink: 0 }, children: "막대를 클릭하면 그 일정이 있는 달로 달력이 이동합니다." })
+    ] }) });
+}
 function DDBPomodoro() {
     const [open, setOpen] = O.useState(false);
     const [work, setWork] = O.useState(() => { const v = +localStorage.getItem("ddb_pomo_work"); return v > 0 ? v : 25; });
@@ -1589,7 +1634,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.97.87";
+const DDB_VERSION = "0.97.92";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3133,7 +3178,7 @@ function um({
                 className: "flex-1"
             }), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono",
-                children: "v224"
+                children: "v229"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -6045,7 +6090,7 @@ function fd({
                     k: "lock",
                     title: t.privacy.enabled ? "사생활 보호 끄기" : "사생활 보호 켜기 — 설정한 시간 동안 자리를 비우면 화면이 투명해지고, 클릭하면 돌아옵니다",
                     cls: `px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border flex-shrink-0 ${t.privacy.enabled?"bg-purple-500/30 text-purple-200 border-purple-400/50":"text-white/30 hover:text-white/60 border-white/10"}`,
-                    body: "🔒",
+                    body: ddbHIcon("lock"),
                     act: () => {
                         const S = !t.privacy.enabled;
                         n({
@@ -6065,7 +6110,7 @@ function fd({
                     k: "cal",
                     title: k ? DDBTR("달력 숨기기") : DDBTR("달력 보기"),
                     cls: `px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${(k&&!A&&!F)?"bg-blue-500/30 text-blue-300 border border-blue-500/40":"text-white/30 hover:text-white/60 border border-white/10"}`,
-                    body: "📅",
+                    body: ddbHIcon("calendar"),
                     act: () => {
                         A || F ? (H(!1), R(!1), k || E()) : E()
                     }
@@ -6073,13 +6118,13 @@ function fd({
                     k: "ledger",
                     title: b ? "가계부 숨기기" : "가계부 보기",
                     cls: `px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${(b&&!A&&!F)?"bg-green-500/30 text-green-300 border border-green-500/40":"text-white/30 hover:text-white/60 border border-white/10"}`,
-                    body: "💰",
+                    body: ddbHIcon("money"),
                     act: () => T(S => !S)
                 }, {
                     k: "detail",
                     title: A ? DDBTR("달력 보기") : "가계부(상세보기)",
                     cls: `px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${A?"bg-amber-500/30 text-amber-300 border border-amber-500/40":"text-white/30 hover:text-white/60 border border-white/10"}`,
-                    body: "📋",
+                    body: ddbHIcon("list"),
                     act: () => {
                         H(S => !S), R(!1)
                     }
@@ -6097,38 +6142,44 @@ function fd({
                     k: "team",
                     title: t.settings.teamOnly ? DDBTR("팀 전환") : (teamOn ? DDBTR("개인 달력 보기") : DDBTR("팀 달력 보기")),
                     cls: `px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border ${teamOn?"bg-indigo-500/40 text-indigo-100 border-indigo-400/60":"text-white/30 hover:text-white/60 border-white/10"}`,
-                    body: "\u{1F465}",
+                    body: ddbHIcon("team"),
                     act: () => ddbTeamToggle()
                 }, {
                     k: "memodetail",
                     title: DDBTR("메모 상세"),
                     cls: "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border border-white/15 text-white/60 hover:bg-white/10",
-                    body: "\u{1F5C2}",
+                    body: ddbHIcon("folder"),
                     act: () => window.dispatchEvent(new CustomEvent("ddb-memo-overview"))
                 }, {
                     k: "share",
                     title: DDBTR("일정 내보내기 (이미지·표·ics)"),
                     cls: "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border border-white/15 text-white/60 hover:bg-white/10 hover:text-emerald-300",
-                    body: "\u{1F4E4}",
+                    body: ddbHIcon("share"),
                     act: () => window.dispatchEvent(new CustomEvent("ddb-open-share"))
                 }, {
                     k: "imgedit",
                     title: DDBTR("이미지 편집 (캡처 붙여넣기·드래그)"),
                     cls: "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border border-white/15 text-white/60 hover:bg-white/10 hover:text-pink-300",
-                    body: "\u{1F5BC}",
+                    body: ddbHIcon("image"),
                     act: () => window.dispatchEvent(new CustomEvent("ddb-image-edit"))
                 }, {
                     k: "table",
                     title: DDBTR("표 (엑셀식 편집·붙여넣기)"),
                     cls: "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border border-white/15 text-white/60 hover:bg-white/10 hover:text-cyan-300",
-                    body: "▦",
+                    body: ddbHIcon("table"),
                     act: () => window.dispatchEvent(new CustomEvent("ddb-open-table"))
                 }, {
                     k: "pomodoro",
                     title: DDBTR("포모도로 타이머"),
                     cls: "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border border-white/15 text-white/60 hover:bg-white/10 hover:text-red-300",
-                    body: "\u{1F345}",
+                    body: ddbHIcon("timer"),
                     act: () => window.dispatchEvent(new CustomEvent("ddb-open-pomodoro"))
+                }, {
+                    k: "gantt",
+                    title: DDBTR("간트차트 (일정 기간 보기)"),
+                    cls: "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border border-white/15 text-white/60 hover:bg-white/10 hover:text-teal-300",
+                    body: ddbHIcon("chart"),
+                    act: () => window.dispatchEvent(new CustomEvent("ddb-open-gantt"))
                 }];
                 const ddbExtraAct = [...["1", "2", "3", "4", "5"].map(nn => ({ k: "memo" + nn, act: () => { const tid = "memo-" + nn, ex = (t.panels || []).find(A => A.type === "memo" && A.memoTabId === tid); n(ex ? { type: "REMOVE_PANEL", id: ex.id } : { type: "ADD_PANEL", panel: { id: `panel-memo-${Ft()}`, type: "memo", memoTabId: tid, slot: "float", order: 0, floatX: 120 + Number(nn) * 26, floatY: 90 + Number(nn) * 26, floatW: 240, floatH: 400, minimized: !1, zIndex: (t.topZIndex || 10) + 1 } }) } })), { k: "calc", act: () => { const ex = (t.panels || []).find(A => A.type === "calculator"); n(ex ? { type: "REMOVE_PANEL", id: ex.id } : { type: "ADD_PANEL", panel: { id: `panel-calculator-${Ft()}`, type: "calculator", slot: "float", order: 0, floatX: 200, floatY: 100, floatW: 240, floatH: 420, minimized: !1, zIndex: (t.topZIndex || 10) + 1 } }) } }, { k: "playNext", act: () => { window.__ddbPlayerCtl && window.__ddbPlayerCtl.next() } }, { k: "playPrev", act: () => { window.__ddbPlayerCtl && window.__ddbPlayerCtl.prev() } }, { k: "playToggle", act: () => { window.__ddbPlayerCtl && window.__ddbPlayerCtl.toggle() } }];
                 window.__ddbCACT = [...q7, ...ddbExtraAct];
@@ -7948,6 +7999,10 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     const [menu, setMenu] = O.useState(null);
     const [fx, setFx] = O.useState(null);
     const [help, setHelp] = O.useState(null);
+    const tcfgKey = "ddb_tcfg_" + itemId;
+    const [tcfg, setTcfg] = O.useState(() => { try { return JSON.parse(localStorage.getItem(tcfgKey) || "{}") || {}; } catch { return {}; } });
+    const [gear, setGear] = O.useState(null);
+    function setTcfgV(k, v) { setTcfg(prev => { const n = { ...prev, [k]: v }; try { localStorage.setItem(tcfgKey, JSON.stringify(n)); } catch {} return n; }); }
     const DDB_TB_DEF = ["ff", "fs", "b", "u", "bg", "fg", "al", "ac", "ar", "bw", "bs"];
     const [tbOrder, setTbOrder] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_tb_order") || "null"); if (Array.isArray(v)) { const k = v.filter(x => DDB_TB_DEF.indexOf(x) >= 0); DDB_TB_DEF.forEach(x => { if (k.indexOf(x) < 0) k.push(x); }); return k; } } catch {} return DDB_TB_DEF.slice(); });
     const [tbDrag, setTbDrag] = O.useState(null);
@@ -7967,7 +8022,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     function redo() { const u = undoRef.current; if (u.idx >= u.stack.length - 1) return; u.idx++; const s = u.stack[u.idx]; applyState(s.blocks, s.fmt); }
     function setCell(bi, r, c, val) { const nb = blocks.map((b, i) => { if (i !== bi || b.t !== "table") return b; const k = { ...b, headers: b.headers.slice(), rows: b.rows.map(x => x.slice()) }; if (r < 0) k.headers[c] = val; else { while (k.rows.length <= r) k.rows.push(k.headers.map(() => "")); k.rows[r] = (k.rows[r] || []).slice(); k.rows[r][c] = val; } return k; }); setBlocks(nb); save(nb, fmt, "cell"); }
     function setText(bi, s) { const nb = blocks.map((b, i) => i === bi ? { ...b, s: s } : b); setBlocks(nb); save(nb, fmt, "text"); }
-    function cellInput(ev, bi, r, c) { const val = ev.target.value; setCell(bi, r, c, val); const info = ddbFxToken(val, ev.target.selectionStart); if (info) { const matches = DDB_FUNCS.filter(f => f[0].indexOf(info.tok.toUpperCase()) === 0); if (matches.length) { const rc = ev.target.getBoundingClientRect(); setFx({ key: bi + ":" + r + ":" + c, start: info.start, pos: info.pos, matches: matches, idx: 0, x: rc.left, y: rc.bottom + 2 }); return; } } setFx(null); }
+    function cellInput(ev, bi, r, c) { const val = ev.target.value; setCell(bi, r, c, val); if (tcfg.grow) { const f = fmt[bi + ":" + r + "," + c] || {}; const need = Math.ceil(ddbMeasW(val, f.fs || 11, f.ff)) + 16; if (need > colW(bi, c)) setColW(bi, c, need); } const info = ddbFxToken(val, ev.target.selectionStart); if (info) { const matches = DDB_FUNCS.filter(f => f[0].indexOf(info.tok.toUpperCase()) === 0); if (matches.length) { const rc = ev.target.getBoundingClientRect(); setFx({ key: bi + ":" + r + ":" + c, start: info.start, pos: info.pos, matches: matches, idx: 0, x: rc.left, y: rc.bottom + 2 }); return; } } setFx(null); }
     function pickFunc(name) { if (!fx) return; const el = rootRef.current && rootRef.current.querySelector('[data-cell="' + fx.key + '"]'); const val = el ? el.value : ""; const nv = val.slice(0, fx.start) + name + "(" + val.slice(fx.pos); const p = fx.key.split(":"); setCell(+p[0], +p[1], +p[2], nv); const np = fx.start + name.length + 1; setFx(null); setTimeout(() => { const e2 = rootRef.current && rootRef.current.querySelector('[data-cell="' + fx.key + '"]'); if (e2) { e2.focus(); try { e2.setSelectionRange(np, np); } catch {} } }, 0); }
     function addRow(bi) { const nb = blocks.map((b, i) => i === bi && b.t === "table" ? { ...b, rows: [...b.rows.map(x => x.slice()), b.headers.map(() => "")] } : b); setBlocks(nb); save(nb, fmt); }
     function addCol(bi) { const nb = blocks.map((b, i) => i === bi && b.t === "table" ? { ...b, headers: [...b.headers, "열" + (b.headers.length + 1)], rows: b.rows.map(x => [...x, ""]) } : b); setBlocks(nb); save(nb, fmt); }
@@ -7983,6 +8038,12 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     const colW = (bi, ci) => { const a = tws[bi]; return (a && a[ci] && a[ci] > 20) ? a[ci] : 96; };
     function setColW(bi, ci, w) { setTws(prev => { const n = { ...prev }; const a = (n[bi] || []).slice(); a[ci] = Math.max(40, Math.min(600, Math.round(w))); n[bi] = a; try { localStorage.setItem(twKey, JSON.stringify(n)); } catch {} return n; }); }
     function colDrag(bi, ci, ev) { ev.preventDefault(); ev.stopPropagation(); const sx = ev.clientX, ow = colW(bi, ci); const mm = e2 => setColW(bi, ci, ow + (e2.clientX - sx)); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
+    function colDragL(bi, ci, ev) { ev.preventDefault(); ev.stopPropagation(); const sx = ev.clientX, ow = colW(bi, ci); const mm = e2 => setColW(bi, ci, ow + (e2.clientX - sx)); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
+    function setAllColW(bi, w) { const ww = Math.max(40, Math.min(600, Math.round(w))); setTws(prev => { const n = { ...prev }; const b = blocks[bi]; const cols = (b && b.headers) ? b.headers.length : 0; const a = []; for (let i = 0; i < cols; i++) a[i] = ww; n[bi] = a; try { localStorage.setItem(twKey, JSON.stringify(n)); } catch {} return n; }); }
+    function colDragAll(bi, ev) { ev.preventDefault(); ev.stopPropagation(); const sx = ev.clientX; const b = blocks[bi]; const cols = (b && b.headers) ? b.headers.length : 1; let sum = 0; for (let i = 0; i < cols; i++) sum += colW(bi, i); const ow = Math.round(sum / cols); const mm = e2 => setAllColW(bi, ow + (e2.clientX - sx)); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
+    function ddbMeasW(txt, fs, ff) { const cv = document.createElement("canvas"); const ctx = cv.getContext("2d"); ctx.font = (fs || 11) + "px " + (ff && ff !== "inherit" ? ff : "sans-serif"); let mx = 0; String(txt == null ? "" : txt).split("\n").forEach(l => { const w = ctx.measureText(l).width; if (w > mx) mx = w; }); return mx; }
+    function autoFitCol(bi, ci) { const b = blocks[bi]; if (!b || b.t !== "table") return; const hf = fmt[bi + ":-1," + ci] || {}; let mx = ddbMeasW(ddbCellDisp(b, -1, ci), hf.fs || 11, hf.ff); for (let R = 0; R < b.rows.length; R++) { const f = fmt[bi + ":" + R + "," + ci] || {}; const w = ddbMeasW(ddbCellDisp(b, R, ci), f.fs || 11, f.ff); if (w > mx) mx = w; } setColW(bi, ci, Math.max(40, Math.min(600, Math.ceil(mx) + 16))); }
+    function autoFitAll(bi) { const b = blocks[bi]; if (!b || b.t !== "table") return; for (let c = 0; c < b.headers.length; c++) autoFitCol(bi, c); }
     function focusCell(bi, r, c) { const el = rootRef.current && rootRef.current.querySelector('[data-cell="' + bi + ':' + r + ':' + c + '"]'); if (el) { el.focus(); try { el.select(); } catch {} return true; } return false; }
     function focusBlockEl(bi, col, bottom) { if (bi < 0 || bi >= blocks.length || !rootRef.current) return false; const b = blocks[bi]; if (b.t === "text") { const el = rootRef.current.querySelector('[data-tb="' + bi + '"]'); if (el) { el.focus(); try { const p = bottom ? (el.value || "").length : 0; el.setSelectionRange(p, p); } catch {} return true; } return false; } const c = Math.max(0, Math.min(col || 0, b.headers.length - 1)); const r = (b.rows.length ? (bottom ? b.rows.length - 1 : 0) : -1); const el = rootRef.current.querySelector('[data-cell="' + bi + ':' + r + ':' + c + '"]'); if (el) { el.focus(); try { el.select(); } catch {} return true; } return false; }
     function textNav(ev, bi) { const ta = ev.target; if (ev.key === "ArrowDown") { if (ta.selectionStart === (ta.value || "").length) { ev.preventDefault(); focusBlockEl(bi + 1, 0, false); } } else if (ev.key === "ArrowUp") { if (ta.selectionStart === 0 && ta.selectionEnd === 0) { ev.preventDefault(); focusBlockEl(bi - 1, 0, true); } } }
@@ -7990,7 +8051,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     function reorderBlock(from, to) { if (from == null || to == null || from === to) return; const nb = blocks.slice(); const it = nb.splice(from, 1)[0]; nb.splice(to, 0, it); const order = blocks.map((_, i) => i); const oi = order.splice(from, 1)[0]; order.splice(to, 0, oi); const map = {}; order.forEach((old, ni) => map[old] = ni); const nf = remapFmt(fmt, old => map[old] == null ? -1 : map[old]); const ntw = {}; order.forEach((old, ni) => { if (tws[old]) ntw[ni] = tws[old]; }); setTws(ntw); try { localStorage.setItem(twKey, JSON.stringify(ntw)); } catch {} setBlocks(nb); setFmt(nf); save(nb, nf); setSel(null); }
     function startBlockDrag(bi, ev) { ev.preventDefault(); ev.stopPropagation(); dragRef.current = { from: bi, to: bi }; setDragBi(bi); setDropBi(bi); const mm = e2 => { const els = rootRef.current ? [].slice.call(rootRef.current.querySelectorAll("[data-block]")) : []; let t = null; for (let k = 0; k < els.length; k++) { const rc = els[k].getBoundingClientRect(); if (e2.clientY >= rc.top && e2.clientY <= rc.bottom) { t = +els[k].getAttribute("data-block"); break; } if (e2.clientY < rc.top && t === null) { t = +els[k].getAttribute("data-block"); } } if (t !== null) { dragRef.current.to = t; setDropBi(t); } }; const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); const d = dragRef.current; setDragBi(null); setDropBi(null); reorderBlock(d.from, d.to); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
     const inRange = (bi, r, c) => sel && sel.bi === bi && r >= Math.min(sel.r, sel.r2) && r <= Math.max(sel.r, sel.r2) && c >= Math.min(sel.c, sel.c2) && c <= Math.max(sel.c, sel.c2);
-    function cellDown(bi, r, c, ev) { if (ev.shiftKey && sel && sel.bi === bi) setSel({ bi: bi, r: sel.r, c: sel.c, r2: r, c2: c }); else setSel({ bi: bi, r: r, c: c, r2: r, c2: c }); }
+    function cellDown(bi, r, c, ev) { if (ev.shiftKey && sel && sel.bi === bi) { setSel({ bi: bi, r: sel.r, c: sel.c, r2: r, c2: c }); return; } setSel({ bi: bi, r: r, c: c, r2: r, c2: c }); const a = { r: r, c: c }; let moved = false; const mm = e2 => { const el = document.elementFromPoint(e2.clientX, e2.clientY); const ce = el && el.closest ? el.closest("[data-cell]") : null; if (!ce) return; const p = (ce.getAttribute("data-cell") || "").split(":"); if (+p[0] !== bi) return; const nr = +p[1], nc = +p[2]; if (!moved && nr === r && nc === c) return; if (!moved) { moved = true; try { document.activeElement && document.activeElement.blur(); } catch {} } setSel({ bi: bi, r: a.r, c: a.c, r2: nr, c2: nc }); }; const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
     const baseB = "1px solid rgba(255,255,255,0.35)";
     const lblSty = { border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)", fontSize: "9px", textAlign: "center", padding: "1px 3px", fontWeight: 600, width: 22, minWidth: 22, userSelect: "none" };
     function cellSty(bi, r, c, header) { const f = fmt[bi + ":" + r + "," + c] || {}; const border = f.bw != null ? (f.bw > 0 ? f.bw + "px " + (f.bs || "solid") + " rgba(255,255,255,0.7)" : "1px solid rgba(255,255,255,0.08)") : baseB; return { border: border, width: colW(bi, c), minWidth: colW(bi, c), maxWidth: colW(bi, c), padding: "2px 4px", position: "relative", background: f.bg || (header ? "rgba(255,255,255,0.12)" : "transparent"), outline: inRange(bi, r, c) ? "2px solid #60a5fa" : void 0, outlineOffset: "-2px" }; }
@@ -8030,6 +8091,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     const menuPortal = menu ? Rr.createPortal(o.jsxs(o.Fragment, { children: [o.jsx("div", { className: "fixed inset-0", style: { zIndex: 2147483000 }, onMouseDown: closeMenu }), o.jsx("div", { className: "fixed rounded-lg p-1 shadow-2xl", style: { zIndex: 2147483001, left: menu.x + "px", top: menu.y + "px", background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.2)" }, onMouseDown: ev => ev.stopPropagation(), children: menuContent(menu.id) })] }), document.body) : null;
     const mOn = id => menu && menu.id === id ? " ring-1 ring-white/40" : "";
     const helpPortal = help !== null ? Rr.createPortal(o.jsxs(o.Fragment, { children: [o.jsx("div", { className: "fixed inset-0", style: { zIndex: 2147483400, background: "rgba(0,0,0,0.5)" }, onMouseDown: () => setHelp(null) }), o.jsxs("div", { className: "fixed rounded-xl shadow-2xl flex flex-col", style: { zIndex: 2147483401, left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: "min(470px,92vw)", height: "min(70vh,560px)", background: "#0f1420", border: "1px solid rgba(255,255,255,0.15)" }, onMouseDown: ev => ev.stopPropagation(), children: [o.jsxs("div", { className: "flex items-center gap-2 px-3 py-2 border-b border-white/10 flex-shrink-0", children: [o.jsx("span", { className: "text-white font-semibold text-sm whitespace-nowrap", children: "ƒ 함수 예제" }), o.jsx("input", { autoFocus: true, value: help, onChange: e => setHelp(e.target.value), placeholder: "검색 (예: sum, 조회, 평균)", className: "flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs outline-none" }), o.jsx("button", { onClick: () => setHelp(null), className: "text-white/60 hover:text-white text-lg leading-none bg-transparent border-none cursor-pointer", children: "✕" })] }), o.jsx("div", { className: "flex-1 overflow-y-auto thin-scroll p-2", children: DDB_FUNCS.filter(f => { const q = String(help || "").trim().toUpperCase(); return !q || f[0].indexOf(q) >= 0 || f[1].toUpperCase().indexOf(q) >= 0; }).map(f => o.jsxs("div", { className: "px-2 py-1.5 rounded hover:bg-white/5 flex items-baseline gap-2", children: [o.jsx("span", { className: "text-blue-300 font-mono font-bold text-[12px] flex-shrink-0", style: { minWidth: 78 }, children: f[0] }), o.jsx("span", { className: "text-white/70 text-[11px]", children: f[1] })] }, f[0])) })] })] }), document.body) : null;
+    const gearPortal = gear ? Rr.createPortal(o.jsxs(o.Fragment, { children: [o.jsx("div", { className: "fixed inset-0", style: { zIndex: 2147483000 }, onMouseDown: () => setGear(null) }), o.jsxs("div", { className: "fixed rounded-lg p-2 shadow-2xl text-[11px] text-white/85", style: { zIndex: 2147483001, left: gear.x + "px", top: gear.y + "px", background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.2)", width: 244 }, onMouseDown: ev => ev.stopPropagation(), children: [o.jsx("div", { className: "text-white/50 mb-1.5 font-semibold", children: "표 옵션" }), o.jsxs("label", { className: "flex items-start gap-1.5 cursor-pointer mb-2", children: [o.jsx("input", { type: "checkbox", checked: !!tcfg.grow, onChange: ev => setTcfgV("grow", ev.target.checked), style: { marginTop: 2 } }), o.jsxs("span", { children: ["입력하면 셀 너비 자동 확장", o.jsx("span", { className: "block text-white/40", children: "글자가 칸을 넘으면 그 열이 자동으로 넓어집니다." })] })] }), o.jsx("div", { className: "text-white/40 mb-2 leading-relaxed", children: "※ 이 설정과 상관없이 글자는 항상 자유롭게 입력됩니다(길면 자동 줄바꿈). 언제든 위쪽 열 경계를 더블클릭하면 내용에 맞춰집니다." }), o.jsx("button", { onClick: () => { autoFitAll(gear.bi); setGear(null); }, className: "w-full px-2 py-1 rounded bg-blue-500/25 hover:bg-blue-500/40 text-blue-100 border border-blue-400/40 cursor-pointer", children: "지금 전체 열을 내용에 맞추기" })] })] }), document.body) : null;
     const fxPortal = fx && fx.matches.length ? Rr.createPortal(o.jsx("div", { className: "fixed rounded-lg shadow-2xl thin-scroll", style: { zIndex: 2147483002, left: fx.x + "px", top: fx.y + "px", maxHeight: 190, overflowY: "auto", background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.2)", minWidth: 210 }, onMouseDown: ev => ev.preventDefault(), children: fx.matches.map((f, i) => o.jsxs("button", { onClick: () => pickFunc(f[0]), className: "flex items-baseline gap-2 w-full text-left px-2 py-1 border-none cursor-pointer " + (i === (fx.idx || 0) ? "bg-blue-500/40" : "bg-transparent hover:bg-white/10"), children: [o.jsx("span", { className: "text-white font-mono text-[12px] font-bold", children: f[0] }), o.jsx("span", { className: "text-white/50 text-[10px]", children: f[1] })] }, f[0])) }), document.body) : null;
     const tbTitle = { ff: "글꼴", fs: "글씨 크기", b: "굵게", u: "밑줄", bg: "셀 색", fg: "글자 색", al: "왼쪽 정렬", ac: "가운데 정렬", ar: "오른쪽 정렬", bw: "테두리 굵기", bs: "선 모양" };
     const tbDrop = { ff: 1, fs: 1, bg: 1, fg: 1, bw: 1, bs: 1 };
@@ -8044,14 +8106,14 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     ] });
     function renderTable(b, bi) {
         return o.jsxs("div", { "data-block": bi, className: "mb-1.5" + (dragBi === bi ? " opacity-40" : ""), style: (dropBi === bi && dragBi !== null && dragBi !== bi) ? { boxShadow: "0 -3px 0 0 #60a5fa" } : void 0, children: [
-            active ? o.jsxs("div", { className: "flex gap-1 mb-0.5 flex-wrap items-center", children: [...ctrl(bi), o.jsx("span", { className: "text-white/15 mx-0.5", children: "|" }), o.jsx("span", { className: "text-white/50 text-[10px]", children: "행" }), o.jsx("button", { onClick: () => addRow(bi), className: btn, title: "행 추가", children: "＋" }), o.jsx("button", { onClick: () => delRow(bi), className: btnDel, title: "행 삭제", children: "－" }), o.jsx("span", { className: "text-white/50 text-[10px] ml-1.5", children: "열" }), o.jsx("button", { onClick: () => addCol(bi), className: btn, title: "열 추가", children: "＋" }), o.jsx("button", { onClick: () => delCol(bi), className: btnDel, title: "열 삭제", children: "－" }), o.jsx("button", { onClick: () => setHelp(""), className: "text-blue-300/80 hover:text-blue-200 text-[10px] self-center ml-1 underline bg-transparent border-none cursor-pointer", title: "지원 함수와 예제 보기", children: "ƒ 함수 예제" })] }) : null,
+            active ? o.jsxs("div", { className: "flex gap-1 mb-0.5 flex-wrap items-center", children: [...ctrl(bi), o.jsx("span", { className: "text-white/15 mx-0.5", children: "|" }), o.jsx("span", { className: "text-white/50 text-[10px]", children: "행" }), o.jsx("button", { onClick: () => addRow(bi), className: btn, title: "행 추가", children: "＋" }), o.jsx("button", { onClick: () => delRow(bi), className: btnDel, title: "행 삭제", children: "－" }), o.jsx("span", { className: "text-white/50 text-[10px] ml-1.5", children: "열" }), o.jsx("button", { onClick: () => addCol(bi), className: btn, title: "열 추가", children: "＋" }), o.jsx("button", { onClick: () => delCol(bi), className: btnDel, title: "열 삭제", children: "－" }), o.jsx("button", { onClick: () => setHelp(""), className: "text-blue-300/80 hover:text-blue-200 text-[10px] self-center ml-1 underline bg-transparent border-none cursor-pointer", title: "지원 함수와 예제 보기", children: "ƒ 함수 예제" }), o.jsx("button", { onMouseDown: ev => { ev.preventDefault(); ev.stopPropagation(); const rc = ev.currentTarget.getBoundingClientRect(); setGear(g => g ? null : { x: rc.left, y: rc.bottom + 4, bi: bi }); }, className: "text-white/50 hover:text-white/85 self-center ml-1 bg-transparent border-none cursor-pointer p-0", title: "표 옵션 (셀 크기·입력 방식)", children: o.jsx("svg", { viewBox: "0 0 24 24", width: 13, height: 13, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", style: { display: "inline-block", verticalAlign: "middle" }, children: [o.jsx("circle", { cx: 12, cy: 12, r: 3 }, 1), o.jsx("path", { d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09A1.65 1.65 0 0 0 10 4.6V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" }, 2)] }) })] }) : null,
             o.jsxs("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: "auto" }, children: [
                 o.jsxs("thead", { children: [
-                    active ? o.jsxs("tr", { children: [o.jsx("th", { style: lblSty }, "cLc"), ...b.headers.map((_hh, Y) => o.jsx("th", { style: { ...lblSty, width: colW(bi, Y), minWidth: colW(bi, Y), maxWidth: colW(bi, Y) }, children: ddbIdxToCol(Y) }, "cl" + Y)), o.jsx("th", { style: lblSty }, "cRc")] }, "coordTop") : null,
-                    o.jsxs("tr", { children: [active ? o.jsx("th", { style: lblSty, children: "1" }, "rlL") : null, ...b.headers.map((hh, Y) => o.jsxs("th", { style: cellSty(bi, -1, Y, true), children: [o.jsx("textarea", { value: editKey === (bi + ":-1," + Y) ? (hh == null ? "" : hh) : ddbCellDisp(b, -1, Y), rows: cellRows(editKey === (bi + ":-1," + Y) ? hh : ddbCellDisp(b, -1, Y)), "data-cell": bi + ":-1:" + Y, onKeyDown: ev => cellNav(ev, bi, -1, Y), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, -1, Y, ev); }, onFocus: () => { setEditKey(bi + ":-1," + Y); setFx(null); if (onSolo && !soloOn) onSolo(); }, onBlur: () => setEditKey(null), onChange: ev => cellInput(ev, bi, -1, Y), style: taSty(inSty(bi, -1, Y, true)) }), o.jsx("div", { onMouseDown: ev => colDrag(bi, Y, ev), onClick: ev => ev.stopPropagation(), title: "열 너비", style: { position: "absolute", top: 0, right: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 3 } })] }, Y)), active ? o.jsx("th", { style: lblSty, children: "1" }, "rlR") : null] }, "hdr")
+                    active ? o.jsxs("tr", { children: [o.jsx("th", { style: lblSty }, "cLc"), ...b.headers.map((_hh, Y) => o.jsxs("th", { style: { ...lblSty, position: "relative", width: colW(bi, Y), minWidth: colW(bi, Y), maxWidth: colW(bi, Y) }, children: [ddbIdxToCol(Y), o.jsx("div", { onMouseDown: ev => colDragL(bi, Y, ev), onDoubleClick: ev => { ev.preventDefault(); ev.stopPropagation(); autoFitCol(bi, Y); }, onClick: ev => ev.stopPropagation(), title: "이 열 너비 조절 · 더블클릭=내용에 맞춤", style: { position: "absolute", top: 0, left: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 5 } }), Y === b.headers.length - 1 ? o.jsx("div", { onMouseDown: ev => colDragAll(bi, ev), onDoubleClick: ev => { ev.preventDefault(); ev.stopPropagation(); autoFitAll(bi); }, onClick: ev => ev.stopPropagation(), title: "전체 열 균등 조절 · 더블클릭=전체 내용맞춤", style: { position: "absolute", top: 0, right: -3, width: 8, height: "100%", cursor: "col-resize", zIndex: 5, background: "rgba(96,165,250,0.45)" } }) : null] }, "cl" + Y))] }, "coordTop") : null,
+                    o.jsxs("tr", { children: [active ? o.jsx("th", { style: lblSty, children: "1" }, "rlL") : null, ...b.headers.map((hh, Y) => o.jsxs("th", { style: cellSty(bi, -1, Y, true), children: [o.jsx("textarea", { value: editKey === (bi + ":-1," + Y) ? (hh == null ? "" : hh) : ddbCellDisp(b, -1, Y), rows: cellRows(editKey === (bi + ":-1," + Y) ? hh : ddbCellDisp(b, -1, Y)), "data-cell": bi + ":-1:" + Y, onKeyDown: ev => cellNav(ev, bi, -1, Y), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, -1, Y, ev); }, onFocus: () => { setEditKey(bi + ":-1," + Y); setFx(null); if (onSolo && !soloOn) onSolo(); }, onBlur: () => setEditKey(null), onChange: ev => cellInput(ev, bi, -1, Y), style: taSty(inSty(bi, -1, Y, true)) })] }, Y))] }, "hdr")
                 ] }),
-                o.jsx("tbody", { children: b.rows.map((rw, R) => o.jsxs("tr", { children: [active ? o.jsx("td", { style: lblSty, children: String(R + 2) }, "rlL") : null, ...b.headers.map((_h, C) => o.jsx("td", { style: cellSty(bi, R, C, false), children: o.jsx("textarea", { value: editKey === (bi + ":" + R + "," + C) ? ((rw && rw[C]) == null ? "" : rw[C]) : ddbCellDisp(b, R, C), rows: cellRows(editKey === (bi + ":" + R + "," + C) ? (rw && rw[C]) : ddbCellDisp(b, R, C)), "data-cell": bi + ":" + R + ":" + C, onKeyDown: ev => cellNav(ev, bi, R, C), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, R, C, ev); }, onFocus: () => { setEditKey(bi + ":" + R + "," + C); setFx(null); if (onSolo && !soloOn) onSolo(); }, onBlur: () => setEditKey(null), onChange: ev => cellInput(ev, bi, R, C), style: taSty(inSty(bi, R, C, false)) }) }, C)), active ? o.jsx("td", { style: lblSty, children: String(R + 2) }, "rlR") : null] }, R)) }),
-                active ? o.jsxs("tfoot", { children: [o.jsxs("tr", { children: [o.jsx("th", { style: lblSty }, "fLc"), ...b.headers.map((_hh, Y) => o.jsx("th", { style: { ...lblSty, width: colW(bi, Y), minWidth: colW(bi, Y), maxWidth: colW(bi, Y) }, children: ddbIdxToCol(Y) }, "fl" + Y)), o.jsx("th", { style: lblSty }, "fRc")] }, "coordBot")] }) : null
+                o.jsx("tbody", { children: b.rows.map((rw, R) => o.jsxs("tr", { children: [active ? o.jsx("td", { style: lblSty, children: String(R + 2) }, "rlL") : null, ...b.headers.map((_h, C) => o.jsx("td", { style: cellSty(bi, R, C, false), children: o.jsx("textarea", { value: editKey === (bi + ":" + R + "," + C) ? ((rw && rw[C]) == null ? "" : rw[C]) : ddbCellDisp(b, R, C), rows: cellRows(editKey === (bi + ":" + R + "," + C) ? (rw && rw[C]) : ddbCellDisp(b, R, C)), "data-cell": bi + ":" + R + ":" + C, onKeyDown: ev => cellNav(ev, bi, R, C), onMouseDown: ev => { ev.stopPropagation(); cellDown(bi, R, C, ev); }, onFocus: () => { setEditKey(bi + ":" + R + "," + C); setFx(null); if (onSolo && !soloOn) onSolo(); }, onBlur: () => setEditKey(null), onChange: ev => cellInput(ev, bi, R, C), style: taSty(inSty(bi, R, C, false)) }) }, C))] }, R)) }),
+                null
             ] })
         ] }, "b" + bi);
     }
@@ -8065,6 +8127,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
         active ? toolbar : null,
         fxPortal,
         helpPortal,
+        gearPortal,
         ...blocks.map((b, bi) => b.t === "table" ? renderTable(b, bi) : renderText(b, bi)),
         (active || hov) ? o.jsxs("div", { className: "flex gap-1 mt-1 pt-1 border-t border-white/10", children: [o.jsx("button", { onClick: () => addBlock("text", blocks.length), className: addB, children: "＋ 글 추가" }), o.jsx("button", { onClick: () => addBlock("table", blocks.length), className: addB, children: "＋ 표 추가" })] }) : null
     ] });
@@ -15996,7 +16059,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {})]
         })
     })
 }
