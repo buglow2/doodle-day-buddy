@@ -596,8 +596,10 @@ function DDBGantt() {
     const events = (state && state.events) || [];
     const [ym, setYm] = O.useState(() => ((state && state.currentYear) || new Date().getFullYear()) + "-" + String((state && state.currentMonth) || (new Date().getMonth() + 1)).padStart(2, "0"));
     const [pos, setPos] = O.useState(() => { try { const p = JSON.parse(localStorage.getItem("ddb_gantt_pos") || "null"); if (p && typeof p.x === "number") return p; } catch {} return { x: 80, y: 92 }; });
+    const [size, setSize] = O.useState(() => { try { const s = JSON.parse(localStorage.getItem("ddb_gantt_size") || "null"); if (s && s.w > 0) return s; } catch {} return { w: 680, h: 460 }; });
     O.useEffect(() => { const h = () => setOpen(v => { const nv = !v; if (nv) setYm(((state && state.currentYear) || new Date().getFullYear()) + "-" + String((state && state.currentMonth) || (new Date().getMonth() + 1)).padStart(2, "0")); return nv; }); window.addEventListener("ddb-open-gantt", h); return () => window.removeEventListener("ddb-open-gantt", h); }, [state]);
     function drag(e) { if (e.target.closest && e.target.closest("button")) return; e.preventDefault(); const sx = e.clientX, sy = e.clientY, ox = pos.x, oy = pos.y; const mm = ev => setPos({ x: Math.max(0, ox + ev.clientX - sx), y: Math.max(0, oy + ev.clientY - sy) }); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); setPos(p => { try { localStorage.setItem("ddb_gantt_pos", JSON.stringify(p)); } catch {} return p; }); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
+    function rz(e) { e.preventDefault(); e.stopPropagation(); const sx = e.clientX, sy = e.clientY, ow = size.w, oh = size.h; const mm = ev => setSize({ w: Math.max(360, ow + ev.clientX - sx), h: Math.max(240, oh + ev.clientY - sy) }); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); setSize(s => { try { localStorage.setItem("ddb_gantt_size", JSON.stringify(s)); } catch {} return s; }); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
     function shift(d) { const p = ym.split("-").map(Number); const nd = new Date(p[0], p[1] - 1 + d, 1); setYm(nd.getFullYear() + "-" + String(nd.getMonth() + 1).padStart(2, "0")); }
     if (!open) return null;
     const CMAP = { blue: "#3b82f6", green: "#22c55e", red: "#ef4444", yellow: "#eab308", purple: "#a855f7", pink: "#ec4899", orange: "#f97316", gray: "#6b7280", grey: "#6b7280", indigo: "#6366f1", teal: "#14b8a6", cyan: "#06b6d4", amber: "#f59e0b", lime: "#84cc16", rose: "#f43f5e", sky: "#0ea5e9", emerald: "#10b981", violet: "#8b5cf6" };
@@ -612,7 +614,7 @@ function DDBGantt() {
     const dayCells = [];
     for (let d = 1; d <= dim; d++) { const wd = new Date(Y, M - 1, d).getDay(); const ds = ym + "-" + String(d).padStart(2, "0"); dayCells.push(o.jsx("div", { style: { width: CW, minWidth: CW, textAlign: "center", fontSize: 9, padding: "2px 0", color: ds === today ? "#fff" : (wd === 0 ? "#f87171" : wd === 6 ? "#60a5fa" : "rgba(255,255,255,0.5)"), background: ds === today ? "rgba(96,165,250,0.35)" : (wd === 0 || wd === 6 ? "rgba(255,255,255,0.04)" : "transparent"), borderLeft: "1px solid rgba(255,255,255,0.06)" }, children: d }, d)); }
     const barRows = rows.map((r, i) => { const cs = r.s < mStart ? 1 : +r.s.slice(8, 10); const ce = r.en > mEnd ? dim : +r.en.slice(8, 10); const left = (cs - 1) * CW, w = Math.max(CW - 2, (ce - cs + 1) * CW - 2); const col = barColor(r.ev.color); const dd = new Date(String(r.ev.date).slice(0, 10)); return o.jsxs("div", { style: { display: "flex", height: RH, alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.05)" }, children: [o.jsx("div", { title: r.ev.title || "", style: { width: TITLEW, minWidth: TITLEW, fontSize: 11, color: "rgba(255,255,255,0.85)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 6px", borderLeft: "3px solid " + col }, children: r.ev.title || "(제목 없음)" }), o.jsx("div", { style: { position: "relative", width: gridW, minWidth: gridW, height: RH }, children: o.jsx("button", { onClick: () => { dispatch({ type: "SET_MONTH", year: dd.getFullYear(), month: dd.getMonth() + 1 }); setOpen(false); }, title: (r.ev.title || "") + " (" + r.s + (r.en !== r.s ? " ~ " + r.en : "") + ")" + (r.ev.memo ? "\n" + r.ev.memo : ""), style: { position: "absolute", left: left + 1, top: 3, width: w, height: RH - 6, background: col, borderRadius: 4, border: "none", cursor: "pointer", color: "#fff", fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 4px", textAlign: "left", opacity: 0.92 }, children: w > 34 ? (r.ev.title || "") : "" }) })] }, r.ev.id || i); });
-    return o.jsx("div", { style: { position: "fixed", left: pos.x, top: pos.y, zIndex: 2147483200, width: "min(680px, 94vw)", background: "#0f1420", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }, children: o.jsxs("div", { style: { display: "flex", flexDirection: "column", maxHeight: "72vh" }, children: [
+    return o.jsxs("div", { style: { position: "fixed", left: pos.x, top: pos.y, zIndex: 2147483200, width: size.w, height: size.h, minWidth: 360, minHeight: 240, background: "#0f1420", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }, children: [o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%" }, children: [
         o.jsxs("div", { onMouseDown: drag, style: { cursor: "grab", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", flexShrink: 0, userSelect: "none" }, children: [
             o.jsx("span", { style: { color: "#fff", fontWeight: 600, fontSize: 13 }, children: "간트차트" }),
             o.jsx("div", { style: { flex: 1 } }),
@@ -626,7 +628,7 @@ function DDBGantt() {
             rows.length ? o.jsx("div", { children: barRows }) : o.jsx("div", { style: { padding: "24px 12px", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 12 }, children: "이 달에 표시할 일정이 없어요." })
         ] }) }),
         o.jsx("div", { style: { padding: "5px 12px", borderTop: "1px solid rgba(255,255,255,0.08)", fontSize: 10, color: "rgba(255,255,255,0.35)", flexShrink: 0 }, children: "막대를 클릭하면 그 일정이 있는 달로 달력이 이동합니다." })
-    ] }) });
+    ] }), ddbRzHandle(rz)] });
 }
 function DDBPomodoro() {
     const [open, setOpen] = O.useState(false);
@@ -644,13 +646,15 @@ function DDBPomodoro() {
     O.useEffect(() => { if (!run) return; const id = setInterval(() => setSec(s => s - 1), 1000); return () => clearInterval(id); }, [run]);
     O.useEffect(() => { if (run && sec <= 0) { beep(); if (modeRef.current === "work") { const nd = done + 1; setDone(nd); try { localStorage.setItem("ddb_pomo_done", JSON.stringify({ date: new Date().toISOString().slice(0, 10), n: nd })); } catch {} try { if (window.Notification && Notification.permission === "granted") new Notification("🍅 집중 완료! 잠시 휴식하세요"); } catch {} setMode("break"); setSec(brk * 60); setRun(true); } else { try { if (window.Notification && Notification.permission === "granted") new Notification("💪 휴식 끝! 다시 집중해요"); } catch {} setMode("work"); setSec(work * 60); setRun(false); } } }, [sec, run]);
     function drag(e) { if (e.target.closest && (e.target.closest("button") || e.target.closest("input"))) return; e.preventDefault(); const sx = e.clientX, sy = e.clientY, ox = pos.x, oy = pos.y; const mm = ev => { const np = { x: Math.max(0, ox + ev.clientX - sx), y: Math.max(0, oy + ev.clientY - sy) }; setPos(np); }; const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); setPos(p => { try { localStorage.setItem("ddb_pomo_pos", JSON.stringify(p)); } catch {} return p; }); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
+    const [pSize, setPSize] = O.useState(() => { try { const s = JSON.parse(localStorage.getItem("ddb_pomo_size") || "null"); if (s && s.w > 0) return s; } catch {} return { w: 260, h: 300 }; });
+    function pRz(e) { e.preventDefault(); e.stopPropagation(); const sx = e.clientX, sy = e.clientY, ow = pSize.w, oh = pSize.h; const mmv = ev => setPSize({ w: Math.max(220, ow + ev.clientX - sx), h: Math.max(240, oh + ev.clientY - sy) }); const muv = () => { document.removeEventListener("mousemove", mmv); document.removeEventListener("mouseup", muv); setPSize(s => { try { localStorage.setItem("ddb_pomo_size", JSON.stringify(s)); } catch {} return s; }); }; document.addEventListener("mousemove", mmv); document.addEventListener("mouseup", muv); }
     if (!open) return null;
     const mm = String(Math.floor(Math.max(0, sec) / 60)).padStart(2, "0"), ss = String(Math.max(0, sec) % 60).padStart(2, "0");
     const isWork = mode === "work";
     const setW = v => { const n = Math.max(1, Math.min(120, v)); setWork(n); try { localStorage.setItem("ddb_pomo_work", String(n)); } catch {} };
     const setB = v => { const n = Math.max(1, Math.min(60, v)); setBrk(n); try { localStorage.setItem("ddb_pomo_break", String(n)); } catch {} };
     const stepBtn = "w-6 h-6 rounded bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer text-sm leading-none";
-    return Rr.createPortal(o.jsxs("div", { className: "fixed rounded-2xl shadow-2xl select-none", style: { zIndex: 2147483300, left: pos.x + "px", top: pos.y + "px", width: 260, background: "#141824", border: "1px solid rgba(255,255,255,0.15)" }, children: [
+    return Rr.createPortal(o.jsxs("div", { className: "fixed rounded-2xl shadow-2xl select-none", style: { zIndex: 2147483300, left: pos.x + "px", top: pos.y + "px", width: pSize.w + "px", height: pSize.h + "px", minWidth: 220, minHeight: 240, overflow: "hidden", background: "#141824", border: "1px solid rgba(255,255,255,0.15)" }, children: [
         o.jsxs("div", { onMouseDown: drag, style: { cursor: "grab" }, className: "flex items-center gap-2 px-3 py-2 border-b border-white/10", children: [o.jsx("span", { className: "text-white font-semibold text-sm flex-1", children: "🍅 포모도로" }), o.jsxs("span", { className: "text-white/40 text-[11px]", children: ["오늘 ", done, "회"] }), o.jsx("button", { onClick: () => setOpen(false), className: "text-white/50 hover:text-white text-base leading-none bg-transparent border-none cursor-pointer", children: "✕" })] }),
         o.jsxs("div", { className: "px-4 py-3 flex flex-col items-center gap-2", children: [
             o.jsx("div", { className: "text-[11px] font-semibold px-2 py-0.5 rounded-full", style: { background: isWork ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.25)", color: isWork ? "#fca5a5" : "#86efac" }, children: isWork ? "집중" : "휴식" }),
@@ -664,7 +668,7 @@ function DDBPomodoro() {
                 o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("span", { children: "집중" }), o.jsx("button", { onClick: () => setW(work - 5), className: stepBtn, children: "−" }), o.jsxs("span", { className: "w-8 text-center text-white", children: [work, "분"] }), o.jsx("button", { onClick: () => setW(work + 5), className: stepBtn, children: "+" })] }),
                 o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("span", { children: "휴식" }), o.jsx("button", { onClick: () => setB(brk - 1), className: stepBtn, children: "−" }), o.jsxs("span", { className: "w-8 text-center text-white", children: [brk, "분"] }), o.jsx("button", { onClick: () => setB(brk + 1), className: stepBtn, children: "+" })] })
             ] })
-        ] })
+        ] }), ddbRzHandle(pRz)
     ] }), document.body);
 }
 
@@ -1634,7 +1638,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.97.92";
+const DDB_VERSION = "0.97.93";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3178,7 +3182,7 @@ function um({
                 className: "flex-1"
             }), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono",
-                children: "v229"
+                children: "v230"
             }), (() => {
                 const S = [{
                     k: "cal",
