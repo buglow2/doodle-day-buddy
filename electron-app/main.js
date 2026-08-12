@@ -49,6 +49,22 @@ async function createWindow() {
   });
   win.loadURL(`http://127.0.0.1:${port}/`);
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
+
+  // 창을 닫기 전에 클라우드 동기화를 한 번 실행하고 종료 (최대 5초 대기)
+  let _closing = false;
+  win.on('close', (e) => {
+    if (_closing) return;
+    e.preventDefault();
+    _closing = true;
+    const finish = () => { try { win.destroy(); } catch (_) { try { app.quit(); } catch (__) {} } };
+    const timer = setTimeout(finish, 5000);
+    Promise.resolve(
+      win.webContents.executeJavaScript(
+        'Promise.resolve(window.__ddbFinalSync ? window.__ddbFinalSync() : null).then(function(){return true}).catch(function(){return true})'
+      )
+    ).then(() => { clearTimeout(timer); finish(); })
+     .catch(() => { clearTimeout(timer); finish(); });
+  });
 }
 
 const lock = app.requestSingleInstanceLock();
