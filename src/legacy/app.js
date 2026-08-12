@@ -591,6 +591,7 @@ function DDBTableWindow() {
 }
 
 function ddbLastEvColor() { try { const p = JSON.parse(localStorage.getItem("ddb_last_evcolor") || "null"); if (p && p.c) return { c: p.c, cc: p.cc || "" }; } catch {} return { c: "blue", cc: "" }; }
+function ddbPinInfo(dd) { try { const p = String(dd.date || "").split("-").map(Number); if (p.length < 3 || !p[0]) return null; const today = new Date(); today.setHours(0, 0, 0, 0); if (dd.isYearly) { let next = new Date(today.getFullYear(), p[1] - 1, p[2]); if (next < today) next = new Date(today.getFullYear() + 1, p[1] - 1, p[2]); return { daysLeft: Math.round((next - today) / 864e5), nth: next.getFullYear() - p[0] }; } const base = new Date(p[0], p[1] - 1, p[2]); return { daysLeft: Math.round((base - today) / 864e5), nth: 0 }; } catch { return null; } }
 // ── 표 정렬/필터: 순수 함수 (데이터 불변, 표시 순서/노출만 계산) ──
 function ddbCmpVal(a, b) {
     a = a == null ? "" : String(a).trim(); b = b == null ? "" : String(b).trim();
@@ -1731,7 +1732,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.97.98";
+const DDB_VERSION = "0.97.99";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3279,10 +3280,11 @@ function um({
                     })
                 })]
             }), o.jsx("div", {
-                className: "flex-1"
+                className: "flex-1 flex items-center justify-center gap-1 overflow-hidden px-2",
+                children: (a.ddays || []).filter(d => d && d.pinTop && d.type !== "repeat").map(d => ({ d: d, info: ddbPinInfo(d) })).filter(x => x.info).sort((x, y) => x.info.daysLeft - y.info.daysLeft).slice(0, 6).map(({ d, info }) => { const col = (qt[d.color] || d.color || "#f59e0b"); return o.jsxs("span", { title: ddbTT(d.title) + " · " + d.date + (info.nth > 0 ? " · " + info.nth + "번째" : ""), className: "flex items-center gap-1 px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap", style: { background: col + "22", border: "1px solid " + col + "55", maxWidth: 160 }, children: [o.jsx("b", { style: { color: col, fontSize: 11 }, children: mm(info.daysLeft) }), o.jsx("span", { style: { color: "rgba(255,255,255,0.85)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis" }, children: ddbTT(d.title) })] }, d.id); })
             }), o.jsx("span", {
-                className: "text-white/40 text-[10px] px-2 select-none font-mono",
-                children: "v235"
+                className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
+                children: "v236"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8476,6 +8478,7 @@ function QT({
         onHeaderMouseDown: a,
         resizeHandle: RZ
     } = Oi(550), [i, l] = O.useState((e == null ? void 0 : e.title) ?? ""), [c, u] = O.useState((e == null ? void 0 : e.date) ?? ""), [h, d] = O.useState((e == null ? void 0 : e.color) ?? "pink"), [f, x] = O.useState((e == null ? void 0 : e.type) ?? "anniversary"), [p, m] = O.useState((e == null ? void 0 : e.repeatUnit) ?? "monthly"), [y, w] = O.useState((e == null ? void 0 : e.isYearly) ?? !1), [v, g] = O.useState((e == null ? void 0 : e.isLunar) ?? !1), [_, k] = O.useState((e == null ? void 0 : e.hidden) ?? !1), E = e == null ? void 0 : e.amount, b = E === void 0 ? "none" : E >= 0 ? "income" : "expense", [T, A] = O.useState(b), [H, F] = O.useState(E !== void 0 ? String(Math.abs(E)) : "");
+    const [pin, setPin] = O.useState((e && e.pinTop) || !1);
     O.useEffect(() => {
         function z(G) {
             G.key === "Escape" && t()
@@ -8497,7 +8500,8 @@ function QT({
             isYearly: f === "anniversary" ? y : void 0,
             isLunar: v || void 0,
             amount: z,
-            hidden: _ || void 0
+            hidden: _ || void 0,
+            pinTop: (f === "anniversary" && pin) || void 0
         };
         r({
             type: e ? "UPDATE_DDAY" : "ADD_DDAY",
@@ -8587,6 +8591,9 @@ function QT({
                         className: "flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors " + (y ? "bg-white/10 text-white/50 hover:bg-white/20" : "bg-slate-600 text-white"),
                         children: DDBTR("반복 X")
                     })]
+                }), o.jsxs("label", {
+                    className: "flex items-center gap-2 mt-2 cursor-pointer",
+                    children: [o.jsx("input", { type: "checkbox", checked: pin, onChange: z => setPin(z.target.checked), className: "w-4 h-4 accent-amber-400" }), o.jsxs("span", { className: "text-white/70 text-xs", children: ["★ ", DDBTR("상단 툴바에 표시 (중요 기념일)")] })]
                 })]
             }), f === "repeat" && o.jsx("div", {
                 className: "flex gap-1",
@@ -9016,28 +9023,21 @@ function Rw() {
                     }), H ? de.length === 0 ? o.jsx("p", {
                         className: "text-white/30 text-xs text-center py-2",
                         children: DDBTR("없음")
-                    }) : o.jsxs("div", {
-                        className: "flex items-center gap-1",
-                        children: [o.jsx("button", {
-                            onClick: () => K(oe => Math.max(0, oe - 1)),
-                            disabled: ae === 0,
-                            className: "text-white/30 hover:text-white/70 disabled:opacity-20 flex-shrink-0 p-0.5",
-                            children: o.jsx(tl, {
-                                size: 12
-                            })
-                        }), o.jsxs("div", {
-                            className: "flex-1 grid grid-cols-3 gap-1",
-                            children: [ve.map(oe => {
+                    }) : o.jsx("div", {
+                        className: "flex gap-1.5 overflow-x-auto",
+                        style: { scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.4) transparent", paddingBottom: 4, cursor: "grab", userSelect: "none" },
+                        onMouseDown: X, onMouseMove: ce, onMouseUp: j, onMouseLeave: j,
+                        children: [de.map(oe => {
                                 const fe = qt[oe.color] ?? "#999",
                                     Ne = oe.daysLeft < 0,
                                     We = oe.date.slice(5).replace("-", "."),
                                     Je = e4(oe),
                                     Gt = Je ? ` (${Je.replace("음력 ","음")})` : "";
                                 return o.jsxs("button", {
-                                    onClick: () => Fe(oe),
-                                    className: "rounded-lg px-2 py-1.5 hover:bg-white/10 transition-colors text-left",
+                                    onClick: Ce => q(Ce, oe),
+                                    className: "flex-shrink-0 rounded-lg px-2 py-1.5 hover:bg-white/10 transition-colors text-left",
                                     style: {
-                                        borderLeft: `3px solid ${fe}`
+                                        borderLeft: `3px solid ${fe}`, minWidth: 96
                                     },
                                     children: [o.jsxs("div", {
                                         className: "flex items-center gap-1 mb-0.5 flex-wrap",
@@ -9062,17 +9062,7 @@ function Rw() {
                                         children: [We, Gt]
                                     })]
                                 }, oe.id)
-                            }), ve.length < Yi && Array.from({
-                                length: Yi - ve.length
-                            }).map((oe, fe) => o.jsx("div", {}, `empty-${fe}`))]
-                        }), o.jsx("button", {
-                            onClick: () => K(oe => Math.min(V - 1, oe + 1)),
-                            disabled: ae >= V - 1,
-                            className: "text-white/30 hover:text-white/70 disabled:opacity-20 flex-shrink-0 p-0.5",
-                            children: o.jsx($n, {
-                                size: 12
-                            })
-                        })]
+                            })]
                     }) : o.jsx("div", {
                         className: "flex gap-1 overflow-x-auto",
                         style: {
@@ -9100,7 +9090,7 @@ function Rw() {
                                 children: ddbTT(oe.title)
                             }, oe.id)
                         })
-                    }), H && V > 1 && o.jsx("div", {
+                    }), false && o.jsx("div", {
                         className: "flex justify-center gap-1 mt-1.5",
                         children: Array.from({
                             length: V
