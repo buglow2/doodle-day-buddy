@@ -1732,7 +1732,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.97.99";
+const DDB_VERSION = "0.98.0";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3284,7 +3284,7 @@ function um({
                 children: (a.ddays || []).filter(d => d && d.pinTop && d.type !== "repeat").map(d => ({ d: d, info: ddbPinInfo(d) })).filter(x => x.info).sort((x, y) => x.info.daysLeft - y.info.daysLeft).slice(0, 6).map(({ d, info }) => { const col = (qt[d.color] || d.color || "#f59e0b"); return o.jsxs("span", { title: ddbTT(d.title) + " · " + d.date + (info.nth > 0 ? " · " + info.nth + "번째" : ""), className: "flex items-center gap-1 px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap", style: { background: col + "22", border: "1px solid " + col + "55", maxWidth: 160 }, children: [o.jsx("b", { style: { color: col, fontSize: 11 }, children: mm(info.daysLeft) }), o.jsx("span", { style: { color: "rgba(255,255,255,0.85)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis" }, children: ddbTT(d.title) })] }, d.id); })
             }), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v236"
+                children: "v237"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -15705,11 +15705,15 @@ function uc({
                 size: 11
             }), " "+DDBTR("창 추가")]
         }), a && o.jsxs("div", {
-            className: "absolute bottom-full left-0 right-0 mb-1 border border-white/25 rounded-xl shadow-2xl overflow-hidden z-50",
+            className: "absolute bottom-full left-0 right-0 mb-1 border border-white/25 rounded-xl shadow-2xl overflow-y-auto thin-scroll z-50",
             style: {
-                background: "#0e0e18"
+                background: "#0e0e18", maxHeight: "60vh"
             },
             children: [o.jsx("button", {
+                onClick: () => c("todo", "panel-todo", 260, 480),
+                className: "flex items-center gap-2 w-full px-3 py-2 text-xs text-white/80 hover:bg-white/10",
+                children: "☑ 할 일 창"
+            }), o.jsx("button", {
                 onClick: () => c("dday", "panel-dday", 240, 480),
                 className: "flex items-center gap-2 w-full px-3 py-2 text-xs text-white/80 hover:bg-white/10",
                 children: DDBTR("⭐ D-Day 창")
