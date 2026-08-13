@@ -34,7 +34,18 @@ function serve() {
       res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
       fs.createReadStream(file).pipe(res);
     });
-    srv.listen(0, '127.0.0.1', () => resolve(srv.address().port));
+    // 고정 포트 사용 — 매 실행마다 주소가 같아야 localStorage(로그인 세션·자동로그인)가 유지됩니다.
+    const FIXED_PORT = 47615;
+    let _tries = 0;
+    srv.on('listening', () => resolve(srv.address().port));
+    srv.on('error', (e) => {
+      if (e && e.code === 'EADDRINUSE') {
+        _tries++;
+        if (_tries <= 8) setTimeout(() => { try { srv.listen(FIXED_PORT, '127.0.0.1'); } catch (_) {} }, 400);
+        else { try { srv.listen(0, '127.0.0.1'); } catch (_) {} } // 최후의 수단(랜덤 포트)
+      }
+    });
+    srv.listen(FIXED_PORT, '127.0.0.1');
   });
 }
 

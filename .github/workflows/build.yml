@@ -36,9 +36,9 @@ jobs:
           name: MomentPlan ${{ steps.ver.outputs.tag }}
           body: |
             MomentPlan 설치파일입니다. 자기 OS에 맞는 파일을 받으세요.
-            · Windows(윈7·10·11 공용): MomentPlan-Setup-...-ia32.exe
-            · Windows 10/11 전용: MomentPlan-Setup-...-x64.exe
-            · Mac: MomentPlan-...-universal.dmg
+            · Windows 7 : MomentPlan-Setup_win7-버전.exe
+            · Windows 10 / 11 : MomentPlan-Setup_win10-11-버전.exe
+            · Mac : MomentPlan-Setup_mac-버전.dmg
 
   # ── 1) Mac 설치본 (.dmg) ─────────────────────────────
   mac:
@@ -58,11 +58,17 @@ jobs:
       - name: Mac 빌드
         working-directory: electron-app
         run: npx electron-builder --mac --publish never
+      - name: 파일명 정리 (mac)
+        working-directory: electron-app/release
+        run: |
+          v="${{ needs.mkrelease.outputs.tag }}"; v="${v#v}"
+          f=$(ls *.dmg | head -1)
+          mv "$f" "MomentPlan-Setup_mac-$v.dmg"
       - name: 릴리스에 첨부
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.mkrelease.outputs.tag }}
-          files: electron-app/release/*.dmg
+          files: electron-app/release/MomentPlan-Setup_mac-*.dmg
           fail_on_unmatched_files: false
 
   # ── 2) Windows 10/11 설치본 (.exe) ───────────────────
@@ -83,11 +89,17 @@ jobs:
       - name: Windows 빌드
         working-directory: electron-app
         run: npx electron-builder --win --publish never
+      - name: 파일명 정리 (win10/11)
+        working-directory: electron-app/release
+        shell: pwsh
+        run: |
+          $v = "${{ needs.mkrelease.outputs.tag }}".TrimStart('v')
+          Get-ChildItem -Filter *.exe | Select-Object -First 1 | Rename-Item -NewName "MomentPlan-Setup_win10-11-$v.exe"
       - name: 릴리스에 첨부
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.mkrelease.outputs.tag }}
-          files: electron-app/release/*.exe
+          files: electron-app/release/MomentPlan-Setup_win10-11-*.exe
           fail_on_unmatched_files: false
 
   # ── 3) Windows 7 전용 설치본 (Electron 22) ───────────
@@ -111,9 +123,15 @@ jobs:
       - name: Windows 7 빌드 (32비트 = 32·64비트 윈7 모두 실행)
         working-directory: electron-app
         run: npx electron-builder --win nsis --ia32 --publish never
+      - name: 파일명 정리 (win7)
+        working-directory: electron-app/release
+        shell: pwsh
+        run: |
+          $v = "${{ needs.mkrelease.outputs.tag }}".TrimStart('v')
+          Get-ChildItem -Filter *.exe | Select-Object -First 1 | Rename-Item -NewName "MomentPlan-Setup_win7-$v.exe"
       - name: 릴리스에 첨부
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.mkrelease.outputs.tag }}
-          files: electron-app/release/*.exe
+          files: electron-app/release/MomentPlan-Setup_win7-*.exe
           fail_on_unmatched_files: false
