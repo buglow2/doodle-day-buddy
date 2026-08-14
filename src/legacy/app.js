@@ -625,7 +625,7 @@ function DDBTileBar() {
     O.useEffect(() => { if (!drag) return; const mv = e => { const c = cellAt(e.clientX, e.clientY); setDrag(d => d && d.cell !== c ? { id: d.id, cell: c } : d); }; const up = () => { setDrag(d => { if (d) { const nl = {}; Object.keys(layout).forEach(k => nl[k] = layout[k]); const occ = tiles.find(t => t.id !== d.id && pos[t.id] === d.cell); const old = pos[d.id]; nl[d.id] = d.cell; if (occ && old != null && old >= 0) nl[occ.id] = old; saveLayout(nl); } return null; }); }; window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up); return () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); }; }, [drag]);
     const openAdd = ev => { ev.stopPropagation(); const rc = ev.currentTarget.getBoundingClientRect(); setForm(null); setMenu({ x: Math.min(rc.left, window.innerWidth - 260), y: rc.bottom + 4 }); };
     const addPomo = () => { const sec = (+(form.h || 0)) * 3600 + (+(form.m || 0)) * 60 + (+(form.s || 0)); if (sec <= 0) return; saveActs((settings.quickActions || []).concat([{ id: Ft(), type: "pomo", sec: sec }])); setMenu(null); setForm(null); };
-    const addMail = () => { if (!form.label.trim() || !form.email.trim()) return; saveActs((settings.quickActions || []).concat([{ id: Ft(), type: "mail", label: form.label.trim(), email: form.email.trim(), subject: form.subject, body: form.body }])); setMenu(null); setForm(null); };
+    const addMail = () => { if (!form.label.trim() || !form.email.trim()) return; saveActs((settings.quickActions || []).concat([{ id: Ft(), type: "mail", provider: form.provider || "naver", label: form.label.trim(), email: form.email.trim(), subject: form.subject, body: form.body }])); setMenu(null); setForm(null); };
     const delAct = t => { if (t.kind === "ann") return; saveActs((settings.quickActions || []).filter(a => a.id !== t.a.id)); };
     const inCls = "w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-[11px] outline-none placeholder-white/30 mb-1";
     const xy = ci => ({ left: (ci % cols) * (CW + GAP) + "px", top: Math.floor(ci / cols) * (CH + GAP) + "px" });
@@ -1782,7 +1782,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.11";
+const DDB_VERSION = "0.98.12";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3331,7 +3331,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v248"
+                children: "v249"
             }), (() => {
                 const S = [{
                     k: "cal",
