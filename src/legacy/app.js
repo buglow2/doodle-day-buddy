@@ -617,7 +617,7 @@ function DDBTileBar() {
     const saveActs = arr => dispatch({ type: "UPDATE_SETTINGS", settings: { quickActions: arr } });
     const saveLayout = nl => dispatch({ type: "UPDATE_SETTINGS", settings: { tileLayout: nl } });
     function mailUrl(a) { const to = encodeURIComponent(a.email || ""), su = encodeURIComponent(a.subject || ""), bo = encodeURIComponent(a.body || ""), p = a.provider || "mailto"; if (p === "gmail") return "https://mail.google.com/mail/?view=cm&fs=1&to=" + to + "&su=" + su + "&body=" + bo; if (p === "outlook") return "https://outlook.live.com/mail/0/deeplink/compose?to=" + to + "&subject=" + su + "&body=" + bo; if (p === "naver") return "https://mail.naver.com/write/popup?srvid=note&to=" + to + "&subject=" + su + "&body=" + bo; return "mailto:" + (a.email || "") + "?subject=" + su + "&body=" + bo; }
-    function doTile(t) { if (!t) return; if (t.kind === "pomo") window.dispatchEvent(new CustomEvent("ddb-pomo-start", { detail: { sec: t.a.sec } })); else if (t.kind === "mail") { try { if ((t.a.provider || "mailto") === "naver" && t.a.body) { try { navigator.clipboard && navigator.clipboard.writeText(t.a.body); setToast("본문을 복사했어요 — 네이버 편지쓰기 본문칸에 Ctrl+V 하세요"); } catch (e) {} } window.open(mailUrl(t.a), "_blank"); } catch (e) {} } else if (t.kind === "ann") { const p = String(t.d.date || "").split("-").map(Number); if (p[0] && p[1]) dispatch({ type: "SET_MONTH", year: p[0], month: p[1] }); } }
+    function doTile(t) { if (!t) return; if (t.kind === "pomo") window.dispatchEvent(new CustomEvent("ddb-pomo-start", { detail: { sec: t.a.sec } })); else if (t.kind === "mail") { try { if ((t.a.provider || "mailto") === "naver" && t.a.body) { try { navigator.clipboard && navigator.clipboard.writeText(t.a.body); setToast("본문을 복사했어요 — 네이버 편지쓰기 본문칸에 Ctrl+V 하세요"); } catch (e) {} } var _u = mailUrl(t.a); if (window.ddbNative && window.ddbNative.openExternal) window.ddbNative.openExternal(_u); else window.open(_u, "_blank"); } catch (e) {} } else if (t.kind === "ann") { const p = String(t.d.date || "").split("-").map(Number); if (p[0] && p[1]) dispatch({ type: "SET_MONTH", year: p[0], month: p[1] }); } }
     function pomoLabel(sec) { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; let t = ""; if (h) t += h + "시간"; if (m) t += m + "분"; if (s) t += s + "초"; return "▶ " + (t || "0초"); }
     function cellAt(cx, cy) { const el = wrapRef.current; if (!el) return 0; const r = el.getBoundingClientRect(); const c = Math.max(0, Math.min(cols - 1, Math.floor((cx - r.left) / (CW + GAP)))); const rw = Math.max(0, Math.min(ROWS - 1, Math.floor((cy - r.top) / (CH + GAP)))); return rw * cols + c; }
     function onDown(t, e) { if (e.button !== 0) return; const sx = e.clientX, sy = e.clientY; if (lp.current) clearTimeout(lp.current); lp.current = setTimeout(() => { lp.current = null; setDrag({ id: t.id, cell: cellAt(sx, sy) }); }, 700); }
@@ -1782,7 +1782,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.10";
+const DDB_VERSION = "0.98.11";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3331,7 +3331,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v247"
+                children: "v248"
             }), (() => {
                 const S = [{
                     k: "cal",

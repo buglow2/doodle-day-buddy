@@ -1,5 +1,5 @@
 // MomentPlan — Electron 실행기
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -56,10 +56,12 @@ async function createWindow() {
     width: 1280, height: 800, minWidth: 900, minHeight: 600,
     autoHideMenuBar: true, title: 'MomentPlan',
     icon: path.join(__dirname, process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
-    webPreferences: { contextIsolation: true }
+    webPreferences: { contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
   });
   win.loadURL(`http://127.0.0.1:${port}/`);
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
+  // 렌더러가 직접 요청하는 외부 링크 열기 (window.open 우회 — 주소 유실 방지)
+  ipcMain.handle('ddb-open-external', (_e, url) => { try { if (url && /^(https?:|mailto:)/i.test(url)) { shell.openExternal(url); return true; } } catch (e) {} return false; });
 
   // 창을 닫기 전에 클라우드 동기화를 한 번 실행하고 종료 (최대 5초 대기)
   let _closing = false;
