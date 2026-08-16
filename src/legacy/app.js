@@ -234,7 +234,7 @@ function ddbHIcon(k) {
     const P = (d, i) => o.jsx("path", { d: d }, i);
     const R = (x, y, w, h, rx, i) => o.jsx("rect", { x: x, y: y, width: w, height: h, rx: rx }, i);
     const C = (cx, cy, r, i) => o.jsx("circle", { cx: cx, cy: cy, r: r }, i);
-    const kids = { lock: [R(4, 11, 16, 10, 2, 1), P("M8 11V7a4 4 0 0 1 8 0v4", 2)], calendar: [R(3, 5, 18, 16, 2, 1), P("M3 9.5h18M8 3v4M16 3v4", 2)], money: [C(12, 12, 9, 1), o.jsx("text", { x: 12, y: 16, textAnchor: "middle", fontSize: 12, fill: "currentColor", stroke: "none", children: "₩" }, 2)], list: [R(5, 4, 14, 17, 2, 1), P("M9 4h6v3H9zM9 12h6M9 16h6", 2)], team: [C(9, 8, 3, 1), P("M3.5 20a5.5 5.5 0 0 1 11 0", 2), P("M16 6a3 3 0 0 1 0 6M21 20a5.5 5.5 0 0 0-4.5-5.4", 3)], folder: [P("M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", 1)], share: [P("M12 15V3M8 7l4-4 4 4", 1), P("M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5", 2)], image: [R(3, 4, 18, 16, 2, 1), C(8.5, 10, 2, 2), P("M4 18l5-5 4 4 3-3 4 4", 3)], table: [R(3, 4, 18, 16, 1, 1), P("M3 10h18M3 15h18M9 4v16M15 4v16", 2)], timer: [C(12, 14, 7.5, 1), P("M12 14V9.5M10 3h4M12 3v3", 2)], chart: [P("M4 4v16h16", 1), R(7, 12, 3, 5, 1, 2), R(12, 8, 3, 9, 1, 3), R(17, 5, 3, 12, 1, 4)], feedback: [P("M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z", 1), P("M8 9h9M8 12.5h6", 2)] };
+    const kids = { lock: [R(4, 11, 16, 10, 2, 1), P("M8 11V7a4 4 0 0 1 8 0v4", 2)], calendar: [R(3, 5, 18, 16, 2, 1), P("M3 9.5h18M8 3v4M16 3v4", 2)], money: [C(12, 12, 9, 1), o.jsx("text", { x: 12, y: 16, textAnchor: "middle", fontSize: 12, fill: "currentColor", stroke: "none", children: "₩" }, 2)], list: [R(5, 4, 14, 17, 2, 1), P("M9 4h6v3H9zM9 12h6M9 16h6", 2)], team: [C(9, 8, 3, 1), P("M3.5 20a5.5 5.5 0 0 1 11 0", 2), P("M16 6a3 3 0 0 1 0 6M21 20a5.5 5.5 0 0 0-4.5-5.4", 3)], folder: [P("M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", 1)], share: [P("M12 15V3M8 7l4-4 4 4", 1), P("M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5", 2)], image: [R(3, 4, 18, 16, 2, 1), C(8.5, 10, 2, 2), P("M4 18l5-5 4 4 3-3 4 4", 3)], table: [R(3, 4, 18, 16, 1, 1), P("M3 10h18M3 15h18M9 4v16M15 4v16", 2)], timer: [C(12, 14, 7.5, 1), P("M12 14V9.5M10 3h4M12 3v3", 2)], chart: [P("M4 4v16h16", 1), R(7, 12, 3, 5, 1, 2), R(12, 8, 3, 9, 1, 3), R(17, 5, 3, 12, 1, 4)], feedback: [P("M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z", 1), P("M8 9h9M8 12.5h6", 2)], receipt: [P("M6 2h12v20l-2.5-1.8-2.5 1.8-2.5-1.8L8 22l-2-1.8V2z", 1), P("M9 7h6M9 11h6M9 15h4", 2)] };
     return o.jsx("svg", { viewBox: "0 0 24 24", width: 15, height: 15, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", style: { display: "inline-block", verticalAlign: "middle" }, children: kids[k] || [] });
 }
 const DDB_MNAMES = { en:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], de:["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"], es:["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"] };
@@ -1799,7 +1799,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.20";
+const DDB_VERSION = "0.98.21";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3348,7 +3348,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v257"
+                children: "v258"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -6381,6 +6381,12 @@ function fd({
                     cls: "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border border-white/15 text-white/60 hover:bg-white/10 hover:text-amber-300",
                     body: ddbHIcon("feedback"),
                     act: () => window.dispatchEvent(new CustomEvent("ddb-open-feedback"))
+                }, {
+                    k: "receipt",
+                    title: "영수증 자동정리 (여러 장 → 엑셀)",
+                    cls: "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors border border-white/15 text-white/60 hover:bg-white/10 hover:text-lime-300",
+                    body: ddbHIcon("receipt"),
+                    act: () => window.dispatchEvent(new CustomEvent("ddb-open-receipt"))
                 }];
                 const ddbExtraAct = [...["1", "2", "3", "4", "5"].map(nn => ({ k: "memo" + nn, act: () => { const tid = "memo-" + nn, ex = (t.panels || []).find(A => A.type === "memo" && A.memoTabId === tid); n(ex ? { type: "REMOVE_PANEL", id: ex.id } : { type: "ADD_PANEL", panel: { id: `panel-memo-${Ft()}`, type: "memo", memoTabId: tid, slot: "float", order: 0, floatX: 120 + Number(nn) * 26, floatY: 90 + Number(nn) * 26, floatW: 240, floatH: 400, minimized: !1, zIndex: (t.topZIndex || 10) + 1 } }) } })), { k: "calc", act: () => { const ex = (t.panels || []).find(A => A.type === "calculator"); n(ex ? { type: "REMOVE_PANEL", id: ex.id } : { type: "ADD_PANEL", panel: { id: `panel-calculator-${Ft()}`, type: "calculator", slot: "float", order: 0, floatX: 200, floatY: 100, floatW: 240, floatH: 420, minimized: !1, zIndex: (t.topZIndex || 10) + 1 } }) } }, { k: "playNext", act: () => { window.__ddbPlayerCtl && window.__ddbPlayerCtl.next() } }, { k: "playPrev", act: () => { window.__ddbPlayerCtl && window.__ddbPlayerCtl.prev() } }, { k: "playToggle", act: () => { window.__ddbPlayerCtl && window.__ddbPlayerCtl.toggle() } }];
                 window.__ddbCACT = [...q7, ...ddbExtraAct];
@@ -8389,6 +8395,98 @@ function DDBMemoPopup() {
     return Rr.createPortal(o.jsxs("div", { style: { position: "fixed", left: box.x, top: box.y, width: box.w, height: box.h, background: "#0f1420", border: "1px solid rgba(255,255,255,0.22)", borderRadius: 12, boxShadow: "0 20px 60px rgba(0,0,0,0.6)", zIndex: 2147483500, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
         o.jsxs("div", { onMouseDown: e => { drag.current = { mode: "move", sx: e.clientX, sy: e.clientY, bx: box.x, by: box.y }; }, style: { cursor: "move", padding: "6px 10px", background: "rgba(167,139,250,0.14)", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }, children: [o.jsx("span", { style: { fontSize: 12, color: "rgba(255,255,255,0.92)", fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: "📄 " + title + " (보기 전용)" }), o.jsx("button", { onClick: () => setPop(null), style: { background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 17, lineHeight: 1, padding: "0 2px" }, title: "닫기 (Esc)", children: "×" })] }),
         o.jsx("div", { style: { flex: 1, overflow: "auto", padding: 10 }, children: it ? o.jsx(DDBDocEditor, { content: it.content, fontSize: 13, itemId: "popup-" + pop.itemId, readOnly: true, maxH: "none" }, pop.itemId) : o.jsx("div", { style: { color: "rgba(255,255,255,0.4)", fontSize: 12, textAlign: "center", marginTop: 20 }, children: "메모를 찾을 수 없습니다 (삭제되었을 수 있어요)" }) }),
+        o.jsx("div", { onMouseDown: e => { e.preventDefault(); drag.current = { mode: "resize", sx: e.clientX, sy: e.clientY, bw: box.w, bh: box.h }; }, style: { position: "absolute", right: 0, bottom: 0, width: 16, height: 16, cursor: "nwse-resize", background: "linear-gradient(135deg,transparent 50%,rgba(255,255,255,0.4) 50%)" } })
+    ] }), document.body);
+}
+function DDBReceiptTool() {
+    const [open, setOpen] = O.useState(false);
+    const [files, setFiles] = O.useState([]);
+    const [rows, setRows] = O.useState([]);
+    const [busy, setBusy] = O.useState(false);
+    const [prog, setProg] = O.useState(0);
+    const [cfg, setCfg] = O.useState(() => { try { return JSON.parse(localStorage.getItem("ddb_gemini") || "{}") || {}; } catch (e) { return {}; } });
+    const [guide, setGuide] = O.useState(false);
+    const [setup, setSetup] = O.useState(false);
+    const [box, setBox] = O.useState(() => { try { const s = JSON.parse(localStorage.getItem("ddb_receipt_box") || "null"); if (s && s.w) return s; } catch (e) {} return { x: 90, y: 60, w: 780, h: 560 }; });
+    const drag = O.useRef(null), cancelRef = O.useRef(false);
+    O.useEffect(() => { const h = () => setOpen(v => { const nv = !v; if (nv && !cfg.key) setGuide(true); return nv; }); window.addEventListener("ddb-open-receipt", h); return () => window.removeEventListener("ddb-open-receipt", h); }, [cfg]);
+    O.useEffect(() => { try { localStorage.setItem("ddb_receipt_box", JSON.stringify(box)); } catch (e) {} }, [box]);
+    O.useEffect(() => { if (!open) return; const mv = e => { const d = drag.current; if (!d) return; if (d.mode === "move") setBox(b => ({ ...b, x: d.bx + (e.clientX - d.sx), y: Math.max(0, d.by + (e.clientY - d.sy)) })); else setBox(b => ({ ...b, w: Math.max(420, d.bw + (e.clientX - d.sx)), h: Math.max(300, d.bh + (e.clientY - d.sy)) })); }; const up = () => { drag.current = null; }; window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up); return () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); }; }, [open]);
+    const saveCfg = c => { setCfg(c); try { localStorage.setItem("ddb_gemini", JSON.stringify(c)); } catch (e) {} };
+    function addFiles(fl) { const arr = Array.from(fl || []).filter(f => /^image\//.test(f.type)).slice(0, 60); Promise.all(arr.map(f => new Promise(res => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUrl: r.result }); r.onerror = () => res(null); r.readAsDataURL(f); }))).then(list => setFiles(prev => prev.concat(list.filter(Boolean)).slice(0, 60))); }
+    async function extractOne(dataUrl) {
+        const mime = dataUrl.substring(5, dataUrl.indexOf(";")), b64 = dataUrl.split(",")[1], model = cfg.model || "gemini-2.0-flash";
+        const prompt = "이 영수증 이미지를 분석해서 아래 JSON만 출력해. 숫자 항목은 숫자만(콤마·원·₩·공백 제거). 값을 못 읽으면 \"[확인 필요]\". category는 식비/사무용품/교통비/기타 중 하나로 추정. {\"date\":\"YYYY-MM-DD\",\"store\":\"상호명\",\"bizno\":\"사업자번호\",\"supply\":\"공급가액\",\"vat\":\"부가세\",\"total\":\"총결제금액\",\"pay\":\"결제수단\",\"category\":\"\"}";
+        const body = { contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: b64 } }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } };
+        const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(cfg.key || ""), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (!res.ok) { let t = ""; try { t = await res.text(); } catch (e) {} throw new Error("API " + res.status + " " + t.slice(0, 140)); }
+        const j = await res.json();
+        let txt = ""; try { txt = j.candidates[0].content.parts.map(p => p.text || "").join(""); } catch (e) {}
+        let obj; try { obj = JSON.parse(txt); } catch (e) { const m = txt.match(/\{[\s\S]*\}/); obj = m ? JSON.parse(m[0]) : {}; }
+        return obj || {};
+    }
+    async function run() {
+        if (!cfg.key) { setSetup(true); return; }
+        if (!files.length || busy) return;
+        setBusy(true); setProg(0); cancelRef.current = false; const out = [];
+        for (let i = 0; i < files.length; i++) {
+            if (cancelRef.current) break;
+            let r; try { r = await extractOne(files[i].dataUrl); } catch (e) { r = { _err: String(e && e.message || e) }; }
+            out.push(Object.assign({ file: files[i].name }, r)); setRows(out.slice()); setProg(Math.round(((i + 1) / files.length) * 100));
+            await new Promise(res => setTimeout(res, 250));
+        }
+        setBusy(false);
+    }
+    function toXlsx() {
+        if (!rows.length) return;
+        const head = ["파일", "결제일자", "상호명", "사업자번호", "공급가액", "부가세(VAT)", "총결제금액", "결제수단", "카테고리", "비고"];
+        const aoa = [head].concat(rows.map(r => [r.file || "", r.date || "", r.store || "", r.bizno || "", r.supply || "", r.vat || "", r.total || "", r.pay || "", r.category || "", r._err ? ("오류: " + r._err) : ""]));
+        try { const ws = XLSX.utils.aoa_to_sheet(aoa); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "영수증"); XLSX.writeFile(wb, "영수증정리_" + new Date().toISOString().slice(0, 10) + ".xlsx"); } catch (e) { alert("엑셀 저장 실패: " + (e && e.message || e)); }
+    }
+    function copyTsv() {
+        const head = ["결제일자", "상호명", "사업자번호", "공급가액", "부가세", "총결제금액", "결제수단", "카테고리"];
+        const lines = [head.join("\t")].concat(rows.map(r => [r.date || "", r.store || "", r.bizno || "", r.supply || "", r.vat || "", r.total || "", r.pay || "", r.category || ""].join("\t")));
+        try { navigator.clipboard.writeText(lines.join("\n")); } catch (e) {}
+    }
+    if (!open) return null;
+    const inC = "w-full bg-white/10 border border-white/20 rounded px-2 py-1.5 text-white text-xs outline-none placeholder-white/30";
+    const noKey = !cfg.key;
+    const cols = [["date", "결제일자"], ["store", "상호명"], ["bizno", "사업자번호"], ["supply", "공급가액"], ["vat", "VAT"], ["total", "총금액"], ["pay", "결제수단"], ["category", "카테고리"]];
+    const body = guide ? o.jsxs("div", { style: { padding: 18, overflow: "auto" }, children: [
+        o.jsx("div", { style: { fontSize: 15, fontWeight: 700, color: "#e5e7eb", marginBottom: 10 }, children: "🧾 영수증 자동정리 — 처음이신가요?" }),
+        o.jsx("div", { style: { fontSize: 12.5, color: "rgba(255,255,255,0.8)", lineHeight: 1.7, marginBottom: 12 }, children: "영수증 사진을 여러 장 첨부하면 AI가 읽어서 결제일·상호·금액·VAT·카테고리로 엑셀 표를 자동으로 만들어줘요. (한 번에 최대 60장)" }),
+        o.jsx("div", { style: { fontSize: 12, color: "#fcd34d", background: "rgba(180,120,0,0.12)", border: "1px solid rgba(252,211,77,0.3)", borderRadius: 8, padding: "8px 10px", lineHeight: 1.6, marginBottom: 12 }, children: "⚠️ 이미지가 구글 AI 서버로 전송돼요(민감 문서 주의). 못 읽은 칸은 [확인 필요]로 표시돼요. 처음 1회 무료 API 키 설정이 필요해요." }),
+        o.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+            o.jsx("button", { onClick: () => { setGuide(false); setSetup(true); }, style: { flex: 1, padding: "8px 0", borderRadius: 8, background: "rgba(59,130,246,0.35)", border: "1px solid rgba(96,165,250,0.6)", color: "#dbeafe", fontSize: 13, cursor: "pointer" }, children: "무료 키 설정하러 가기" }),
+            o.jsx("button", { onClick: () => setGuide(false), style: { padding: "8px 14px", borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)", fontSize: 13, cursor: "pointer" }, children: "나중에" })
+        ] })
+    ] }) : setup ? o.jsxs("div", { style: { padding: 16, overflow: "auto" }, children: [
+        o.jsx("div", { style: { fontSize: 13, fontWeight: 700, color: "#e5e7eb", marginBottom: 8 }, children: "⚙ Gemini API 키 설정 (무료로 시작)" }),
+        o.jsxs("ol", { style: { fontSize: 11.5, color: "rgba(255,255,255,0.7)", lineHeight: 1.8, marginBottom: 10, paddingLeft: 18 }, children: [o.jsx("li", { children: "aistudio.google.com/apikey 접속 (구글 로그인)" }), o.jsx("li", { children: "‘Create API key’ 클릭 → 키 복사" }), o.jsx("li", { children: "아래에 붙여넣기 → 저장" })] }),
+        o.jsx("input", { type: "password", value: cfg.key || "", onChange: e => saveCfg({ ...cfg, key: e.target.value.trim() }), placeholder: "Gemini API 키 (AIza...)", className: inC }),
+        o.jsx("div", { style: { height: 6 } }),
+        o.jsx("input", { value: cfg.model || "", onChange: e => saveCfg({ ...cfg, model: e.target.value.trim() }), placeholder: "모델 (기본: gemini-2.0-flash)", className: inC }),
+        o.jsx("div", { style: { fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 6, lineHeight: 1.6 }, children: "키는 이 기기에만 저장돼요(동기화 안 함). 판매용으로 팀 공유하려면 별도 프록시가 필요해요 — 준비되면 알려줘." }),
+        o.jsx("button", { onClick: () => setSetup(false), style: { marginTop: 12, width: "100%", padding: "8px 0", borderRadius: 8, background: "rgba(16,185,129,0.3)", border: "1px solid rgba(52,211,153,0.5)", color: "#d1fae5", fontSize: 13, cursor: "pointer" }, children: "완료" })
+    ] }) : o.jsxs("div", { style: { display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }, children: [
+        o.jsxs("div", { style: { padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderBottom: "1px solid rgba(255,255,255,0.08)" }, children: [
+            o.jsxs("label", { style: { padding: "6px 12px", borderRadius: 8, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 12, cursor: "pointer" }, children: ["＋ 영수증 이미지 선택", o.jsx("input", { type: "file", accept: "image/*", multiple: true, onChange: e => { addFiles(e.target.files); e.target.value = ""; }, style: { display: "none" } })] }),
+            o.jsx("span", { style: { fontSize: 12, color: "rgba(255,255,255,0.6)" }, children: files.length ? (files.length + "장 첨부됨") : "이미지를 선택하거나 이 창으로 끌어놓으세요" }),
+            files.length ? o.jsx("button", { onClick: () => setFiles([]), style: { fontSize: 11, color: "rgba(255,255,255,0.5)", background: "transparent", border: "none", cursor: "pointer" }, children: "비우기" }) : null,
+            o.jsx("span", { style: { flex: 1 } }),
+            noKey ? o.jsx("button", { onClick: () => setSetup(true), style: { fontSize: 11.5, color: "#fca5a5", background: "transparent", border: "1px solid rgba(248,113,113,0.4)", borderRadius: 6, padding: "3px 8px", cursor: "pointer" }, children: "⚠ 키 설정 필요" }) : o.jsx("button", { onClick: () => setSetup(true), style: { fontSize: 11, color: "rgba(255,255,255,0.5)", background: "transparent", border: "none", cursor: "pointer" }, children: "⚙ 키" }),
+            busy ? o.jsx("button", { onClick: () => { cancelRef.current = true; }, style: { padding: "6px 12px", borderRadius: 8, background: "rgba(239,68,68,0.3)", border: "1px solid rgba(248,113,113,0.5)", color: "#fecaca", fontSize: 12, cursor: "pointer" }, children: "중지" }) : o.jsx("button", { onClick: run, disabled: !files.length, style: { padding: "6px 16px", borderRadius: 8, background: files.length ? "rgba(132,204,22,0.35)" : "rgba(255,255,255,0.06)", border: "1px solid rgba(163,230,53,0.5)", color: files.length ? "#ecfccb" : "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 600, cursor: files.length ? "pointer" : "default" }, children: "정리 시작" })
+        ] }),
+        busy ? o.jsxs("div", { style: { padding: "6px 14px" }, children: [o.jsx("div", { style: { fontSize: 11, color: "rgba(255,255,255,0.7)", marginBottom: 4 }, children: "분석 중… " + rows.length + "/" + files.length + " (" + prog + "%)" }), o.jsx("div", { style: { height: 5, borderRadius: 3, background: "rgba(255,255,255,0.1)", overflow: "hidden" }, children: o.jsx("div", { style: { height: "100%", width: prog + "%", background: "#84cc16" } }) })] }) : null,
+        o.jsx("div", { style: { flex: 1, overflow: "auto", padding: "6px 10px" }, children: rows.length ? o.jsxs("table", { style: { borderCollapse: "collapse", fontSize: 11.5, width: "100%" }, children: [
+            o.jsx("thead", { children: o.jsxs("tr", { children: [o.jsx("th", { style: { padding: "4px 6px", color: "rgba(255,255,255,0.5)", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.15)", position: "sticky", top: 0, background: "#0f1420" }, children: "#" }), ...cols.map(c => o.jsx("th", { style: { padding: "4px 6px", color: "rgba(255,255,255,0.5)", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.15)", position: "sticky", top: 0, background: "#0f1420", whiteSpace: "nowrap" }, children: c[1] }, c[0]))] }) }),
+            o.jsx("tbody", { children: rows.map((r, i) => o.jsxs("tr", { style: r._err ? { background: "rgba(239,68,68,0.1)" } : void 0, children: [o.jsx("td", { style: { padding: "3px 6px", color: "rgba(255,255,255,0.4)", borderBottom: "1px solid rgba(255,255,255,0.06)" }, children: i + 1 }), ...cols.map(c => o.jsx("td", { style: { padding: "3px 6px", color: (r[c[0]] === "[확인 필요]" ? "#fca5a5" : "rgba(255,255,255,0.9)"), borderBottom: "1px solid rgba(255,255,255,0.06)", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }, title: r._err || String(r[c[0]] || ""), children: r._err && c[0] === "date" ? "⚠ 오류" : (r[c[0]] || "") }, c[0]))] }, i)) })
+        ] }) : o.jsx("div", { style: { color: "rgba(255,255,255,0.35)", fontSize: 12.5, textAlign: "center", marginTop: 40, lineHeight: 1.8 }, children: "영수증 이미지를 선택하고 ‘정리 시작’을 누르세요.\n분석이 끝나면 여기에 표로 나오고, 엑셀로 저장할 수 있어요." }) }),
+        rows.length ? o.jsxs("div", { style: { padding: "8px 14px", display: "flex", gap: 8, borderTop: "1px solid rgba(255,255,255,0.08)" }, children: [o.jsx("button", { onClick: toXlsx, style: { padding: "7px 16px", borderRadius: 8, background: "rgba(16,185,129,0.3)", border: "1px solid rgba(52,211,153,0.5)", color: "#d1fae5", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }, children: "엑셀로 저장 (.xlsx)" }), o.jsx("button", { onClick: copyTsv, style: { padding: "7px 14px", borderRadius: 8, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 12.5, cursor: "pointer" }, children: "표 복사(붙여넣기용)" })] }) : null
+    ] });
+    return Rr.createPortal(o.jsxs("div", { onDragOver: e => { e.preventDefault(); }, onDrop: e => { e.preventDefault(); if (!guide && !setup) addFiles(e.dataTransfer.files); }, style: { position: "fixed", left: box.x, top: box.y, width: box.w, height: box.h, background: "#0f1420", border: "1px solid rgba(255,255,255,0.22)", borderRadius: 12, boxShadow: "0 20px 60px rgba(0,0,0,0.6)", zIndex: 2147483500, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
+        o.jsxs("div", { onMouseDown: e => { drag.current = { mode: "move", sx: e.clientX, sy: e.clientY, bx: box.x, by: box.y }; }, style: { cursor: "move", padding: "7px 12px", background: "rgba(132,204,22,0.14)", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }, children: [o.jsx("span", { style: { fontSize: 13, color: "rgba(255,255,255,0.92)", fontWeight: 700, flex: 1 }, children: "🧾 영수증 자동정리 → 엑셀" }), o.jsx("button", { onClick: () => setOpen(false), style: { background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 17, lineHeight: 1 }, title: "닫기", children: "×" })] }),
+        body,
         o.jsx("div", { onMouseDown: e => { e.preventDefault(); drag.current = { mode: "resize", sx: e.clientX, sy: e.clientY, bw: box.w, bh: box.h }; }, style: { position: "absolute", right: 0, bottom: 0, width: 16, height: 16, cursor: "nwse-resize", background: "linear-gradient(135deg,transparent 50%,rgba(255,255,255,0.4) 50%)" } })
     ] }), document.body);
 }
@@ -16313,7 +16411,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {})]
         })
     })
 }
