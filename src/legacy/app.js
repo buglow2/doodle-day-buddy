@@ -1799,7 +1799,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.23";
+const DDB_VERSION = "0.98.24";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3348,7 +3348,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v260"
+                children: "v261"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8414,10 +8414,10 @@ function DDBReceiptTool() {
     O.useEffect(() => { try { localStorage.setItem("ddb_receipt_box", JSON.stringify(box)); } catch (e) {} }, [box]);
     O.useEffect(() => { if (!open) return; const mv = e => { const d = drag.current; if (!d) return; if (d.mode === "move") setBox(b => ({ ...b, x: d.bx + (e.clientX - d.sx), y: Math.max(0, d.by + (e.clientY - d.sy)) })); else setBox(b => ({ ...b, w: Math.max(420, d.bw + (e.clientX - d.sx)), h: Math.max(300, d.bh + (e.clientY - d.sy)) })); }; const up = () => { drag.current = null; }; window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up); return () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); }; }, [open]);
     const saveCfg = c => { setCfg(c); try { localStorage.setItem("ddb_gemini", JSON.stringify(c)); } catch (e) {} };
-    async function testKey() { setTestMsg("확인 중…"); try { const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models", { headers: { "x-goog-api-key": (cfg.key || "").trim() } }); const j = await res.json(); if (!res.ok) { setTestMsg("✗ 키 오류 " + res.status + ": " + (((j.error || {}).message) || "").slice(0, 120)); return; } const flash = (j.models || []).map(m => (m.name || "").replace("models/", "")).filter(n => /flash/.test(n) && /generateContent/.test((((j.models || []).find(x => (x.name || "").endsWith(n)) || {}).supportedGenerationMethods || []).join(","))); const list = flash.length ? flash : (j.models || []).map(m => (m.name || "").replace("models/", "")).filter(n => /flash/.test(n)); setTestMsg("✓ 키 정상! 사용가능 모델 예: " + (list.slice(0, 5).join(", ") || "gemini-2.0-flash")); } catch (e) { setTestMsg("✗ 네트워크 오류: " + String(e && e.message || e)); } }
+    async function testKey() { setTestMsg("확인 중…"); try { const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models", { headers: { "x-goog-api-key": (cfg.key || "").trim() } }); const j = await res.json(); if (!res.ok) { setTestMsg("✗ 키 오류 " + res.status + ": " + (((j.error || {}).message) || "").slice(0, 120)); return; } const usable = (j.models || []).filter(m => (m.supportedGenerationMethods || []).indexOf("generateContent") >= 0).map(m => (m.name || "").replace("models/", "")); const flash = usable.filter(n => /flash/.test(n) && !/(vision|thinking|exp|preview|lite|8b|image|tts|audio)/.test(n)); const pick = flash.indexOf("gemini-flash-latest") >= 0 ? "gemini-flash-latest" : (flash.slice().sort().reverse()[0] || usable.filter(n => /flash/.test(n))[0] || usable[0] || ""); if (pick) saveCfg({ ...cfg, model: pick }); setTestMsg("✓ 키 정상! 모델 자동설정 → " + (pick || "없음") + (flash.length ? ("  (후보: " + flash.slice(0, 4).join(", ") + ")") : "")); } catch (e) { setTestMsg("✗ 네트워크 오류: " + String(e && e.message || e)); } }
     function addFiles(fl) { const arr = Array.from(fl || []).filter(f => /^image\//.test(f.type)).slice(0, 60); Promise.all(arr.map(f => new Promise(res => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUrl: r.result }); r.onerror = () => res(null); r.readAsDataURL(f); }))).then(list => setFiles(prev => prev.concat(list.filter(Boolean)).slice(0, 60))); }
     async function extractOne(dataUrl) {
-        const mime = dataUrl.substring(5, dataUrl.indexOf(";")), b64 = dataUrl.split(",")[1], model = cfg.model || "gemini-2.0-flash";
+        const mime = dataUrl.substring(5, dataUrl.indexOf(";")), b64 = dataUrl.split(",")[1], model = cfg.model || "gemini-flash-latest";
         const prompt = "이 영수증 이미지를 분석해서 아래 JSON만 출력해. 숫자 항목은 숫자만(콤마·원·₩·공백 제거). 값을 못 읽으면 \"[확인 필요]\". category는 식비/사무용품/교통비/기타 중 하나로 추정. {\"date\":\"YYYY-MM-DD\",\"store\":\"상호명\",\"bizno\":\"사업자번호\",\"supply\":\"공급가액\",\"vat\":\"부가세\",\"total\":\"총결제금액\",\"pay\":\"결제수단\",\"category\":\"\"}";
         const body = { contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: b64 } }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } };
         const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": (cfg.key || "").trim() }, body: JSON.stringify(body) });
@@ -8467,7 +8467,7 @@ function DDBReceiptTool() {
         o.jsxs("ol", { style: { fontSize: 11.5, color: "rgba(255,255,255,0.7)", lineHeight: 1.8, marginBottom: 10, paddingLeft: 18 }, children: [o.jsx("li", { children: "aistudio.google.com/apikey 접속 (구글 로그인)" }), o.jsx("li", { children: "‘Create API key’ 클릭 → 키 복사" }), o.jsx("li", { children: "아래에 붙여넣기 → 저장" })] }),
         o.jsx("input", { type: "password", value: cfg.key || "", onChange: e => saveCfg({ ...cfg, key: e.target.value.trim() }), placeholder: "Gemini API 키 (AIza...)", className: inC }),
         o.jsx("div", { style: { height: 6 } }),
-        o.jsx("input", { value: cfg.model || "", onChange: e => saveCfg({ ...cfg, model: e.target.value.trim() }), placeholder: "모델 (기본: gemini-2.0-flash)", className: inC }),
+        o.jsx("input", { value: cfg.model || "", onChange: e => saveCfg({ ...cfg, model: e.target.value.trim() }), placeholder: "모델 (비우고 '키 확인'하면 자동설정)", className: inC }),
         o.jsx("div", { style: { fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 6, lineHeight: 1.6 }, children: "키는 이 기기에만 저장돼요(동기화 안 함). 판매용으로 팀 공유하려면 별도 프록시가 필요해요 — 준비되면 알려줘." }),
         o.jsxs("div", { style: { display: "flex", gap: 8, marginTop: 10, alignItems: "center" }, children: [o.jsx("button", { onClick: testKey, style: { padding: "6px 14px", borderRadius: 8, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.25)", color: "#fff", fontSize: 12, cursor: "pointer", flexShrink: 0 }, children: "키 확인" }), o.jsx("span", { style: { fontSize: 11, color: testMsg.indexOf("✓") === 0 ? "#86efac" : (testMsg.indexOf("✗") === 0 ? "#fca5a5" : "rgba(255,255,255,0.6)"), flex: 1, wordBreak: "break-all" }, children: testMsg })] }),
         o.jsx("button", { onClick: () => setSetup(false), style: { marginTop: 12, width: "100%", padding: "8px 0", borderRadius: 8, background: "rgba(16,185,129,0.3)", border: "1px solid rgba(52,211,153,0.5)", color: "#d1fae5", fontSize: 13, cursor: "pointer" }, children: "완료" })
