@@ -1799,7 +1799,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.21";
+const DDB_VERSION = "0.98.22";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3348,7 +3348,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v258"
+                children: "v259"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8407,12 +8407,14 @@ function DDBReceiptTool() {
     const [cfg, setCfg] = O.useState(() => { try { return JSON.parse(localStorage.getItem("ddb_gemini") || "{}") || {}; } catch (e) { return {}; } });
     const [guide, setGuide] = O.useState(false);
     const [setup, setSetup] = O.useState(false);
+    const [testMsg, setTestMsg] = O.useState("");
     const [box, setBox] = O.useState(() => { try { const s = JSON.parse(localStorage.getItem("ddb_receipt_box") || "null"); if (s && s.w) return s; } catch (e) {} return { x: 90, y: 60, w: 780, h: 560 }; });
     const drag = O.useRef(null), cancelRef = O.useRef(false);
     O.useEffect(() => { const h = () => setOpen(v => { const nv = !v; if (nv && !cfg.key) setGuide(true); return nv; }); window.addEventListener("ddb-open-receipt", h); return () => window.removeEventListener("ddb-open-receipt", h); }, [cfg]);
     O.useEffect(() => { try { localStorage.setItem("ddb_receipt_box", JSON.stringify(box)); } catch (e) {} }, [box]);
     O.useEffect(() => { if (!open) return; const mv = e => { const d = drag.current; if (!d) return; if (d.mode === "move") setBox(b => ({ ...b, x: d.bx + (e.clientX - d.sx), y: Math.max(0, d.by + (e.clientY - d.sy)) })); else setBox(b => ({ ...b, w: Math.max(420, d.bw + (e.clientX - d.sx)), h: Math.max(300, d.bh + (e.clientY - d.sy)) })); }; const up = () => { drag.current = null; }; window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up); return () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); }; }, [open]);
     const saveCfg = c => { setCfg(c); try { localStorage.setItem("ddb_gemini", JSON.stringify(c)); } catch (e) {} };
+    async function testKey() { setTestMsg("확인 중…"); try { const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent((cfg.key || "").trim())); const j = await res.json(); if (!res.ok) { setTestMsg("✗ 키 오류 " + res.status + ": " + (((j.error || {}).message) || "").slice(0, 120)); return; } const flash = (j.models || []).map(m => (m.name || "").replace("models/", "")).filter(n => /flash/.test(n) && /generateContent/.test((((j.models || []).find(x => (x.name || "").endsWith(n)) || {}).supportedGenerationMethods || []).join(","))); const list = flash.length ? flash : (j.models || []).map(m => (m.name || "").replace("models/", "")).filter(n => /flash/.test(n)); setTestMsg("✓ 키 정상! 사용가능 모델 예: " + (list.slice(0, 5).join(", ") || "gemini-2.0-flash")); } catch (e) { setTestMsg("✗ 네트워크 오류: " + String(e && e.message || e)); } }
     function addFiles(fl) { const arr = Array.from(fl || []).filter(f => /^image\//.test(f.type)).slice(0, 60); Promise.all(arr.map(f => new Promise(res => { const r = new FileReader(); r.onload = () => res({ name: f.name, dataUrl: r.result }); r.onerror = () => res(null); r.readAsDataURL(f); }))).then(list => setFiles(prev => prev.concat(list.filter(Boolean)).slice(0, 60))); }
     async function extractOne(dataUrl) {
         const mime = dataUrl.substring(5, dataUrl.indexOf(";")), b64 = dataUrl.split(",")[1], model = cfg.model || "gemini-2.0-flash";
@@ -8467,6 +8469,7 @@ function DDBReceiptTool() {
         o.jsx("div", { style: { height: 6 } }),
         o.jsx("input", { value: cfg.model || "", onChange: e => saveCfg({ ...cfg, model: e.target.value.trim() }), placeholder: "모델 (기본: gemini-2.0-flash)", className: inC }),
         o.jsx("div", { style: { fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 6, lineHeight: 1.6 }, children: "키는 이 기기에만 저장돼요(동기화 안 함). 판매용으로 팀 공유하려면 별도 프록시가 필요해요 — 준비되면 알려줘." }),
+        o.jsxs("div", { style: { display: "flex", gap: 8, marginTop: 10, alignItems: "center" }, children: [o.jsx("button", { onClick: testKey, style: { padding: "6px 14px", borderRadius: 8, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.25)", color: "#fff", fontSize: 12, cursor: "pointer", flexShrink: 0 }, children: "키 확인" }), o.jsx("span", { style: { fontSize: 11, color: testMsg.indexOf("✓") === 0 ? "#86efac" : (testMsg.indexOf("✗") === 0 ? "#fca5a5" : "rgba(255,255,255,0.6)"), flex: 1, wordBreak: "break-all" }, children: testMsg })] }),
         o.jsx("button", { onClick: () => setSetup(false), style: { marginTop: 12, width: "100%", padding: "8px 0", borderRadius: 8, background: "rgba(16,185,129,0.3)", border: "1px solid rgba(52,211,153,0.5)", color: "#d1fae5", fontSize: 13, cursor: "pointer" }, children: "완료" })
     ] }) : o.jsxs("div", { style: { display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }, children: [
         o.jsxs("div", { style: { padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderBottom: "1px solid rgba(255,255,255,0.08)" }, children: [
