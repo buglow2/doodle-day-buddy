@@ -493,8 +493,8 @@ function DDBImageEditor() {
             dropBtn("crop", "✂ 자르기", cropActive, CROPS, k => { setCropKind(k); setTool(k); setCrop(null); setPoly([]); }),
             ((crop && crop.w > 4 && isCropDrag(tool)) || (tool === "cropPoly" && poly.length >= 3)) && o.jsx("button", { onClick: applyCrop, className: "px-2.5 py-1 rounded-lg text-[13px] bg-emerald-500/40 border border-emerald-400/60 text-emerald-50 cursor-pointer", children: "잘라내기 적용" }),
             tbtn("wand", "🪄 매직완드"),
-            o.jsx("button", { onClick: autoBg, disabled: !img, title: "인터넷 없이 로컬로 배경(테두리에서 이어진 비슷한 색) 제거", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: "🧹 배경 자동제거" }),
-            o.jsx("button", { onClick: runOcr, disabled: !img || (ocr && ocr.busy), title: "이미지에서 글자 추출(OCR)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: (ocr && ocr.busy) ? ("🔤 인식중 " + (ocr.prog || 0) + "%") : ((clova.on && clova.url && clova.key) ? "🔤 텍스트 추출(정확)" : "🔤 텍스트 추출") }),
+            o.jsx("button", { onClick: autoBg, disabled: !img, title: "인터넷 없이 로컬로 배경(테두리에서 이어진 비슷한 색) 제거", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-70 whitespace-nowrap", children: "🧹 배경 자동제거" }),
+            o.jsx("button", { onClick: runOcr, disabled: !img || (ocr && ocr.busy), title: "이미지에서 글자 추출(OCR)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-70 whitespace-nowrap", children: (ocr && ocr.busy) ? ("🔤 인식중 " + (ocr.prog || 0) + "%") : ((clova.on && clova.url && clova.key) ? "🔤 텍스트 추출(정확)" : "🔤 텍스트 추출") }),
             o.jsx("button", { onClick: () => setClovaOpen(true), title: "정확 OCR(네이버 CLOVA) 설정 — 켜면 훨씬 정확, 단 인터넷·이미지 전송", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + ((clova.on && clova.url && clova.key) ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100" : "bg-white/8 border-white/15 text-white/70 hover:bg-white/15"), children: (clova.on && clova.url && clova.key) ? "☁ 정확OCR ON" : "☁ 정확OCR" }),
             o.jsxs("label", { className: "flex items-center gap-1 text-white/85 text-xs", children: ["허용치", o.jsx("input", { type: "range", min: 3, max: 160, value: tol, onChange: e => setTol(Number(e.target.value)), className: "w-16 accent-teal-400" }), tol] }),
             o.jsx("span", { className: "w-px h-6 bg-white/15 mx-0.5" }),
@@ -507,8 +507,8 @@ function DDBImageEditor() {
             o.jsx("input", { type: "color", value: color, onChange: e => setColor(e.target.value), title: "색상 선택", className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20" }),
             o.jsx("button", { onClick: savePal, title: "이 색을 자주쓰는색에 저장", className: "px-2 py-1 rounded text-xs bg-white/8 border border-white/15 text-white/60 hover:bg-white/15 cursor-pointer", children: "＋저장" }),
             o.jsx("span", { className: "w-px h-6 bg-white/15 mx-0.5" }),
-            o.jsx("button", { onClick: snapUndo, disabled: !canUndo, title: "뒤로(Ctrl+Z)", className: "px-2.5 py-1 rounded-lg bg-white/8 border border-white/15 text-white/90 hover:bg-white/15 cursor-pointer disabled:opacity-30", children: "↶ 뒤로" }),
-            o.jsx("button", { onClick: snapRedo, disabled: !canRedo, title: "앞으로(Ctrl+Y)", className: "px-2.5 py-1 rounded-lg bg-white/8 border border-white/15 text-white/90 hover:bg-white/15 cursor-pointer disabled:opacity-30", children: "↷ 앞으로" }),
+            o.jsx("button", { onClick: snapUndo, disabled: !canUndo, title: "뒤로(Ctrl+Z)", className: "px-2.5 py-1 rounded-lg bg-white/8 border border-white/15 text-white/90 hover:bg-white/15 cursor-pointer disabled:opacity-70", children: "↶ 뒤로" }),
+            o.jsx("button", { onClick: snapRedo, disabled: !canRedo, title: "앞으로(Ctrl+Y)", className: "px-2.5 py-1 rounded-lg bg-white/8 border border-white/15 text-white/90 hover:bg-white/15 cursor-pointer disabled:opacity-70", children: "↷ 앞으로" }),
             o.jsx("button", { onClick: () => rotate(-1), title: "왼쪽 회전", className: "px-2 py-1 rounded-lg bg-white/8 border border-white/15 text-white/90 hover:bg-white/15 cursor-pointer", children: "↺" }),
             o.jsx("button", { onClick: () => rotate(1), title: "오른쪽 회전", className: "px-2 py-1 rounded-lg bg-white/8 border border-white/15 text-white/90 hover:bg-white/15 cursor-pointer", children: "↻" }),
             o.jsx("span", { className: "w-px h-6 bg-white/15 mx-0.5" }),
@@ -529,8 +529,8 @@ function DDBImageEditor() {
                 o.jsxs("label", { className: "flex items-center justify-between mb-1.5 cursor-pointer", children: [o.jsx("span", { className: "text-white/70 text-[11px]", children: "파일 이름 지정" }), o.jsx("input", { type: "checkbox", checked: !!sv.nameOn, onChange: e => { const nv = { ...sv, nameOn: e.target.checked }; setSv(nv); persistSv(nv); } })] }),
                 sv.nameOn && o.jsxs("div", { className: "flex items-center gap-1 mb-2", children: [o.jsx("input", { value: sv.fname, onChange: e => { const nv = { ...sv, fname: e.target.value }; setSv(nv); persistSv(nv); }, placeholder: "capture", className: "flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs outline-none" }), o.jsxs("span", { className: "text-white/40 text-[11px]", children: ["-", saveN, ".png"] })] })
             ] })] }),
-            o.jsx("button", { onClick: doCopy, disabled: !img, className: "px-3 py-1 rounded-lg bg-blue-500/30 border border-blue-400/50 text-blue-100 cursor-pointer disabled:opacity-40", children: "📋 복사" }),
-            o.jsx("button", { onClick: doSave, disabled: !img, className: "px-3 py-1 rounded-lg bg-emerald-500/30 border border-emerald-400/50 text-emerald-100 cursor-pointer disabled:opacity-40", children: "💾 저장" }),
+            o.jsx("button", { onClick: doCopy, disabled: !img, className: "px-3 py-1 rounded-lg bg-blue-500/30 border border-blue-400/50 text-blue-100 cursor-pointer disabled:opacity-70", children: "📋 복사" }),
+            o.jsx("button", { onClick: doSave, disabled: !img, className: "px-3 py-1 rounded-lg bg-emerald-500/30 border border-emerald-400/50 text-emerald-100 cursor-pointer disabled:opacity-70", children: "💾 저장" }),
             o.jsx("button", { onClick: () => setOpen(false), className: "px-3 py-1 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:bg-white/20 cursor-pointer", children: "✕ 닫기" })
         ] }),
         o.jsx("div", { className: "flex-1 overflow-auto flex items-center justify-center p-4", children: img ? o.jsx("canvas", { ref: cvRef, onMouseDown: down, onMouseMove: move, onMouseUp: up, onMouseLeave: up, style: { width: img.width * zoom, height: img.height * zoom, cursor: (tool === "wand" ? "pointer" : tool.indexOf("crop") === 0 ? "crosshair" : "cell"), boxShadow: "0 0 0 1px rgba(255,255,255,0.15)", background: "#fff" } }) : o.jsxs("div", { className: "text-white/45 text-center", children: [o.jsx("div", { className: "text-5xl mb-3", children: "🖼" }), o.jsx("div", { className: "text-sm leading-relaxed", children: "이미지 파일을 이 창으로 끌어놓거나," }), o.jsx("div", { className: "text-sm leading-relaxed", children: "PrintScreen(캡처) 후 Ctrl+V 로 붙여넣으세요." })] }) }),
@@ -538,7 +538,7 @@ function DDBImageEditor() {
         tool === "wand" && img && o.jsx("div", { className: "absolute left-1/2 top-[150px] px-3 py-1 rounded-full text-white/80 text-xs", style: { transform: "translateX(-50%)", backgroundColor: "rgba(30,41,59,0.9)" }, children: "매직완드: 지우고 싶은 색 영역 클릭 (허용치로 범위 조절, 뒤로/앞으로 됨)" }),
         toast && o.jsx("div", { className: "absolute left-1/2 bottom-8 px-4 py-2 rounded-lg text-white text-sm", style: { transform: "translateX(-50%)", backgroundColor: "rgba(30,41,59,0.97)", border: "1px solid rgba(255,255,255,0.22)" }, children: toast }),
         ocr && o.jsx("div", { className: "absolute inset-0 flex items-center justify-center", style: { zIndex: 60, background: "rgba(0,0,0,0.55)" }, onMouseDown: () => { if (!ocr.busy) setOcr(null); }, children: o.jsxs("div", { onMouseDown: e => e.stopPropagation(), className: "rounded-2xl shadow-2xl flex flex-col", style: { width: "min(560px,92vw)", maxHeight: "80vh", background: "#141824", border: "1px solid rgba(255,255,255,0.15)" }, children: [
-            o.jsxs("div", { className: "flex items-center gap-2 px-4 py-2 border-b border-white/10", children: [o.jsx("span", { className: "text-white font-semibold text-sm flex-1", children: "🔤 텍스트 추출 (OCR)" }), o.jsx("button", { onClick: () => setOcr(null), disabled: ocr.busy, className: "text-white/50 hover:text-white text-base bg-transparent border-none cursor-pointer disabled:opacity-30", children: "✕" })] }),
+            o.jsxs("div", { className: "flex items-center gap-2 px-4 py-2 border-b border-white/10", children: [o.jsx("span", { className: "text-white font-semibold text-sm flex-1", children: "🔤 텍스트 추출 (OCR)" }), o.jsx("button", { onClick: () => setOcr(null), disabled: ocr.busy, className: "text-white/50 hover:text-white text-base bg-transparent border-none cursor-pointer disabled:opacity-70", children: "✕" })] }),
             ocr.busy ? o.jsxs("div", { className: "px-6 py-8 text-center text-white/70 text-sm", children: [o.jsx("div", { className: "mb-3", children: "글자 인식 중… " + (ocr.prog || 0) + "%" }), o.jsx("div", { className: "w-full h-1.5 rounded bg-white/10 overflow-hidden", children: o.jsx("div", { className: "h-full bg-blue-400", style: { width: (ocr.prog || 0) + "%" } }) }), o.jsx("div", { className: "mt-3 text-white/35 text-[11px]", children: "처음 사용 시 인식 데이터를 받느라 시간이 걸릴 수 있어요" })] })
                 : ocr.err ? o.jsx("div", { className: "px-6 py-8 text-center text-red-300 text-sm", children: ocr.err })
                     : o.jsxs("div", { className: "flex flex-col min-h-0 flex-1", children: [
@@ -607,7 +607,9 @@ function DDBTileBar() {
     const [toast, setToast] = O.useState("");
     const [actMenu, setActMenu] = O.useState(null);
     const lp = O.useRef(null);
+    const mdrag = O.useRef(null);
     O.useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 4000); return () => clearTimeout(id); }, [toast]);
+    O.useEffect(() => { const mv = e => { if (!mdrag.current) return; setMenu(m => m ? { x: mdrag.current.bx + (e.clientX - mdrag.current.sx), y: Math.max(0, mdrag.current.by + (e.clientY - mdrag.current.sy)) } : m); }; const up = () => { mdrag.current = null; }; window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up); return () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); }; }, []);
     O.useEffect(() => { const el = wrapRef.current; if (!el) return; const upd = () => setW(el.clientWidth || 800); upd(); let ro; try { ro = new ResizeObserver(upd); ro.observe(el); } catch (e) {} window.addEventListener("resize", upd); return () => { try { ro && ro.disconnect(); } catch (e) {} window.removeEventListener("resize", upd); }; }, []);
     const ROWS = 3, CW = 156, CH = 24, GAP = 3;
     const cols = Math.max(1, Math.floor((w + GAP) / (CW + GAP)));
@@ -643,7 +645,7 @@ function DDBTileBar() {
         o.jsx("button", { onMouseDown: e => e.stopPropagation(), onClick: openAdd, title: "기능 버튼 추가 (포모도로·이메일)", className: "absolute right-0 bottom-0 flex items-center gap-1 px-2 rounded-full border border-dashed border-white/25 text-white/50 hover:text-white/85 hover:border-white/50 cursor-pointer", style: { height: CH, fontSize: 12, background: "rgba(0,0,0,0.3)", zIndex: 4 }, children: "＋ 기능" }),
         menu ? Rr.createPortal(o.jsxs(o.Fragment, { children: [
             o.jsx("div", { className: "fixed inset-0", style: { zIndex: 2147483400 }, onMouseDown: () => { setMenu(null); setForm(null); } }),
-            o.jsx("div", { className: "fixed rounded-lg p-2 shadow-2xl", style: { zIndex: 2147483401, left: menu.x + "px", top: menu.y + "px", width: 244, background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.2)" }, onMouseDown: e => e.stopPropagation(), children: !form ? o.jsxs("div", { children: [o.jsx("div", { className: "text-white/50 text-[10px] font-semibold mb-1.5", children: "기능 추가" }), o.jsx("button", { onClick: () => setForm({ type: "pomo", h: "", m: "25", s: "", label: "", color: "" }), className: "block w-full text-left px-2 py-1.5 rounded text-xs text-white/85 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "⏱ 포모도로 타이머" }), o.jsx("button", { onClick: () => setForm({ type: "mail", provider: "naver", label: "", emails: [""], subject: "", body: "", color: "" }), className: "block w-full text-left px-2 py-1.5 rounded text-xs text-white/85 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "✉ 이메일" }), o.jsx("button", { onClick: () => setForm({ type: "memo", tabId: (memoTabsList[0] && memoTabsList[0].id) || "", itemId: "", label: "", color: "" }), className: "block w-full text-left px-2 py-1.5 rounded text-xs text-white/85 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "📄 메모/표 바로가기" })] }) : form.type === "pomo" ? o.jsxs("div", { children: [o.jsx("div", { className: "text-white/50 text-[10px] font-semibold mb-1.5", children: "포모도로 시간" }), o.jsxs("div", { className: "flex items-center gap-1 mb-2", children: [o.jsx("input", { type: "number", value: form.h, onChange: e => setForm({ ...form, h: e.target.value }), placeholder: "0", className: "w-12 bg-white/10 border border-white/20 rounded px-1 py-1 text-white text-[11px] outline-none text-center" }), o.jsx("span", { className: "text-white/50 text-[11px]", children: "시" }), o.jsx("input", { type: "number", value: form.m, onChange: e => setForm({ ...form, m: e.target.value }), placeholder: "0", className: "w-12 bg-white/10 border border-white/20 rounded px-1 py-1 text-white text-[11px] outline-none text-center" }), o.jsx("span", { className: "text-white/50 text-[11px]", children: "분" }), o.jsx("input", { type: "number", value: form.s, onChange: e => setForm({ ...form, s: e.target.value }), placeholder: "0", className: "w-12 bg-white/10 border border-white/20 rounded px-1 py-1 text-white text-[11px] outline-none text-center" }), o.jsx("span", { className: "text-white/50 text-[11px]", children: "초" })] }), o.jsx("input", { value: form.label || "", onChange: e => setForm({ ...form, label: e.target.value }), placeholder: "버튼 이름 (선택 · 비우면 시간 표시)", className: inCls }), colorRow(), o.jsx("button", { onClick: addPomo, className: "w-full py-1 rounded bg-blue-500/30 border border-blue-400/50 text-blue-100 text-[11px] cursor-pointer", children: form.editId ? "저장" : "버튼 추가" })] }) : form.type === "mail" ? o.jsxs("div", { children: [o.jsx("div", { className: "text-white/50 text-[10px] font-semibold mb-1.5", children: "이메일 버튼" }), o.jsxs("select", { value: form.provider || "naver", onChange: e => setForm({ ...form, provider: e.target.value }), className: inCls, style: { colorScheme: "dark" }, children: [o.jsx("option", { value: "naver", children: "네이버 메일" }), o.jsx("option", { value: "gmail", children: "Gmail (제목·본문 자동입력 완벽)" }), o.jsx("option", { value: "outlook", children: "Outlook 웹메일" }), o.jsx("option", { value: "mailto", children: "기본 메일앱 (설치형)" })] }), o.jsx("input", { value: form.label, onChange: e => setForm({ ...form, label: e.target.value }), placeholder: "버튼에 보일 이름 (예: 김대리 · 선택)", className: inCls }), o.jsx("div", { className: "text-white/40 text-[10px] mb-0.5", children: "받는사람 이메일 (최대 10명)" }), ...(form.emails || [""]).map((em, i) => o.jsxs("div", { className: "flex items-center gap-1 mb-1", children: [o.jsx("input", { value: em, onChange: e => setForm(f => { const a = (f.emails || [""]).slice(); a[i] = e.target.value; return { ...f, emails: a }; }), placeholder: "이메일 주소 " + (i + 1), className: "flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-[11px] outline-none placeholder-white/30" }), (form.emails || []).length > 1 ? o.jsx("button", { onClick: () => setForm(f => ({ ...f, emails: (f.emails || []).filter((_, j) => j !== i) })), className: "text-red-300/70 hover:text-red-300 text-xs px-1 bg-transparent border-none cursor-pointer", title: "이 수신자 삭제", children: "✕" }) : null] }, i)), (form.emails || []).length < 10 ? o.jsx("button", { onClick: () => setForm(f => ({ ...f, emails: [...(f.emails || []), ""] })), className: "w-full py-1 mb-1 rounded border border-dashed border-white/25 text-white/55 hover:text-white/85 text-[11px] cursor-pointer bg-transparent", children: "＋ 받는사람 추가" }) : null, o.jsx("input", { value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), placeholder: "제목 (선택)", className: inCls }), o.jsx("textarea", { value: form.body, onChange: e => setForm({ ...form, body: e.target.value }), placeholder: "기본 본문 (자주 쓰는 문구)", rows: 2, className: inCls + " resize-none" }), colorRow(), o.jsx("button", { onClick: addMail, className: "w-full py-1 rounded bg-blue-500/30 border border-blue-400/50 text-blue-100 text-[11px] cursor-pointer", children: form.editId ? "저장" : "버튼 추가" })] }) : o.jsxs("div", { children: [o.jsx("div", { className: "text-white/50 text-[10px] font-semibold mb-1.5", children: "메모/표 바로가기" }), o.jsxs("select", { value: form.tabId, onChange: e => setForm({ ...form, tabId: e.target.value, itemId: "" }), className: inCls, style: { colorScheme: "dark" }, children: [o.jsx("option", { value: "", children: "카테고리 선택" }), ...memoTabsList.map(tb => o.jsx("option", { value: tb.id, children: ddbTT(tb.title) }, tb.id))] }), o.jsxs("select", { value: form.itemId, onChange: e => { const it = (((memoTabsList.find(x => x.id === form.tabId) || {}).items) || []).find(x => x.id === e.target.value); setForm({ ...form, itemId: e.target.value, label: it ? memoPreview(it.content) : form.label }); }, className: inCls, style: { colorScheme: "dark" }, children: [o.jsx("option", { value: "", children: "메모 선택 (없으면 창 전체 열기)" }), ...((((memoTabsList.find(x => x.id === form.tabId) || {}).items) || [])).map(it => o.jsx("option", { value: it.id, children: memoPreview(it.content) }, it.id))] }), o.jsx("input", { value: form.label, onChange: e => setForm({ ...form, label: e.target.value }), placeholder: "버튼 이름 (비우면 자동)", className: inCls }), colorRow(), o.jsx("button", { onClick: addMemo, className: "w-full py-1 rounded bg-blue-500/30 border border-blue-400/50 text-blue-100 text-[11px] cursor-pointer", children: form.editId ? "저장" : "버튼 추가" })] }) })
+            o.jsxs("div", { className: "fixed rounded-lg p-2 shadow-2xl", style: { zIndex: 2147483401, left: menu.x + "px", top: menu.y + "px", width: 244, background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.2)" }, onMouseDown: e => e.stopPropagation(), children: [o.jsx("div", { onMouseDown: e => { e.stopPropagation(); mdrag.current = { sx: e.clientX, sy: e.clientY, bx: menu.x, by: menu.y }; }, title: "드래그로 이동", style: { cursor: "move", height: 12, marginBottom: 2, display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsx("div", { style: { width: 34, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.3)" } }) }), !form ? o.jsxs("div", { children: [o.jsx("div", { className: "text-white/50 text-[10px] font-semibold mb-1.5", children: "기능 추가" }), o.jsx("button", { onClick: () => setForm({ type: "pomo", h: "", m: "25", s: "", label: "", color: "" }), className: "block w-full text-left px-2 py-1.5 rounded text-xs text-white/85 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "⏱ 포모도로 타이머" }), o.jsx("button", { onClick: () => setForm({ type: "mail", provider: "naver", label: "", emails: [""], subject: "", body: "", color: "" }), className: "block w-full text-left px-2 py-1.5 rounded text-xs text-white/85 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "✉ 이메일" }), o.jsx("button", { onClick: () => setForm({ type: "memo", tabId: (memoTabsList[0] && memoTabsList[0].id) || "", itemId: "", label: "", color: "" }), className: "block w-full text-left px-2 py-1.5 rounded text-xs text-white/85 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "📄 메모/표 바로가기" })] }) : form.type === "pomo" ? o.jsxs("div", { children: [o.jsx("div", { className: "text-white/50 text-[10px] font-semibold mb-1.5", children: "포모도로 시간" }), o.jsxs("div", { className: "flex items-center gap-1 mb-2", children: [o.jsx("input", { type: "number", value: form.h, onChange: e => setForm({ ...form, h: e.target.value }), placeholder: "0", className: "w-12 bg-white/10 border border-white/20 rounded px-1 py-1 text-white text-[11px] outline-none text-center" }), o.jsx("span", { className: "text-white/50 text-[11px]", children: "시" }), o.jsx("input", { type: "number", value: form.m, onChange: e => setForm({ ...form, m: e.target.value }), placeholder: "0", className: "w-12 bg-white/10 border border-white/20 rounded px-1 py-1 text-white text-[11px] outline-none text-center" }), o.jsx("span", { className: "text-white/50 text-[11px]", children: "분" }), o.jsx("input", { type: "number", value: form.s, onChange: e => setForm({ ...form, s: e.target.value }), placeholder: "0", className: "w-12 bg-white/10 border border-white/20 rounded px-1 py-1 text-white text-[11px] outline-none text-center" }), o.jsx("span", { className: "text-white/50 text-[11px]", children: "초" })] }), o.jsx("input", { value: form.label || "", onChange: e => setForm({ ...form, label: e.target.value }), placeholder: "버튼 이름 (선택 · 비우면 시간 표시)", className: inCls }), colorRow(), o.jsx("button", { onClick: addPomo, className: "w-full py-1 rounded bg-blue-500/30 border border-blue-400/50 text-blue-100 text-[11px] cursor-pointer", children: form.editId ? "저장" : "버튼 추가" })] }) : form.type === "mail" ? o.jsxs("div", { children: [o.jsx("div", { className: "text-white/50 text-[10px] font-semibold mb-1.5", children: "이메일 버튼" }), o.jsx("input", { value: form.label, onChange: e => setForm({ ...form, label: e.target.value }), placeholder: "버튼 이름", className: inCls }), o.jsxs("select", { value: form.provider || "naver", onChange: e => setForm({ ...form, provider: e.target.value }), className: inCls, style: { colorScheme: "dark" }, children: [o.jsx("option", { value: "naver", children: "네이버 메일" }), o.jsx("option", { value: "gmail", children: "Gmail (제목·본문 자동입력 완벽)" }), o.jsx("option", { value: "outlook", children: "Outlook 웹메일" }), o.jsx("option", { value: "mailto", children: "기본 메일앱 (설치형)" })] }), o.jsx("div", { className: "text-white/40 text-[10px] mb-0.5", children: "받는사람 이메일 (최대 10명)" }), ...(form.emails || [""]).map((em, i) => o.jsxs("div", { className: "flex items-center gap-1 mb-1", children: [o.jsx("input", { value: em, onChange: e => setForm(f => { const a = (f.emails || [""]).slice(); a[i] = e.target.value; return { ...f, emails: a }; }), placeholder: "이메일 주소 " + (i + 1), className: "flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-[11px] outline-none placeholder-white/30" }), (form.emails || []).length > 1 ? o.jsx("button", { onClick: () => setForm(f => ({ ...f, emails: (f.emails || []).filter((_, j) => j !== i) })), className: "text-red-300/70 hover:text-red-300 text-xs px-1 bg-transparent border-none cursor-pointer", title: "이 수신자 삭제", children: "✕" }) : null] }, i)), (form.emails || []).length < 10 ? o.jsx("button", { onClick: () => setForm(f => ({ ...f, emails: [...(f.emails || []), ""] })), className: "w-full py-1 mb-1 rounded border border-dashed border-white/25 text-white/55 hover:text-white/85 text-[11px] cursor-pointer bg-transparent", children: "＋ 받는사람 추가" }) : null, o.jsx("input", { value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), placeholder: "제목 (선택)", className: inCls }), o.jsx("textarea", { value: form.body, onChange: e => setForm({ ...form, body: e.target.value }), placeholder: "기본 본문 (자주 쓰는 문구)", rows: 2, className: inCls + " resize-none" }), colorRow(), o.jsx("button", { onClick: addMail, className: "w-full py-1 rounded bg-blue-500/30 border border-blue-400/50 text-blue-100 text-[11px] cursor-pointer", children: form.editId ? "저장" : "버튼 추가" })] }) : o.jsxs("div", { children: [o.jsx("div", { className: "text-white/50 text-[10px] font-semibold mb-1.5", children: "메모/표 바로가기" }), o.jsxs("select", { value: form.tabId, onChange: e => setForm({ ...form, tabId: e.target.value, itemId: "" }), className: inCls, style: { colorScheme: "dark" }, children: [o.jsx("option", { value: "", children: "카테고리 선택" }), ...memoTabsList.map(tb => o.jsx("option", { value: tb.id, children: ddbTT(tb.title) }, tb.id))] }), o.jsxs("select", { value: form.itemId, onChange: e => { const it = (((memoTabsList.find(x => x.id === form.tabId) || {}).items) || []).find(x => x.id === e.target.value); setForm({ ...form, itemId: e.target.value, label: it ? memoPreview(it.content) : form.label }); }, className: inCls, style: { colorScheme: "dark" }, children: [o.jsx("option", { value: "", children: "메모 선택 (없으면 창 전체 열기)" }), ...((((memoTabsList.find(x => x.id === form.tabId) || {}).items) || [])).map(it => o.jsx("option", { value: it.id, children: memoPreview(it.content) }, it.id))] }), o.jsx("input", { value: form.label, onChange: e => setForm({ ...form, label: e.target.value }), placeholder: "버튼 이름 (비우면 자동)", className: inCls }), colorRow(), o.jsx("button", { onClick: addMemo, className: "w-full py-1 rounded bg-blue-500/30 border border-blue-400/50 text-blue-100 text-[11px] cursor-pointer", children: form.editId ? "저장" : "버튼 추가" })] })] })
         ] }), document.body) : null,
         toast ? Rr.createPortal(o.jsx("div", { style: { position: "fixed", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 2147483402, background: "rgba(20,16,36,0.98)", color: "#e0e7ff", border: "1px solid rgba(96,165,250,0.6)", borderRadius: 10, padding: "10px 16px", fontSize: 13, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }, children: toast }), document.body) : null,
         actMenu ? Rr.createPortal(o.jsxs(o.Fragment, { children: [
@@ -1797,7 +1799,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.17";
+const DDB_VERSION = "0.98.18";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -2880,7 +2882,7 @@ function AT() {
                 }), o.jsx("button", {
                     onClick: k,
                     disabled: !i.trim(),
-                    className: "px-2.5 py-1.5 bg-blue-500/80 hover:bg-blue-500 rounded-lg text-white disabled:opacity-30 transition-colors flex-shrink-0",
+                    className: "px-2.5 py-1.5 bg-blue-500/80 hover:bg-blue-500 rounded-lg text-white disabled:opacity-70 transition-colors flex-shrink-0",
                     children: o.jsx(Vr, {
                         size: 13
                     })
@@ -3346,7 +3348,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v254"
+                children: "v255"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -4719,7 +4721,7 @@ function If({
                         children: [o.jsx("button", {
                             onClick: he,
                             disabled: !te,
-                            className: "flex-1 py-2 rounded-xl bg-amber-500/70 text-white text-sm font-medium hover:bg-amber-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors",
+                            className: "flex-1 py-2 rounded-xl bg-amber-500/70 text-white text-sm font-medium hover:bg-amber-500 disabled:opacity-70 disabled:cursor-not-allowed transition-colors",
                             children: te ? `${te.implied}% 금리로 적용` : "금리 적용"
                         }), z && o.jsx("span", {
                             className: "text-green-400 text-xs font-medium animate-pulse",
@@ -4847,7 +4849,7 @@ function If({
             }), o.jsx("button", {
                 onClick: ne,
                 disabled: !j,
-                className: "flex-1 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-40 text-sm font-medium",
+                className: "flex-1 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-70 text-sm font-medium",
                 children: e ? DDBTR("저장하기") : DDBTR("추가하기")
             })]
         })]
@@ -5178,7 +5180,7 @@ function Pf({
             }), o.jsx("button", {
                 onClick: re,
                 disabled: !F,
-                className: "flex-1 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-40 text-sm font-medium",
+                className: "flex-1 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-70 text-sm font-medium",
                 children: e ? DDBTR("저장하기") : DDBTR("추가하기")
             })]
         })]
@@ -5702,14 +5704,14 @@ function Nw({
             }), U ? o.jsxs("button", {
                 onClick: ue,
                 disabled: !h.trim() && !H.trim(),
-                className: "flex-1 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-40 text-sm font-medium flex items-center justify-center gap-1.5",
+                className: "flex-1 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-400 disabled:opacity-70 text-sm font-medium flex items-center justify-center gap-1.5",
                 children: [o.jsx(ld, {
                     size: 13
                 }), " 피드백 등록"]
             }) : o.jsx("button", {
                 onClick: ve,
                 disabled: !N,
-                className: "flex-1 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-40 text-sm font-medium",
+                className: "flex-1 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-70 text-sm font-medium",
                 children: DDBTR("저장")
             })]
         })]
@@ -8107,7 +8109,7 @@ function jw({
                 children: [o.jsxs("button", {
                     onClick: H,
                     disabled: !l.trim(),
-                    className: "flex-1 py-0.5 text-xs text-white/40 hover:text-white hover:bg-white/10 rounded disabled:opacity-30 flex items-center justify-center gap-1 transition-colors",
+                    className: "flex-1 py-0.5 text-xs text-white/40 hover:text-white hover:bg-white/10 rounded disabled:opacity-70 flex items-center justify-center gap-1 transition-colors",
                     children: [o.jsx(Vr, {
                         size: 10
                     }), editId ? " 저장 (Ctrl+Enter)" : " 추가 (Ctrl+Enter)"]
@@ -8756,7 +8758,7 @@ function QT({
             }), o.jsx("button", {
                 onClick: R,
                 disabled: !i.trim() || !c,
-                className: "flex-1 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-40 text-sm font-medium",
+                className: "flex-1 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-70 text-sm font-medium",
                 children: DDBTR("저장")
             })]
         })]
@@ -9640,7 +9642,7 @@ function vm({
                                         }), o.jsx("button", {
                                             onClick: R,
                                             disabled: !g || !Number(g),
-                                            className: "w-8 h-8 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 " + (k ? "bg-green-500/60 text-green-200" : "bg-amber-500/70 text-white hover:bg-amber-500 disabled:opacity-30 disabled:cursor-not-allowed"),
+                                            className: "w-8 h-8 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 " + (k ? "bg-green-500/60 text-green-200" : "bg-amber-500/70 text-white hover:bg-amber-500 disabled:opacity-70 disabled:cursor-not-allowed"),
                                             children: k ? o.jsx(su, {
                                                 size: 14
                                             }) : o.jsx("span", {
@@ -13243,7 +13245,7 @@ function kO({
                 }), l === "preview" && o.jsxs("button", {
                     onClick: B,
                     disabled: Y === 0,
-                    className: "bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors flex items-center gap-2",
+                    className: "bg-blue-600 hover:bg-blue-500 disabled:opacity-70 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors flex items-center gap-2",
                     children: [o.jsx(su, {
                         size: 14
                     }), DDBTR("가져오기 ("), Y, DDBTR("건)")]
@@ -14468,7 +14470,7 @@ function zO() {
             }), o.jsx("button", {
                 onClick: d,
                 disabled: !t.year || !t.month || !t.day,
-                className: "w-full py-2 bg-yellow-500 text-black font-semibold rounded-lg text-sm hover:bg-yellow-400 disabled:opacity-40 transition-colors",
+                className: "w-full py-2 bg-yellow-500 text-black font-semibold rounded-lg text-sm hover:bg-yellow-400 disabled:opacity-70 transition-colors",
                 children: DDBTR("분석하기 ✨")
             })]
         }), !n && c && o.jsxs(o.Fragment, {
@@ -15433,7 +15435,7 @@ function GO() {
                     }), o.jsxs("button", {
                         onClick: U,
                         disabled: !E.trim() || e.length >= 300,
-                        className: "px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-400 disabled:opacity-40 flex items-center gap-0.5",
+                        className: "px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-400 disabled:opacity-70 flex items-center gap-0.5",
                         children: [o.jsx(Vr, {
                             size: 10
                         }), " 추가"]
