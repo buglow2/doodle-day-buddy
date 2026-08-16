@@ -529,8 +529,8 @@ function DDBImageEditor() {
                 o.jsxs("label", { className: "flex items-center justify-between mb-1.5 cursor-pointer", children: [o.jsx("span", { className: "text-white/70 text-[11px]", children: "파일 이름 지정" }), o.jsx("input", { type: "checkbox", checked: !!sv.nameOn, onChange: e => { const nv = { ...sv, nameOn: e.target.checked }; setSv(nv); persistSv(nv); } })] }),
                 sv.nameOn && o.jsxs("div", { className: "flex items-center gap-1 mb-2", children: [o.jsx("input", { value: sv.fname, onChange: e => { const nv = { ...sv, fname: e.target.value }; setSv(nv); persistSv(nv); }, placeholder: "capture", className: "flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs outline-none" }), o.jsxs("span", { className: "text-white/40 text-[11px]", children: ["-", saveN, ".png"] })] })
             ] })] }),
-            o.jsx("button", { onClick: doCopy, disabled: !img, className: "px-3 py-1 rounded-lg bg-blue-500/30 border border-blue-400/50 text-blue-100 cursor-pointer disabled:opacity-90", children: "📋 복사" }),
-            o.jsx("button", { onClick: doSave, disabled: !img, className: "px-3 py-1 rounded-lg bg-emerald-500/30 border border-emerald-400/50 text-emerald-100 cursor-pointer disabled:opacity-90", children: "💾 저장" }),
+            o.jsx("button", { onClick: doCopy, disabled: !img, className: "px-3 py-1 rounded-lg bg-blue-500/30 border border-blue-400/50 text-white cursor-pointer disabled:opacity-90", children: "복사" }),
+            o.jsx("button", { onClick: doSave, disabled: !img, className: "px-3 py-1 rounded-lg bg-emerald-500/30 border border-emerald-400/50 text-white cursor-pointer disabled:opacity-90", children: "저장" }),
             o.jsx("button", { onClick: () => setOpen(false), className: "px-3 py-1 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:bg-white/20 cursor-pointer", children: "✕ 닫기" })
         ] }),
         o.jsx("div", { className: "flex-1 overflow-auto flex items-center justify-center p-4", children: img ? o.jsx("canvas", { ref: cvRef, onMouseDown: down, onMouseMove: move, onMouseUp: up, onMouseLeave: up, style: { width: img.width * zoom, height: img.height * zoom, cursor: (tool === "wand" ? "pointer" : tool.indexOf("crop") === 0 ? "crosshair" : "cell"), boxShadow: "0 0 0 1px rgba(255,255,255,0.15)", background: "#fff" } }) : o.jsxs("div", { className: "text-white/45 text-center", children: [o.jsx("div", { className: "text-5xl mb-3", children: "🖼" }), o.jsx("div", { className: "text-sm leading-relaxed", children: "이미지 파일을 이 창으로 끌어놓거나," }), o.jsx("div", { className: "text-sm leading-relaxed", children: "PrintScreen(캡처) 후 Ctrl+V 로 붙여넣으세요." })] }) }),
@@ -1799,7 +1799,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.19";
+const DDB_VERSION = "0.98.20";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3348,7 +3348,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v256"
+                children: "v257"
             }), (() => {
                 const S = [{
                     k: "cal",
