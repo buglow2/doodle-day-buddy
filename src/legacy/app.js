@@ -1797,7 +1797,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.14";
+const DDB_VERSION = "0.98.15";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3346,7 +3346,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v251"
+                children: "v252"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -3839,9 +3839,9 @@ function hm({
                     className: "bg-blue-500 text-white text-[9px] rounded-full px-1 min-w-[14px] text-center leading-[14px]",
                     children: G
                 })]
-            }), t.settings.weather && t.settings.weather.on && t.settings.weather.pos === "top" && o.jsxs(o.Fragment, {
-                children: [o.jsx("div", { className: "flex-1 min-w-[8px]" }), o.jsx("div", {
-                    className: "flex-shrink-0 max-w-[52%]",
+            }), ((t.settings.clock && t.settings.clock.on) || (t.settings.weather && t.settings.weather.on && t.settings.weather.pos === "top")) && o.jsxs(o.Fragment, {
+                children: [o.jsx("div", { className: "flex-1 min-w-[8px]" }), o.jsx(DDBClock, {}), (t.settings.weather && t.settings.weather.on && t.settings.weather.pos === "top") && o.jsx("div", {
+                    className: "flex-shrink-0 max-w-[52%] ml-1.5",
                     children: o.jsx(WX, { country: t.settings.weather.country || "kr", city: t.settings.weather.city || "seoul", compact: !0 })
                 })]
             })]
@@ -5748,8 +5748,27 @@ const DDB_COUNTRIES = {
     } },
     au: { n: "🇦🇺 Australia", cities: {
         sydney: { n: "Sydney", la: -33.87, lo: 151.21 }, melbourne: { n: "Melbourne", la: -37.81, lo: 144.96 }, brisbane: { n: "Brisbane", la: -27.47, lo: 153.03 }, perth: { n: "Perth", la: -31.95, lo: 115.86 }
+    } },
+    tw: { n: "🇹🇼 台灣", cities: {
+        taipei: { n: "台北 Taipei", la: 25.03, lo: 121.57 }, kaohsiung: { n: "高雄 Kaohsiung", la: 22.63, lo: 120.30 }, taichung: { n: "台中 Taichung", la: 24.15, lo: 120.67 }, tainan: { n: "台南 Tainan", la: 22.99, lo: 120.21 }
+    } },
+    es: { n: "🇪🇸 España", cities: {
+        madrid: { n: "Madrid", la: 40.42, lo: -3.70 }, barcelona: { n: "Barcelona", la: 41.39, lo: 2.17 }, valencia: { n: "Valencia", la: 39.47, lo: -0.38 }, sevilla: { n: "Sevilla", la: 37.39, lo: -5.99 }, bilbao: { n: "Bilbao", la: 43.26, lo: -2.93 }
     } }
 };
+const DDB_TZ = { kr: "Asia/Seoul", us: "America/New_York", jp: "Asia/Tokyo", cn: "Asia/Shanghai", gb: "Europe/London", de: "Europe/Berlin", fr: "Europe/Paris", vn: "Asia/Ho_Chi_Minh", th: "Asia/Bangkok", au: "Australia/Sydney", tw: "Asia/Taipei", es: "Europe/Madrid" };
+function DDBClock() {
+    const { state } = vt();
+    const cl = (state.settings && state.settings.clock) || {};
+    const [now, setNow] = O.useState(Date.now());
+    O.useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
+    if (!cl.on) return null;
+    const cc = cl.country || "kr", tz = DDB_TZ[cc] || "Asia/Seoul", co = DDB_COUNTRIES[cc] || DDB_COUNTRIES.kr;
+    let tstr = "", dstr = "";
+    try { const d = new Date(now); tstr = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(d); dstr = new Intl.DateTimeFormat(DDB_LANG === "en" ? "en-US" : "ko-KR", { timeZone: tz, month: "short", day: "numeric", weekday: "short" }).format(d); } catch (e) {}
+    const flag = String(co.n || "").split(" ")[0] || "🕐";
+    return o.jsxs("div", { className: "flex items-center gap-1.5 px-2 py-0.5 rounded-lg flex-shrink-0 whitespace-nowrap", style: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }, title: co.n + " · " + tz, children: [o.jsx("span", { style: { fontSize: 13 }, children: flag }), o.jsx("span", { className: "font-mono", style: { color: "#e5e7eb", fontSize: 13, fontWeight: 600, letterSpacing: 0.3 }, children: tstr }), o.jsx("span", { style: { color: "rgba(255,255,255,0.45)", fontSize: 10 }, children: dstr })] });
+}
 
 function ddbCity(country, city) {
     const co = DDB_COUNTRIES[country] || DDB_COUNTRIES.kr;
@@ -10116,7 +10135,7 @@ function c4({
                                     children: pp[1]
                                 }, pp[0]))
                             })]
-                        })]
+                        }), o.jsxs("div", { className: _ + " border-0", children: [o.jsx("span", { className: "text-white/70 text-sm", children: "🕐 세계시계 표시 (상단바)" }), o.jsx("input", { type: "checkbox", className: "w-4 h-4 accent-blue-500", checked: !!(c.clock && c.clock.on), onChange: k => y("clock", { ...(c.clock ?? {}), on: k.target.checked }) })] }), (c.clock && c.clock.on) && o.jsxs("div", { className: _ + " border-0", children: [o.jsx("span", { className: "text-white/70 text-sm", children: DDBTR("나라") + " (시간대)" }), o.jsx("select", { value: (c.clock && c.clock.country) || "kr", onChange: k => y("clock", { ...(c.clock ?? {}), country: k.target.value }), className: "bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-sm focus:outline-none", children: Object.keys(DDB_COUNTRIES).map(ck => o.jsx("option", { value: ck, style: { backgroundColor: "#1e293b", color: "white" }, children: DDB_COUNTRIES[ck].n }, ck)) })] })]
                     })]
                 })]
             }), x === "lang" && o.jsxs(o.Fragment, { children: [o.jsxs("section", {
