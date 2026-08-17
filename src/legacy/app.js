@@ -1800,7 +1800,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.27";
+const DDB_VERSION = "0.98.28";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3349,7 +3349,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v264"
+                children: "v265"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -5764,6 +5764,19 @@ const DDB_COUNTRIES = {
 };
 const DDB_TZ = { kr: "Asia/Seoul", us: "America/New_York", jp: "Asia/Tokyo", cn: "Asia/Shanghai", gb: "Europe/London", de: "Europe/Berlin", fr: "Europe/Paris", vn: "Asia/Ho_Chi_Minh", th: "Asia/Bangkok", au: "Australia/Sydney", tw: "Asia/Taipei", es: "Europe/Madrid" };
 const DDB_HOL_ISO = { kr: "KR", us: "US", jp: "JP", gb: "GB", de: "DE", fr: "FR", es: "ES", au: "AU", vn: "VN", th: "TH" };
+// 언어 → 지역(나라) : 공휴일 나라코드, 로케일, 12/24시간, 주 시작요일(0=일,1=월)
+const DDB_REGION = {
+    ko: { hol: "kr", locale: "ko-KR", hour12: false, weekStart: 0 },
+    en: { hol: "us", locale: "en-US", hour12: true, weekStart: 0 },
+    ja: { hol: "jp", locale: "ja-JP", hour12: false, weekStart: 0 },
+    zh: { hol: "cn", locale: "zh-CN", hour12: false, weekStart: 1 },
+    zhTW: { hol: "tw", locale: "zh-TW", hour12: false, weekStart: 0 },
+    de: { hol: "de", locale: "de-DE", hour12: false, weekStart: 1 },
+    es: { hol: "es", locale: "es-ES", hour12: false, weekStart: 1 }
+};
+function ddbRegion() { return DDB_REGION[DDB_LANG] || DDB_REGION.ko; }
+function ddbFmtDate(d) { try { const dt = (d instanceof Date) ? d : new Date(d); if (isNaN(dt.getTime())) return ""; return new Intl.DateTimeFormat(ddbRegion().locale, { year: "numeric", month: "2-digit", day: "2-digit" }).format(dt); } catch (e) { return ""; } }
+function ddbFmtTime(d) { try { const dt = (d instanceof Date) ? d : new Date(d); if (isNaN(dt.getTime())) return ""; return new Intl.DateTimeFormat(ddbRegion().locale, { hour: "2-digit", minute: "2-digit", hour12: ddbRegion().hour12 }).format(dt); } catch (e) { return ""; } }
 const DDB_HOL_BUNDLED = {
     cn: { "2026": { "2026-01-01": "元旦", "2026-02-17": "春节", "2026-04-05": "清明节", "2026-05-01": "劳动节", "2026-06-19": "端午节", "2026-09-25": "中秋节", "2026-10-01": "国庆节" }, "2027": { "2027-01-01": "元旦", "2027-02-06": "春节", "2027-04-05": "清明节", "2027-05-01": "劳动节", "2027-06-09": "端午节", "2027-09-15": "中秋节", "2027-10-01": "国庆节" } },
     tw: { "2026": { "2026-01-01": "元旦", "2026-02-17": "春節", "2026-02-28": "和平紀念日", "2026-04-04": "兒童節", "2026-04-05": "清明節", "2026-05-01": "勞動節", "2026-06-19": "端午節", "2026-09-25": "中秋節", "2026-10-10": "國慶日" }, "2027": { "2027-01-01": "元旦", "2027-02-06": "春節", "2027-02-28": "和平紀念日", "2027-04-05": "清明節", "2027-05-01": "勞動節", "2027-06-09": "端午節", "2027-09-15": "中秋節", "2027-10-10": "國慶日" } }
@@ -5790,16 +5803,16 @@ function DDBHolidayList() {
     const [map, setMap] = O.useState({});
     const yr = (state.currentYear) || new Date().getFullYear();
     O.useEffect(() => {
-        if (!hol.on) { setMap({}); return; }
-        let alive = true; const cc = hol.country || "kr";
-        Promise.all([ddbLoadHolidays(cc, yr), ddbLoadHolidays(cc, yr + 1)]).then(([a, b]) => { if (alive) setMap(Object.assign({}, a || {}, b || {})); }).catch(() => {});
+        if (!hol.on) { setMap({}); window.__ddbHolMap = {}; try { window.dispatchEvent(new CustomEvent("ddb-hol-updated")); } catch (e) {} return; }
+        let alive = true; const cc = ddbRegion().hol;
+        Promise.all([ddbLoadHolidays(cc, yr - 1), ddbLoadHolidays(cc, yr), ddbLoadHolidays(cc, yr + 1)]).then(([a, b, d]) => { if (alive) { const merged = Object.assign({}, a || {}, b || {}, d || {}); setMap(merged); window.__ddbHolMap = merged; try { window.dispatchEvent(new CustomEvent("ddb-hol-updated")); } catch (e) {} } }).catch(() => {});
         return () => { alive = false; };
-    }, [hol.on, hol.country, yr]);
+    }, [hol.on, DDB_LANG, yr]);
     if (!hol.on) return null;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const todayStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
     const list = Object.keys(map).filter(d => d >= todayStr).sort().slice(0, 12).map(d => ({ d: d, name: map[d] }));
-    const co = DDB_COUNTRIES[hol.country || "kr"]; const flag = co ? String(co.n).split(" ")[0] : "🎌";
+    const co = DDB_COUNTRIES[ddbRegion().hol]; const flag = co ? String(co.n).split(" ")[0] : "🎌";
     return o.jsxs("div", { className: "px-2 py-2 border-b border-white/10 flex-shrink-0", children: [
         o.jsxs("div", { className: "flex items-center gap-1 mb-1.5", children: [o.jsx("span", { style: { fontSize: 12 }, children: flag }), o.jsx("span", { className: "text-white/55 text-[11px] font-semibold", children: DDBTR("다가오는 공휴일") })] }),
         list.length ? o.jsx("div", { className: "flex flex-col gap-0.5", children: list.map(h => { const dd = new Date(h.d + "T00:00:00"); const dl = Math.round((dd - today) / 864e5); return o.jsxs("div", { className: "flex items-center gap-2 text-[11px]", children: [o.jsx("span", { className: "text-red-300/90 font-mono flex-shrink-0", style: { width: 54 }, children: (dd.getMonth() + 1) + "/" + dd.getDate() + "(" + "일월화수목금토" [dd.getDay()] + ")" }), o.jsx("span", { className: "text-white/85 flex-1 truncate", children: h.name }), o.jsx("span", { className: "text-white/35 flex-shrink-0", children: dl === 0 ? "오늘" : ("D-" + dl) })] }, h.d); }) }) : o.jsx("div", { className: "text-white/30 text-[11px]", children: "표시할 공휴일이 없어요 (인터넷 확인)" })
@@ -5917,6 +5930,14 @@ function fd({
     const [doGeo, setDoGeo] = O.useState(() => ({ x: (typeof window !== "undefined" ? window.innerWidth : 1200) - 300, y: 88, w: 280, h: 340 }));
     const doDrag = R => { if (R.target.closest && (R.target.closest("button") || R.target.closest("input"))) return; R.preventDefault(); const sx = R.clientX, sy = R.clientY, ox = doGeo.x, oy = doGeo.y; const mm = ev => setDoGeo(g => ({ ...g, x: ox + (ev.clientX - sx), y: Math.max(0, oy + (ev.clientY - sy)) })); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu) }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu) };
     const doResize = R => { R.preventDefault(); R.stopPropagation(); const sx = R.clientX, sy = R.clientY, ow = doGeo.w, oh = doGeo.h; const mm = ev => setDoGeo(g => ({ ...g, w: Math.max(220, ow + (ev.clientX - sx)), h: Math.max(160, oh + (ev.clientY - sy)) })); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu) }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu) };
+    const [, _holTick] = O.useReducer(z0 => z0 + 1, 0);
+    O.useEffect(() => {
+        const hs = (t.settings && t.settings.holidays) || {};
+        if (!hs.on) { window.__ddbHolMap = {}; _holTick(); return; }
+        let alive = true; const cc = ddbRegion().hol, yr = s;
+        Promise.all([ddbLoadHolidays(cc, yr - 1), ddbLoadHolidays(cc, yr), ddbLoadHolidays(cc, yr + 1)]).then(([a1, a2, a3]) => { if (alive) { window.__ddbHolMap = Object.assign({}, a1 || {}, a2 || {}, a3 || {}); _holTick(); } }).catch(() => {});
+        return () => { alive = false; };
+    }, [t.settings && t.settings.holidays && t.settings.holidays.on, DDB_LANG, s]);
     const [msGeo, setMsGeo] = O.useState(() => ({ x: Math.round(((typeof window !== "undefined" ? window.innerWidth : 1200) - 300) / 2), y: 120, w: 300, h: 250 }));
     const _msdh = ddbDragH(() => msGeo, setMsGeo);
     const [teamEv, setTeamEv] = O.useState([]);
@@ -7157,6 +7178,7 @@ function fd({
                 const J = Mi(S),
                     le = D % 7,
                     Q = !S.isPadding && J === Da,
+                    _holN = (!S.isPadding && window.__ddbHolMap) ? window.__ddbHolMap[J] : null,
                     ee = d && !S.isPadding ? Sw(S.year, S.month, S.day) : "",
                     Z = S.isPadding ? [] : qs(J),
                     pe = Z.filter(_e => _e.amount !== void 0 && _e.bankTx);
@@ -7224,7 +7246,7 @@ function fd({
                     }), o.jsxs("div", {
                         className: "flex items-start gap-0.5 flex-wrap",
                         children: [o.jsx("span", {
-                            className: "text-xs font-medium leading-none flex-shrink-0 " + (Q ? "bg-blue-400 text-white rounded-full w-5 h-5 flex items-center justify-center" : S.isPadding ? "text-white/30" : le === 0 ? "text-red-300" : le === 6 ? "text-blue-300" : "text-white/80"),
+                            className: "text-xs font-medium leading-none flex-shrink-0 " + (Q ? "bg-blue-400 text-white rounded-full w-5 h-5 flex items-center justify-center" : S.isPadding ? "text-white/30" : (_holN || le === 0) ? "text-red-300" : le === 6 ? "text-blue-300" : "text-white/80"),
                             style: {
                                 fontSize: Q ? void 0 : h
                             },
@@ -7253,7 +7275,7 @@ function fd({
                             },
                             children: `-${ge.length>1?ge.length:""}`
                         })]
-                    }), b && !S.isPadding && (ye.length > 0 || ge.length > 0 || pe.length > 0) && o.jsx("div", {
+                    }), (_holN && !S.isPadding) ? o.jsx("div", { className: "text-red-300/95 leading-tight truncate flex-shrink-0 font-medium", style: { fontSize: Math.max(8, h - 3), marginTop: 1 }, title: _holN, children: _holN }) : null, b && !S.isPadding && (ye.length > 0 || ge.length > 0 || pe.length > 0) && o.jsx("div", {
                         className: "mt-0.5 gap-px " + ((ye.length + ge.length + pe.length) >= 9 ? "grid" : "flex flex-col"),
                         style: (ye.length + ge.length + pe.length) >= 9 ? { gridTemplateColumns: "1fr 1fr", columnGap: 2 } : void 0,
                         children: [...ye, ...ge, ...pe].map(_e => {
