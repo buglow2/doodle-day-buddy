@@ -1800,7 +1800,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.26";
+const DDB_VERSION = "0.98.27";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3349,7 +3349,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v263"
+                children: "v264"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -5763,6 +5763,48 @@ const DDB_COUNTRIES = {
     } }
 };
 const DDB_TZ = { kr: "Asia/Seoul", us: "America/New_York", jp: "Asia/Tokyo", cn: "Asia/Shanghai", gb: "Europe/London", de: "Europe/Berlin", fr: "Europe/Paris", vn: "Asia/Ho_Chi_Minh", th: "Asia/Bangkok", au: "Australia/Sydney", tw: "Asia/Taipei", es: "Europe/Madrid" };
+const DDB_HOL_ISO = { kr: "KR", us: "US", jp: "JP", gb: "GB", de: "DE", fr: "FR", es: "ES", au: "AU", vn: "VN", th: "TH" };
+const DDB_HOL_BUNDLED = {
+    cn: { "2026": { "2026-01-01": "元旦", "2026-02-17": "春节", "2026-04-05": "清明节", "2026-05-01": "劳动节", "2026-06-19": "端午节", "2026-09-25": "中秋节", "2026-10-01": "国庆节" }, "2027": { "2027-01-01": "元旦", "2027-02-06": "春节", "2027-04-05": "清明节", "2027-05-01": "劳动节", "2027-06-09": "端午节", "2027-09-15": "中秋节", "2027-10-01": "国庆节" } },
+    tw: { "2026": { "2026-01-01": "元旦", "2026-02-17": "春節", "2026-02-28": "和平紀念日", "2026-04-04": "兒童節", "2026-04-05": "清明節", "2026-05-01": "勞動節", "2026-06-19": "端午節", "2026-09-25": "中秋節", "2026-10-10": "國慶日" }, "2027": { "2027-01-01": "元旦", "2027-02-06": "春節", "2027-02-28": "和平紀念日", "2027-04-05": "清明節", "2027-05-01": "勞動節", "2027-06-09": "端午節", "2027-09-15": "中秋節", "2027-10-10": "國慶日" } }
+};
+function ddbHolKey(cc, yr) { return "ddb_hol_" + cc + "_" + yr; }
+async function ddbLoadHolidays(cc, yr) {
+    yr = String(yr);
+    const b = DDB_HOL_BUNDLED[cc] && DDB_HOL_BUNDLED[cc][yr];
+    if (b) return b;
+    try { const cached = JSON.parse(localStorage.getItem(ddbHolKey(cc, yr)) || "null"); if (cached && typeof cached === "object") return cached; } catch (e) {}
+    const iso = DDB_HOL_ISO[cc]; if (!iso) return {};
+    try {
+        const res = await fetch("https://date.nager.at/api/v3/PublicHolidays/" + yr + "/" + iso);
+        if (!res.ok) return {};
+        const arr = await res.json(); const map = {};
+        (arr || []).forEach(h => { if (h && h.date) map[h.date] = h.localName || h.name || ""; });
+        try { localStorage.setItem(ddbHolKey(cc, yr), JSON.stringify(map)); } catch (e) {}
+        return map;
+    } catch (e) { return {}; }
+}
+function DDBHolidayList() {
+    const { state } = vt();
+    const hol = (state.settings && state.settings.holidays) || {};
+    const [map, setMap] = O.useState({});
+    const yr = (state.currentYear) || new Date().getFullYear();
+    O.useEffect(() => {
+        if (!hol.on) { setMap({}); return; }
+        let alive = true; const cc = hol.country || "kr";
+        Promise.all([ddbLoadHolidays(cc, yr), ddbLoadHolidays(cc, yr + 1)]).then(([a, b]) => { if (alive) setMap(Object.assign({}, a || {}, b || {})); }).catch(() => {});
+        return () => { alive = false; };
+    }, [hol.on, hol.country, yr]);
+    if (!hol.on) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const todayStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+    const list = Object.keys(map).filter(d => d >= todayStr).sort().slice(0, 12).map(d => ({ d: d, name: map[d] }));
+    const co = DDB_COUNTRIES[hol.country || "kr"]; const flag = co ? String(co.n).split(" ")[0] : "🎌";
+    return o.jsxs("div", { className: "px-2 py-2 border-b border-white/10 flex-shrink-0", children: [
+        o.jsxs("div", { className: "flex items-center gap-1 mb-1.5", children: [o.jsx("span", { style: { fontSize: 12 }, children: flag }), o.jsx("span", { className: "text-white/55 text-[11px] font-semibold", children: DDBTR("다가오는 공휴일") })] }),
+        list.length ? o.jsx("div", { className: "flex flex-col gap-0.5", children: list.map(h => { const dd = new Date(h.d + "T00:00:00"); const dl = Math.round((dd - today) / 864e5); return o.jsxs("div", { className: "flex items-center gap-2 text-[11px]", children: [o.jsx("span", { className: "text-red-300/90 font-mono flex-shrink-0", style: { width: 54 }, children: (dd.getMonth() + 1) + "/" + dd.getDate() + "(" + "일월화수목금토" [dd.getDay()] + ")" }), o.jsx("span", { className: "text-white/85 flex-1 truncate", children: h.name }), o.jsx("span", { className: "text-white/35 flex-shrink-0", children: dl === 0 ? "오늘" : ("D-" + dl) })] }, h.d); }) }) : o.jsx("div", { className: "text-white/30 text-[11px]", children: "표시할 공휴일이 없어요 (인터넷 확인)" })
+    ] });
+}
 function DDBClock() {
     const { state } = vt();
     const cl = (state.settings && state.settings.clock) || {};
@@ -10261,7 +10303,7 @@ function c4({
                                     children: pp[1]
                                 }, pp[0]))
                             })]
-                        }), o.jsxs("div", { className: _ + " border-0", children: [o.jsx("span", { className: "text-white/70 text-sm", children: "🕐 세계시계 표시 (상단바)" }), o.jsx("input", { type: "checkbox", className: "w-4 h-4 accent-blue-500", checked: !!(c.clock && c.clock.on), onChange: k => y("clock", { ...(c.clock ?? {}), on: k.target.checked }) })] }), (c.clock && c.clock.on) && o.jsxs("div", { className: _ + " border-0", children: [o.jsx("span", { className: "text-white/70 text-sm", children: DDBTR("나라") + " (시간대)" }), o.jsx("select", { value: (c.clock && c.clock.country) || "kr", onChange: k => y("clock", { ...(c.clock ?? {}), country: k.target.value }), className: "bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-sm focus:outline-none", children: Object.keys(DDB_COUNTRIES).map(ck => o.jsx("option", { value: ck, style: { backgroundColor: "#1e293b", color: "white" }, children: DDB_COUNTRIES[ck].n }, ck)) })] })]
+                        }), o.jsxs("div", { className: _ + " border-0", children: [o.jsx("span", { className: "text-white/70 text-sm", children: "🕐 세계시계 표시 (상단바)" }), o.jsx("input", { type: "checkbox", className: "w-4 h-4 accent-blue-500", checked: !!(c.clock && c.clock.on), onChange: k => y("clock", { ...(c.clock ?? {}), on: k.target.checked }) })] }), (c.clock && c.clock.on) && o.jsxs("div", { className: _ + " border-0", children: [o.jsx("span", { className: "text-white/70 text-sm", children: DDBTR("나라") + " (시간대)" }), o.jsx("select", { value: (c.clock && c.clock.country) || "kr", onChange: k => y("clock", { ...(c.clock ?? {}), country: k.target.value }), className: "bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-sm focus:outline-none", children: Object.keys(DDB_COUNTRIES).map(ck => o.jsx("option", { value: ck, style: { backgroundColor: "#1e293b", color: "white" }, children: DDB_COUNTRIES[ck].n }, ck)) })] }), o.jsxs("div", { className: _ + " border-0", children: [o.jsx("span", { className: "text-white/70 text-sm", children: "🎌 공휴일 표시 (D-Day 칸)" }), o.jsx("input", { type: "checkbox", className: "w-4 h-4 accent-blue-500", checked: !!(c.holidays && c.holidays.on), onChange: k => y("holidays", { ...(c.holidays ?? {}), on: k.target.checked }) })] }), (c.holidays && c.holidays.on) && o.jsxs("div", { className: _ + " border-0", children: [o.jsx("span", { className: "text-white/70 text-sm", children: DDBTR("나라") + " (공휴일)" }), o.jsx("select", { value: (c.holidays && c.holidays.country) || "kr", onChange: k => y("holidays", { ...(c.holidays ?? {}), country: k.target.value }), className: "bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-sm focus:outline-none", children: Object.keys(DDB_COUNTRIES).map(ck => o.jsx("option", { value: ck, style: { backgroundColor: "#1e293b", color: "white" }, children: DDB_COUNTRIES[ck].n }, ck)) })] })]
                     })]
                 })]
             }), x === "lang" && o.jsxs(o.Fragment, { children: [o.jsxs("section", {
@@ -15811,7 +15853,7 @@ function g2({
 }) {
     return e.type === "calendar" ? o.jsx(fd, {
         onTodo: () => {}
-    }) : e.type === "dday" ? o.jsx(Rw, {}) : e.type === "calculator" ? o.jsx(TO, {}) : e.type === "fortune" ? o.jsx(zO, {}) : e.type === "player" ? o.jsx(GO, {}) : e.type === "todo" ? o.jsx(AT, {}) : e.type === "todo-view" ? o.jsx(jT, {}) : o.jsx(jw, {
+    }) : e.type === "dday" ? o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }, children: [o.jsx(DDBHolidayList, {}), o.jsx("div", { style: { flex: 1, minHeight: 0, overflow: "hidden" }, children: o.jsx(Rw, {}) })] }) : e.type === "calculator" ? o.jsx(TO, {}) : e.type === "fortune" ? o.jsx(zO, {}) : e.type === "player" ? o.jsx(GO, {}) : e.type === "todo" ? o.jsx(AT, {}) : e.type === "todo-view" ? o.jsx(jT, {}) : o.jsx(jw, {
         tabId: e.memoTabId
     })
 }
