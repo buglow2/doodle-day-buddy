@@ -1800,7 +1800,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.25";
+const DDB_VERSION = "0.98.26";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -2735,7 +2735,7 @@ function AT() {
         showOrder: !1,
         showCompletedAt: !1,
         showCreatedAt: !1
-    }, [s, a] = O.useState(!1), [i, l] = O.useState(""), [c, u] = O.useState("#42a5f5"), [h, d] = O.useState(!1), [f, x] = O.useState(null), [p, m] = O.useState(""), [y, w] = O.useState(null), v = O.useRef(null), g = n.hideCompleted ? r.filter(F => !F.completedAt) : r, _ = r.filter(F => !F.completedAt);
+    }, [s, a] = O.useState(!1), [i, l] = O.useState(""), [c, u] = O.useState(() => { try { const _lc = ddbLastEvColor(); return _lc.cc || qt[_lc.c] || "#42a5f5"; } catch (e2) { return "#42a5f5"; } }), [h, d] = O.useState(!1), [f, x] = O.useState(null), [p, m] = O.useState(""), [y, w] = O.useState(null), v = O.useRef(null), [ce, setCe] = O.useState(null), g = n.hideCompleted ? r.filter(F => !F.completedAt) : r, _ = r.filter(F => !F.completedAt);
 
     function k() {
         const F = i.trim();
@@ -2925,7 +2925,7 @@ function AT() {
                         }) : o.jsx(Rf, {
                             size: 12
                         })
-                    }), z ? o.jsx("input", {
+                    }), o.jsxs("div", { className: "relative flex-shrink-0", children: [o.jsx("button", { onClick: () => setCe(G => G === F.id ? null : F.id), title: "색상 변경", className: "w-3.5 h-3.5 rounded-sm border border-white/40 hover:scale-110 transition-transform", style: { background: F.color || "#888" } }), ce === F.id ? o.jsxs(o.Fragment, { children: [o.jsx("div", { className: "fixed inset-0", style: { zIndex: 55 }, onClick: () => setCe(null) }), o.jsxs("div", { className: "absolute bottom-full left-0 mb-1 p-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1 flex-wrap shadow-2xl", style: { zIndex: 56, minWidth: 150 }, children: [...NT.map(col => o.jsx("button", { onClick: () => { t({ type: "UPDATE_TODO", todo: { ...F, color: col } }); setCe(null); }, className: "w-5 h-5 rounded-full border-2 " + (F.color === col ? "border-white" : "border-transparent"), style: { background: col } }, col)), o.jsx("input", { type: "color", value: F.color || "#888888", onChange: G => t({ type: "UPDATE_TODO", todo: { ...F, color: G.target.value } }), className: "w-5 h-5 cursor-pointer bg-transparent border-0", title: "직접 선택" })] })] }) : null] }), z ? o.jsx("input", {
                         autoFocus: !0,
                         value: p,
                         onChange: G => m(G.target.value),
@@ -3349,7 +3349,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v262"
+                children: "v263"
             }), (() => {
                 const S = [{
                     k: "cal",
