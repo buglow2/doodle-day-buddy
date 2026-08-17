@@ -1791,6 +1791,7 @@ function Kk({
 function vt() {
     const e = O.useContext(Wv);
     if (!e) throw new Error("useAppContext must be used inside AppProvider");
+    try { ddbApplyPalette(e.state && e.state.settings && e.state.settings.palette); } catch (x) {}
     return e
 }
 /* ─────────────────────────────────────────────────
@@ -1799,7 +1800,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.24";
+const DDB_VERSION = "0.98.25";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3348,7 +3349,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v261"
+                children: "v262"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -3934,6 +3935,9 @@ function Ff(e, t, r) {
             return !1
     }
 }
+const DDB_QT_DEFAULT = { pink: "#f48fb1", green: "#4caf50", blue: "#42a5f5", yellow: "#ffb300", purple: "#ab47bc", orange: "#ff7043", red: "#ef5350", teal: "#26a69a" };
+const DDB_QT_LABELS = { pink: "1", green: "2", blue: "3", yellow: "4", purple: "5", orange: "6", red: "7", teal: "8" };
+function ddbApplyPalette(p) { try { for (const k in DDB_QT_DEFAULT) qt[k] = DDB_QT_DEFAULT[k]; if (p && typeof p === "object") { for (const k in p) { if (p[k]) qt[k] = p[k]; } } } catch (e) {} }
 const qt = {
         pink: "#f48fb1",
         green: "#4caf50",
@@ -10276,7 +10280,7 @@ function c4({
                         children: DDB_LANG === "ko" ? "※ 영어는 주요 화면부터 순차 적용 중입니다." : "* English is being applied screen by screen."
                     })]
                 })] }), x === "design" && o.jsxs(o.Fragment, {
-                children: [o.jsxs("section", {
+                children: [o.jsxs("section", { children: [o.jsx("h4", { className: "text-white/40 text-xs mb-2 uppercase tracking-wide", children: "🎨 달력 색상 팔레트 (1~8번)" }), o.jsx("div", { className: "text-white/40 text-[11px] mb-2 leading-relaxed", children: "색을 바꾸면 그 색을 쓰던 일정·할일·D-Day가 모두 함께 바뀝니다 (필터·구분 유지)." }), o.jsx("div", { className: "grid grid-cols-4 gap-2 mb-2", children: Object.keys(DDB_QT_DEFAULT).map(nm => o.jsxs("div", { className: "flex flex-col items-center gap-1 bg-white/5 rounded-lg p-2", children: [o.jsx("span", { className: "text-white/55 text-[11px]", children: DDB_QT_LABELS[nm] + "번" }), o.jsx("input", { type: "color", value: qt[nm], title: "클릭해서 색 변경", onChange: k => { const nv = k.target.value; if (window.__ddbPalOK || window.confirm("색상을 바꾸면 기존에 이 색을 사용하던 메모들도 모두 바뀐 색으로 변경됩니다. 그래도 하시겠습니까?")) { window.__ddbPalOK = true; y("palette", { ...(c.palette || {}), [nm]: nv }); } }, style: { width: 36, height: 36, border: "2px solid rgba(255,255,255,0.3)", borderRadius: 8, background: "transparent", cursor: "pointer", padding: 0 } })] }, nm)) }), o.jsx("button", { onClick: () => { if (window.confirm("모든 색을 기본값으로 되돌릴까요? (그 색을 쓰던 항목도 기본색으로 바뀝니다)")) { window.__ddbPalOK = false; y("palette", {}); } }, className: "text-white/50 hover:text-white text-[11px] underline bg-transparent border-none cursor-pointer p-0", children: "기본색으로 전체 되돌리기" })] }), o.jsxs("section", {
                     children: [o.jsx("h4", {
                         className: "text-white/40 text-xs mb-2 uppercase tracking-wide",
                         children: DDBTR("대출·적금 추가 버튼 표시")
