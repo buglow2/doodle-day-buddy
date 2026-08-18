@@ -459,7 +459,7 @@ function DDBImageEditor() {
             if (e.key === "Escape") { if (menu) { setMenu(null); return; } if (typing) return; setOpen(false); return; }
             if (typing) return;
             if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
-            if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redo(); return; }
+            if ((e.ctrlKey || e.metaKey) && (e.key === "x" || e.key === "X")) { e.preventDefault(); redo(); return; }
             if (e.key === "Delete" || e.key === "Backspace") { const c = fcRef.current; if (c) { const a = c.getActiveObject(); if (a) { if (a.type === "activeSelection") a.forEachObject(o2 => c.remove(o2)); else c.remove(a); c.discardActiveObject(); c.renderAll(); pushHist(); } } return; }
         };
         const onPaste = e => { const items = e.clipboardData && e.clipboardData.items; if (!items) return; for (let i = 0; i < items.length; i++) { const it = items[i]; if (it.type && it.type.indexOf("image") === 0) { const f = it.getAsFile(); if (f) { const r = new FileReader(); r.onload = () => loadUrl(r.result); r.readAsDataURL(f); e.preventDefault(); return; } } } };
@@ -505,7 +505,7 @@ function DDBImageEditor() {
             o.jsx("button", { onClick: delSel, disabled: !hasSel, title: "선택 삭제(Del)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40", children: "🗑 삭제" }),
             o.jsx("div", { className: "w-px h-6 bg-white/15 mx-0.5" }),
             o.jsx("button", { onClick: undo, title: "되돌리기(Ctrl+Z)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "↶" }),
-            o.jsx("button", { onClick: redo, title: "다시(Ctrl+Y)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "↷" }),
+            o.jsx("button", { onClick: redo, title: "다시(Ctrl+X)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "↷" }),
             o.jsx("div", { className: "flex-1" }),
             o.jsx("button", { onClick: runOcr, disabled: !hasImg, title: "글자 추출(OCR)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40", children: "🔤 텍스트 추출" }),
             o.jsx("button", { onClick: () => setOpen(false), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "✕ 닫기" })
@@ -520,7 +520,10 @@ function DDBImageEditor() {
             dropBtn("dash", "선: " + (DASHOPTS.find(x => x[0] === dash) || DASHOPTS[0])[1].split(" ")[1], false, DASHOPTS, dash, k => setDash(k)),
             (tool === "text" || hasSel) && o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["글자", o.jsx("input", { type: "range", min: 10, max: 120, value: fsz, onChange: e => setFsz(Number(e.target.value)), className: "w-20 accent-blue-400" }), o.jsxs("span", { className: "w-7 text-white/60", children: [fsz] })] })
         ] }),
-        o.jsx("div", { className: "flex-1 overflow-auto flex items-start justify-center p-4", onMouseDown: e => e.stopPropagation(), children: loadErr ? o.jsx("div", { className: "text-amber-200/90 text-sm mt-10 max-w-md text-center", children: loadErr }) : !hasImg ? o.jsxs("div", { className: "text-white/45 text-sm mt-16 text-center leading-relaxed", children: ["여기에 이미지를 붙여넣기(Ctrl+V) 하거나 파일을 끌어다 놓으세요.", o.jsx("br", {}), "달력의 캡처 버튼으로도 열 수 있어요."] }) : o.jsx("div", { className: "shadow-2xl", style: { lineHeight: 0 }, children: o.jsx("canvas", { ref: elRef }) }) }),
+        o.jsxs("div", { className: "flex-1 overflow-auto flex items-start justify-center p-4 relative", onMouseDown: e => e.stopPropagation(), children: [
+            o.jsx("div", { className: "shadow-2xl", style: { lineHeight: 0, display: hasImg ? "block" : "none" }, children: o.jsx("canvas", { ref: elRef }) }),
+            !hasImg && o.jsx("div", { className: "absolute inset-0 flex items-center justify-center pointer-events-none", children: loadErr ? o.jsx("div", { className: "text-amber-200/90 text-sm max-w-md text-center px-4", children: loadErr }) : o.jsxs("div", { className: "text-white/45 text-sm text-center leading-relaxed", children: ["여기에 이미지를 붙여넣기(Ctrl+V) 하거나 파일을 끌어다 놓으세요.", o.jsx("br", {}), "달력의 캡처 버튼으로도 열 수 있어요."] }) })
+        ] }),
         o.jsxs("div", { className: "flex items-center gap-2 px-3 py-2 border-t border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.98)" }, onMouseDown: e => e.stopPropagation(), children: [
             o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["형식", o.jsx("select", { value: outFmt, onChange: e => setOutFmt(e.target.value), className: "bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs cursor-pointer", children: [["png", "PNG (투명)"], ["jpg", "JPG"], ["webp", "WEBP"]].map(o2 => o.jsx("option", { value: o2[0], style: { color: "#000" }, children: o2[1] }, o2[0])) })] }),
             o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["크기", o.jsx("input", { type: "number", min: 5, max: 400, value: outPct, onChange: e => setOutPct(Math.max(5, Math.min(400, Number(e.target.value) || 100))), className: "w-16 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs" }), "%"] }),
@@ -1775,7 +1778,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.33";
+const DDB_VERSION = "0.98.34";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3324,7 +3327,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v270"
+                children: "v271"
             }), (() => {
                 const S = [{
                     k: "cal",
