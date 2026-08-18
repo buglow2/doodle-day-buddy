@@ -336,6 +336,10 @@ function DDBImageEditor() {
     const [zoom, setZoom] = O.useState(1);
     const [hasImg, setHasImg] = O.useState(false);
     const [hasSel, setHasSel] = O.useState(false);
+    const [labels, setLabels] = O.useState(() => { try { return localStorage.getItem("ddb_img_labels") !== "0"; } catch { return true; } });
+    const [cropReady, setCropReady] = O.useState(false);
+    const [showCfg, setShowCfg] = O.useState(false);
+    const cropRef = O.useRef(null);
     const [menu, setMenu] = O.useState(null);
     const [toast, setToast] = O.useState("");
     const [ocr, setOcr] = O.useState(null);
@@ -395,6 +399,15 @@ function DDBImageEditor() {
     function insertImageObject(url) { ensureFabric().then(fab => { const c = fcRef.current; if (!c) return; fab.Image.fromURL(url, im => { const cw = natRef.current.w || c.getWidth(), ch = natRef.current.h || c.getHeight(); const sc = Math.min(1, (cw * 0.6) / im.width, (ch * 0.6) / im.height); im.set({ left: cw * 0.2, top: ch * 0.2, scaleX: sc, scaleY: sc, selectable: true }); c.add(im); c.setActiveObject(im); c.renderAll(); pushHist(); }, { crossOrigin: "anonymous" }); }); }
     function openFilePick(mode) { insModeRef.current = mode; setTool("select"); if (fileRef.current) { fileRef.current.value = ""; fileRef.current.click(); } }
     function onFile(e) { const f = e.target.files && e.target.files[0]; if (!f || f.type.indexOf("image") !== 0) return; const r = new FileReader(); r.onload = () => { if (insModeRef.current === "obj") insertImageObject(r.result); else loadUrl(r.result); }; r.readAsDataURL(f); }
+    function flattenUrl() { const c = fcRef.current; if (!c) return null; c.discardActiveObject(); c.renderAll(); return c.toDataURL({ format: "png", multiplier: (1 / (fitRef.current || 1)) }); }
+    function rotate(dir) { const u = flattenUrl(); if (!u) return; const im = new Image(); im.onload = () => { const cc = document.createElement("canvas"); cc.width = im.height; cc.height = im.width; const g = cc.getContext("2d"); g.translate(cc.width / 2, cc.height / 2); g.rotate(dir * Math.PI / 2); g.drawImage(im, -im.width / 2, -im.height / 2); loadUrl(cc.toDataURL("image/png")); }; im.src = u; }
+    function flip(axis) { const u = flattenUrl(); if (!u) return; const im = new Image(); im.onload = () => { const cc = document.createElement("canvas"); cc.width = im.width; cc.height = im.height; const g = cc.getContext("2d"); if (axis === "h") { g.translate(im.width, 0); g.scale(-1, 1); } else { g.translate(0, im.height); g.scale(1, -1); } g.drawImage(im, 0, 0); loadUrl(cc.toDataURL("image/png")); }; im.src = u; }
+    function applyCrop() { const c = fcRef.current; const r = cropRef.current; if (!c || !r) return; const left = r.left, top = r.top, w = r.getScaledWidth(), h = r.getScaledHeight(); if (w < 4 || h < 4) return; c.remove(r); cropRef.current = null; setCropReady(false); const u = flattenUrl(); if (!u) return; const im = new Image(); im.onload = () => { const sx = Math.max(0, Math.round(left)), sy = Math.max(0, Math.round(top)), sw = Math.min(im.width - sx, Math.round(w)), sh = Math.min(im.height - sy, Math.round(h)); if (sw < 2 || sh < 2) return; const cc = document.createElement("canvas"); cc.width = sw; cc.height = sh; cc.getContext("2d").drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh); loadUrl(cc.toDataURL("image/png")); }; im.src = u; }
+    function cancelCrop() { const c = fcRef.current, r = cropRef.current; if (c && r) { c.remove(r); c.renderAll(); } cropRef.current = null; setCropReady(false); }
+    function toggleLabels() { setLabels(v => { const nv = !v; try { localStorage.setItem("ddb_img_labels", nv ? "1" : "0"); } catch {} return nv; }); }
+    const imgKeys = (St.settings && St.settings.imgKeys) || {};
+    const KEYDEFS = [["select", "선택·이동", "v"], ["pen", "펜", "p"], ["line", "선", "l"], ["arrow", "화살표", "a"], ["rect", "사각형", "r"], ["ellipse", "원", "o"], ["text", "텍스트", "t"], ["crop", "자르기", "c"], ["front", "맨 앞", ""], ["back", "맨 뒤", ""], ["del", "삭제", ""]];
+    function setImgKey(k, v) { Dp({ type: "UPDATE_SETTINGS", settings: { imgKeys: { ...((St.settings && St.settings.imgKeys) || {}), [k]: v } } }); }
 
     O.useEffect(() => {
         const openH = e => { setOpen(true); ensureFabric().then(() => setReady(true)).catch(() => setLoadErr("그리기 엔진을 불러오지 못했습니다.")); if (e && e.detail && e.detail.url) loadUrl(e.detail.url); };
@@ -428,6 +441,7 @@ function DDBImageEditor() {
             else if (t === "polygon" || t === "star") { const pts = polyPts(t === "star", sidesRef.current); ob = new fab.Polygon(pts, { ...base, objectCaching: false }); }
             else if (t === "line") ob = new fab.Line([p.x, p.y, p.x, p.y], { stroke: s.color, strokeWidth: s.lw, strokeDashArray: dz, strokeUniform: true });
             else if (t === "arrow") ob = new fab.Line([p.x, p.y, p.x, p.y], { stroke: s.color, strokeWidth: s.lw, strokeDashArray: dz, strokeUniform: true });
+            else if (t === "crop") { if (cropRef.current) { c.remove(cropRef.current); cropRef.current = null; } ob = new fab.Rect({ left: p.x, top: p.y, width: 1, height: 1, fill: "rgba(0,0,0,0.12)", stroke: "#3b82f6", strokeWidth: 2, strokeDashArray: [6, 4], strokeUniform: true }); }
             else if (t === "text") { if (opt.target && (opt.target.type === "i-text" || opt.target.type === "text")) { setTool("select"); return; } const it = new fab.IText("텍스트", { left: p.x, top: p.y, fill: s.color, fontSize: s.fsz, fontFamily: "sans-serif" }); c.add(it); c.setActiveObject(it); it.enterEditing(); it.selectAll(); pushHist(); setTool("select"); return; }
             if (!ob) return; ob.set({ selectable: true }); c.add(ob); drawRef.current = { obj: ob, sx: p.x, sy: p.y, t }; c.selection = false;
         });
@@ -445,6 +459,7 @@ function DDBImageEditor() {
         });
         c.on("mouse:up", () => {
             const d = drawRef.current; if (!d) { return; } drawRef.current = null; c.selection = true;
+            if (d.t === "crop") { if (d.obj && d.obj.getScaledWidth() > 4 && d.obj.getScaledHeight() > 4) { d.obj.set({ selectable: true, evented: true }); cropRef.current = d.obj; c.selection = true; c.setActiveObject(d.obj); c.renderAll(); setCropReady(true); } else { c.remove(d.obj); } return; }
             if (d.t === "arrow") { addArrowHead(c, d.obj); }
             const ob = d.obj; if (ob && ((ob.width != null && ob.width < 2 && ob.height < 2 && d.t !== "line" && d.t !== "arrow"))) { c.remove(ob); }
             else { c.setActiveObject(d.t === "arrow" ? c.getActiveObject() : d.obj); }
@@ -467,8 +482,9 @@ function DDBImageEditor() {
         if (!open) return;
         const onKey = e => {
             const ae = document.activeElement; const typing = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || (fcRef.current && fcRef.current.getActiveObject() && fcRef.current.getActiveObject().isEditing));
-            if (e.key === "Escape") { e.preventDefault(); const c = fcRef.current; if (menu) { setMenu(null); return; } if (drawRef.current) { if (c && drawRef.current.obj) { try { c.remove(drawRef.current.obj); } catch {} } drawRef.current = null; if (c) { c.selection = true; c.renderAll(); } return; } if (c) { const a = c.getActiveObject(); if (a && a.isEditing) { try { a.exitEditing(); } catch {} return; } if (c._currentTransform && xformRef.current && xformRef.current.obj) { const o2 = xformRef.current.obj, pr = xformRef.current.props; o2.set(pr); o2.setCoords(); c._currentTransform = null; c.renderAll(); return; } if (a) { c.discardActiveObject(); c.renderAll(); return; } } return; }
+            if (e.key === "Escape") { e.preventDefault(); const c = fcRef.current; if (showCfg) { setShowCfg(false); return; } if (menu) { setMenu(null); return; } if (cropReady) { cancelCrop(); return; } if (drawRef.current) { if (c && drawRef.current.obj) { try { c.remove(drawRef.current.obj); } catch {} } drawRef.current = null; if (c) { c.selection = true; c.renderAll(); } return; } if (c) { const a = c.getActiveObject(); if (a && a.isEditing) { try { a.exitEditing(); } catch {} return; } if (c._currentTransform && xformRef.current && xformRef.current.obj) { const o2 = xformRef.current.obj, pr = xformRef.current.props; o2.set(pr); o2.setCoords(); c._currentTransform = null; c.renderAll(); return; } if (a) { c.discardActiveObject(); c.renderAll(); return; } } return; }
             if (typing) return;
+            if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key || "").length === 1) { const k1 = e.key.toLowerCase(); const match = KEYDEFS.find(kd => { const kk = (imgKeys[kd[0]] ?? kd[2]); return kk && kk.toLowerCase() === k1; }); if (match) { e.preventDefault(); const id = match[0]; if (id === "front") zOp("front"); else if (id === "back") zOp("back"); else if (id === "del") delSel(); else setTool(id); return; } }
             if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
             if ((e.ctrlKey || e.metaKey) && (e.key === "x" || e.key === "X")) { e.preventDefault(); redo(); return; }
             if (e.key === "Delete" || e.key === "Backspace") { const c = fcRef.current; if (c) { const a = c.getActiveObject(); if (a) { if (a.type === "activeSelection") a.forEachObject(o2 => c.remove(o2)); else c.remove(a); c.discardActiveObject(); c.renderAll(); pushHist(); } } return; }
@@ -476,7 +492,7 @@ function DDBImageEditor() {
         const onPaste = e => { const items = e.clipboardData && e.clipboardData.items; if (!items) return; for (let i = 0; i < items.length; i++) { const it = items[i]; if (it.type && it.type.indexOf("image") === 0) { const f = it.getAsFile(); if (f) { const r = new FileReader(); r.onload = () => loadUrl(r.result); r.readAsDataURL(f); e.preventDefault(); return; } } } };
         window.addEventListener("keydown", onKey); window.addEventListener("paste", onPaste);
         return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("paste", onPaste); };
-    }, [open, menu]);
+    }, [open, menu, St.settings, showCfg, cropReady]);
 
     O.useEffect(() => { const c = fcRef.current; if (!c) return; const draws = tool === "pen" || tool === "highlighter" || tool === "marker"; c.isDrawingMode = draws; c.selection = tool === "select"; c.forEachObject(o2 => { o2.selectable = tool === "select"; o2.evented = tool === "select"; }); if (draws && window.fabric) { const br = new window.fabric.PencilBrush(c); if (tool === "highlighter") { br.width = Math.max(12, lw * 4); br.color = hexA(color, 0.35); } else if (tool === "marker") { br.width = Math.max(6, lw * 2); br.color = color; } else { br.width = lw; br.color = color; } c.freeDrawingBrush = br; } c.renderAll(); }, [tool, color, lw]);
 
@@ -498,10 +514,11 @@ function DDBImageEditor() {
     async function runOcr() { if (clova.on && clova.url && clova.key) return runClova(); const cv = await flatCanvas(); if (!cv) return; setOcr({ busy: true, prog: 0, text: "" }); let T; try { T = await ensureTesseract(); } catch { setOcr({ busy: false, err: "OCR 엔진을 불러오지 못했습니다. 처음 사용 시 인터넷 연결이 필요합니다." }); return; } let worker = null; try { const src = ocrPrep(cv); const lg = m => { if (m && m.status && m.status.indexOf("recogn") >= 0) setOcr(o2 => (o2 && o2.busy) ? { ...o2, prog: Math.round((m.progress || 0) * 100) } : o2); }; if (T.createWorker) { worker = await T.createWorker("kor+eng", 1, { langPath: "https://tessdata.projectnaptha.com/4.0.0_best", logger: lg }); try { await worker.setParameters({ preserve_interword_spaces: "1", tessedit_pageseg_mode: "6", user_defined_dpi: "300" }); } catch {} const r = await worker.recognize(src); const txt = ((r && r.data && r.data.text) || "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); setOcr({ busy: false, prog: 100, text: txt }); } else { const r = await T.recognize(src, "kor+eng", { logger: lg }); const txt = ((r && r.data && r.data.text) || "").replace(/\n{3,}/g, "\n\n").trim(); setOcr({ busy: false, prog: 100, text: txt }); } } catch (e) { setOcr({ busy: false, err: "인식에 실패했습니다. (" + ((e && e.message) || "") + ")" }); } finally { try { worker && worker.terminate(); } catch {} } }
 
     if (!open) return null;
-    const tbtn = (k, label) => o.jsx("button", { onClick: () => { setTool(k); setMenu(null); }, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + (tool === k ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/15 text-white/90 hover:bg-white/15"), children: label });
-    const dropBtn = (id, label, active, opts, cur, onPick) => o.jsxs("div", { className: "relative", children: [o.jsxs("button", { onClick: () => setMenu(m => m === id ? null : id), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + (active ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/15 text-white/90 hover:bg-white/15"), children: [label, " ▾"] }), menu === id && o.jsx("div", { className: "absolute left-0 top-full mt-1 flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { zIndex: 60, minWidth: 150, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: opts.map(op => o.jsx("button", { onClick: () => { onPick(op[0]); setMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + (op[0] === cur ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) })] });
+    const tbtn = (k, label) => o.jsx("button", { onClick: () => { setTool(k); setMenu(null); }, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + (tool === k ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/15 text-white/90 hover:bg-white/15"), children: labels ? label : label.split(" ")[0] });
+    const abtn = (fn, label, dis) => o.jsx("button", { onClick: fn, disabled: dis, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: labels ? label : label.split(" ")[0] });
+    const dropBtn = (id, label, active, opts, cur, onPick) => o.jsxs("div", { className: "relative", children: [o.jsxs("button", { title: label, onClick: () => setMenu(m => m === id ? null : id), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + (active ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/15 text-white/90 hover:bg-white/15"), children: [labels ? label : label.split(" ")[0], " ▾"] }), menu === id && o.jsx("div", { className: "absolute left-0 top-full mt-1 flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { zIndex: 60, minWidth: 150, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: opts.map(op => o.jsx("button", { onClick: () => { onPick(op[0]); setMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + (op[0] === cur ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) })] });
     const penActive = PENS.some(x => x[0] === tool), shapeActive = SHAPES.some(x => x[0] === tool);
-    const zBtn = (op, label) => o.jsx("button", { onClick: () => zOp(op), disabled: !hasSel, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: label });
+    const zBtn = (op, label) => o.jsx("button", { onClick: () => zOp(op), disabled: !hasSel, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: labels ? label : label.split(" ")[0] });
     return Rr.createPortal(o.jsxs("div", { className: "fixed inset-0 flex flex-col", style: { zIndex: 2147483400, backgroundColor: "rgba(8,10,18,0.97)" }, onMouseDown: () => { menu && setMenu(null); }, children: [
         o.jsxs("div", { className: "flex items-center gap-1.5 px-3 py-2 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.98)" }, onMouseDown: e => e.stopPropagation(), children: [
             o.jsx("span", { className: "text-white font-bold text-sm mr-1", children: "🖼 이미지 편집" }),
@@ -513,7 +530,13 @@ function DDBImageEditor() {
             tbtn("text", "🇹 텍스트"),
             dropBtn("img", "🖼 이미지", false, [["bg", "배경으로 열기(대체)"], ["obj", "개체로 삽입"]], "", k => openFilePick(k)),
             o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }),
-            o.jsx("button", { onClick: newBlank, title: "빈 캔버스로 새로 시작", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "📄 새 캔버스" }),
+            o.jsx("button", { onClick: newBlank, title: "빈 캔버스로 새로 시작", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "📄 새 캔버스" : "📄" }),
+            o.jsx("div", { className: "w-px h-6 bg-white/15 mx-0.5" }),
+            tbtn("crop", "✂ 자르기"),
+            cropReady && o.jsx("button", { onClick: applyCrop, className: "px-2.5 py-1 rounded-lg text-[13px] bg-emerald-500/40 border border-emerald-400/60 text-emerald-50 cursor-pointer whitespace-nowrap", children: "잘라내기 적용" }),
+            cropReady && o.jsx("button", { onClick: cancelCrop, title: "취소(ESC)", className: "px-2 py-1 rounded-lg text-[13px] bg-white/8 border border-white/15 text-white/80 cursor-pointer", children: "✕" }),
+            abtn(() => rotate(-1), "↺ 왼쪽회전", !hasImg), abtn(() => rotate(1), "↻ 오른쪽회전", !hasImg),
+            abtn(() => flip("h"), "⇄ 좌우반전", !hasImg), abtn(() => flip("v"), "⇅ 상하반전", !hasImg),
             o.jsx("div", { className: "w-px h-6 bg-white/15 mx-0.5" }),
             zBtn("front", "⬆ 맨 앞"), zBtn("fwd", "▲ 앞으로"), zBtn("back", "⬇ 맨 뒤"), zBtn("bwd", "▼ 뒤로"),
             o.jsx("button", { onClick: delSel, disabled: !hasSel, title: "선택 삭제(Del)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40", children: "🗑 삭제" }),
@@ -521,8 +544,10 @@ function DDBImageEditor() {
             o.jsx("button", { onClick: undo, title: "되돌리기(Ctrl+Z)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "↶" }),
             o.jsx("button", { onClick: redo, title: "다시(Ctrl+X)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "↷" }),
             o.jsx("div", { className: "flex-1" }),
-            o.jsx("button", { onClick: runOcr, disabled: !hasImg, title: "글자 추출(OCR)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40", children: "🔤 텍스트 추출" }),
-            o.jsx("button", { onClick: () => setOpen(false), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "✕ 닫기" })
+            o.jsx("button", { onClick: runOcr, disabled: !hasImg, title: "글자 추출(OCR)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40", children: labels ? "🔤 텍스트 추출" : "🔤" }),
+            o.jsx("button", { onClick: toggleLabels, title: labels ? "아이콘만 보기" : "아이콘+이름 보기", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "🔤가" : "🅰" }),
+            o.jsx("button", { onClick: () => setShowCfg(true), title: "단축키 설정", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "⚙" }),
+            o.jsx("button", { onClick: () => setOpen(false), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "✕ 닫기" : "✕" })
         ] }),
         o.jsxs("div", { className: "flex items-center gap-2 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.9)" }, onMouseDown: e => e.stopPropagation(), children: [
             o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["선색", o.jsx("input", { type: "color", value: color, onChange: e => setColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] }),
@@ -547,6 +572,12 @@ function DDBImageEditor() {
             o.jsx("button", { onClick: doCopy, disabled: !hasImg, className: "px-3 py-1.5 rounded-lg text-[13px] cursor-pointer border bg-white/10 border-white/20 text-white hover:bg-white/20 disabled:opacity-40", children: "📋 복사" }),
             o.jsx("button", { onClick: doSave, disabled: !hasImg, className: "px-3 py-1.5 rounded-lg text-[13px] cursor-pointer border bg-emerald-500/40 border-emerald-400/60 text-emerald-50 hover:bg-emerald-500/60 disabled:opacity-40", children: "💾 저장" })
         ] }),
+        showCfg && o.jsx("div", { className: "absolute inset-0 flex items-center justify-center", style: { backgroundColor: "rgba(0,0,0,0.55)", zIndex: 72 }, onMouseDown: e => { e.stopPropagation(); if (e.target === e.currentTarget) setShowCfg(false); }, children: o.jsxs("div", { className: "bg-gray-900 border border-white/20 rounded-2xl p-4 w-[440px] max-w-[92vw] flex flex-col gap-3", children: [
+            o.jsxs("div", { className: "flex items-center justify-between", children: [o.jsx("span", { className: "text-white font-bold", children: "⚙ 이미지 편집 단축키" }), o.jsx("button", { onClick: () => setShowCfg(false), className: "text-white/50 hover:text-white bg-transparent border-none cursor-pointer text-lg", children: "✕" })] }),
+            o.jsx("p", { className: "text-white/40 text-[11px]", children: "각 도구에 글자 1개 단축키를 지정하세요. (입력창 밖에서만 작동)" }),
+            o.jsx("div", { className: "grid grid-cols-2 gap-2", children: KEYDEFS.map(kd => o.jsxs("label", { className: "flex items-center justify-between bg-white/5 rounded-lg px-3 py-1.5 cursor-pointer", children: [o.jsx("span", { className: "text-white/75 text-sm", children: kd[1] }), o.jsx("input", { maxLength: 1, value: (imgKeys[kd[0]] ?? kd[2]) || "", onChange: e => setImgKey(kd[0], (e.target.value || "").slice(-1).toLowerCase()), className: "w-10 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm text-center outline-none focus:border-blue-400" })] }, kd[0])) }),
+            o.jsx("div", { className: "text-white/40 text-[11px] border-t border-white/10 pt-2", children: "고정: 되돌리기 Ctrl+Z · 다시 Ctrl+X · 삭제 Del · 취소 ESC" })
+        ] }) }),
         toast && o.jsx("div", { className: "absolute left-1/2 -translate-x-1/2 bottom-20 px-4 py-2 rounded-lg text-white text-sm", style: { backgroundColor: "rgba(20,24,36,0.96)", border: "1px solid rgba(255,255,255,0.15)" }, children: toast }),
         ocr && o.jsx("div", { className: "absolute inset-0 flex items-center justify-center", style: { backgroundColor: "rgba(0,0,0,0.55)", zIndex: 70 }, onMouseDown: e => { e.stopPropagation(); if (e.target === e.currentTarget && !ocr.busy) setOcr(null); }, children: o.jsxs("div", { className: "bg-gray-900 border border-white/20 rounded-2xl p-4 w-[520px] max-w-[92vw] flex flex-col gap-3", children: [o.jsxs("div", { className: "flex items-center justify-between", children: [o.jsx("span", { className: "text-white font-bold", children: "🔤 텍스트 추출" }), o.jsx("button", { onClick: () => setClovaOpen(v => !v), className: "text-[11px] text-white/50 underline bg-transparent border-none cursor-pointer", children: "정확 OCR 설정" })] }), clovaOpen && o.jsxs("div", { className: "flex flex-col gap-2 bg-white/5 rounded-lg p-3 text-xs text-white/70", children: [o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer", children: [o.jsx("input", { type: "checkbox", checked: clova.on, onChange: e => saveClova({ ...clova, on: e.target.checked }), className: "w-3.5 h-3.5" }), "네이버 CLOVA 정확 OCR 사용 (설치형 앱)"] }), o.jsx("input", { placeholder: "Invoke URL", value: clova.url, onChange: e => saveClova({ ...clova, url: e.target.value }), className: "bg-white/10 border border-white/20 rounded px-2 py-1 text-white" }), o.jsx("input", { placeholder: "Secret Key", value: clova.key, onChange: e => saveClova({ ...clova, key: e.target.value }), className: "bg-white/10 border border-white/20 rounded px-2 py-1 text-white" })] }), ocr.busy ? o.jsxs("div", { className: "text-white/70 text-sm py-6 text-center", children: ["인식 중… ", ocr.prog || 0, "%"] }) : ocr.err ? o.jsx("div", { className: "text-amber-200/90 text-sm py-4", children: ocr.err }) : o.jsx("textarea", { value: ocr.text || "", readOnly: true, className: "w-full h-52 bg-white/10 border border-white/20 rounded-lg p-2 text-white text-sm outline-none resize-none" }), o.jsxs("div", { className: "flex justify-end gap-2", children: [!ocr.busy && ocr.text && o.jsx("button", { onClick: () => { try { navigator.clipboard.writeText(ocr.text); flash("텍스트 복사됨"); } catch {} }, className: "px-3 py-1.5 rounded-lg text-sm bg-blue-500/40 border border-blue-400/60 text-white cursor-pointer", children: "복사" }), o.jsx("button", { onClick: () => setOcr(null), className: "px-3 py-1.5 rounded-lg text-sm bg-white/10 border border-white/20 text-white cursor-pointer", children: "닫기" })] })] }) })
     ] }), document.body);
@@ -1792,7 +1823,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.36";
+const DDB_VERSION = "0.98.37";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3341,7 +3372,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v273"
+                children: "v274"
             }), (() => {
                 const S = [{
                     k: "cal",
