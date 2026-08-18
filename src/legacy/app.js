@@ -351,6 +351,10 @@ function DDBImageEditor() {
     const natRef = O.useRef({ w: 0, h: 0 });
     const drawRef = O.useRef(null);
     const hist = O.useRef({ st: [], i: -1, lock: false });
+    const pendingRef = O.useRef(null);
+    const fileRef = O.useRef(null);
+    const insModeRef = O.useRef("bg");
+    const moveRef = O.useRef(null);
     const toolRef = O.useRef("select");
     const styRef = O.useRef({});
     toolRef.current = tool;
@@ -385,7 +389,11 @@ function DDBImageEditor() {
             }, { crossOrigin: "anonymous" });
         }).catch(() => setLoadErr("그리기 엔진(fabric)을 불러오지 못했습니다. 처음 사용 시 인터넷 연결이 필요할 수 있어요."));
     }
-    const loadUrl = url => { setOpen(true); ensureFabric().then(() => { setReady(true); setTimeout(() => loadImage(url), 0); }).catch(() => { setOpen(true); setLoadErr("그리기 엔진을 불러오지 못했습니다."); }); };
+    const loadUrl = url => { setOpen(true); if (fcRef.current) { loadImage(url); return; } pendingRef.current = url; ensureFabric().then(() => setReady(true)).catch(() => setLoadErr("그리기 엔진을 불러오지 못했습니다.")); };
+    function newBlank() { const c = fcRef.current; if (!c) return; const W = Math.min(1100, Math.max(320, window.innerWidth - 80)), H = Math.min(680, Math.max(240, window.innerHeight - 180)); fitRef.current = 1; setZoom(1); natRef.current = { w: W, h: H }; c.clear(); c.setZoom(1); c.setWidth(W); c.setHeight(H); c.setBackgroundColor("#ffffff", c.renderAll.bind(c)); setHasImg(true); hist.current = { st: [], i: -1, lock: false }; pushHist(); }
+    function insertImageObject(url) { ensureFabric().then(fab => { const c = fcRef.current; if (!c) return; fab.Image.fromURL(url, im => { const cw = natRef.current.w || c.getWidth(), ch = natRef.current.h || c.getHeight(); const sc = Math.min(1, (cw * 0.6) / im.width, (ch * 0.6) / im.height); im.set({ left: cw * 0.2, top: ch * 0.2, scaleX: sc, scaleY: sc, selectable: true }); c.add(im); c.setActiveObject(im); c.renderAll(); pushHist(); }, { crossOrigin: "anonymous" }); }); }
+    function openFilePick(mode) { insModeRef.current = mode; if (fileRef.current) { fileRef.current.value = ""; fileRef.current.click(); } }
+    function onFile(e) { const f = e.target.files && e.target.files[0]; if (!f || f.type.indexOf("image") !== 0) return; const r = new FileReader(); r.onload = () => { if (insModeRef.current === "obj") insertImageObject(r.result); else loadUrl(r.result); }; r.readAsDataURL(f); }
 
     O.useEffect(() => {
         const openH = e => { setOpen(true); ensureFabric().then(() => setReady(true)).catch(() => setLoadErr("그리기 엔진을 불러오지 못했습니다.")); if (e && e.detail && e.detail.url) loadUrl(e.detail.url); };
@@ -400,14 +408,15 @@ function DDBImageEditor() {
     O.useEffect(() => {
         if (!open || !ready || fcRef.current || !elRef.current || !window.fabric) return;
         const fab = window.fabric;
-        const c = new fab.Canvas(elRef.current, { backgroundColor: "#0b0e16", preserveObjectStacking: true, selection: true });
+        const c = new fab.Canvas(elRef.current, { backgroundColor: "#ffffff", preserveObjectStacking: true, selection: true, uniformScaling: false });
         fcRef.current = c;
         const upd = () => setHasSel(!!c.getActiveObject());
         c.on("selection:created", upd); c.on("selection:updated", upd); c.on("selection:cleared", () => setHasSel(false));
         c.on("object:modified", () => pushHist());
+        c.on("object:moving", opt => { const e = opt.e; const m = moveRef.current; if (e && e.shiftKey && m && opt.target === m.obj) { const dx = Math.abs(opt.target.left - m.left), dy = Math.abs(opt.target.top - m.top); if (dx > dy) opt.target.top = m.top; else opt.target.left = m.left; } });
         c.on("path:created", () => pushHist());
         c.on("mouse:down", opt => {
-            const t = toolRef.current; if (t === "select" || t === "pen" || t === "highlighter" || t === "marker") return;
+            const t = toolRef.current; if (t === "select") { const tg = opt.target; moveRef.current = tg ? { obj: tg, left: tg.left, top: tg.top } : null; return; } if (t === "pen" || t === "highlighter" || t === "marker") return;
             const p = c.getPointer(opt.e); const s = styRef.current; const dz = dashArr(s.dash);
             let ob = null;
             const base = { left: p.x, top: p.y, stroke: s.color, strokeWidth: s.lw, fill: s.fillColor || "transparent", strokeDashArray: dz, strokeUniform: true, originX: "left", originY: "top" };
@@ -440,6 +449,7 @@ function DDBImageEditor() {
             else { c.setActiveObject(d.t === "arrow" ? c.getActiveObject() : d.obj); }
             pushHist(); setTool("select");
         });
+        if (pendingRef.current) { const u = pendingRef.current; pendingRef.current = null; setTimeout(() => loadImage(u), 0); } else { setTimeout(() => newBlank(), 0); }
         return () => { try { c.dispose(); } catch {} fcRef.current = null; };
     }, [open, ready]);
 
@@ -500,6 +510,9 @@ function DDBImageEditor() {
             dropBtn("shape", shapeActive ? SHAPES.find(x => x[0] === tool)[1] : "◆ 도형", shapeActive, SHAPES, tool, k => setTool(k)),
             (tool === "polygon" || tool === "star") && o.jsxs("label", { className: "flex items-center gap-1 text-white/85 text-xs", children: ["각", o.jsx("input", { type: "number", min: 3, max: 20, value: sides, onChange: e => setSides(Math.max(3, Math.min(20, Number(e.target.value) || 3))), className: "w-12 bg-white/10 border border-white/20 rounded px-1 py-0.5 text-white text-xs" })] }),
             tbtn("text", "🇹 텍스트"),
+            dropBtn("img", "🖼 이미지", false, [["bg", "배경으로 열기(대체)"], ["obj", "개체로 삽입"]], "", k => openFilePick(k)),
+            o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }),
+            o.jsx("button", { onClick: newBlank, title: "빈 캔버스로 새로 시작", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "📄 새 캔버스" }),
             o.jsx("div", { className: "w-px h-6 bg-white/15 mx-0.5" }),
             zBtn("front", "⬆ 맨 앞"), zBtn("fwd", "▲ 앞으로"), zBtn("back", "⬇ 맨 뒤"), zBtn("bwd", "▼ 뒤로"),
             o.jsx("button", { onClick: delSel, disabled: !hasSel, title: "선택 삭제(Del)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40", children: "🗑 삭제" }),
@@ -1778,7 +1791,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.34";
+const DDB_VERSION = "0.98.35";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3327,7 +3340,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v271"
+                children: "v272"
             }), (() => {
                 const S = [{
                     k: "cal",
