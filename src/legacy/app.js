@@ -355,6 +355,7 @@ function DDBImageEditor() {
     const fileRef = O.useRef(null);
     const insModeRef = O.useRef("bg");
     const moveRef = O.useRef(null);
+    const xformRef = O.useRef(null);
     const toolRef = O.useRef("select");
     const styRef = O.useRef({});
     toolRef.current = tool;
@@ -392,7 +393,7 @@ function DDBImageEditor() {
     const loadUrl = url => { setOpen(true); if (fcRef.current) { loadImage(url); return; } pendingRef.current = url; ensureFabric().then(() => setReady(true)).catch(() => setLoadErr("그리기 엔진을 불러오지 못했습니다.")); };
     function newBlank() { const c = fcRef.current; if (!c) return; const W = Math.min(1100, Math.max(320, window.innerWidth - 80)), H = Math.min(680, Math.max(240, window.innerHeight - 180)); fitRef.current = 1; setZoom(1); natRef.current = { w: W, h: H }; c.clear(); c.setZoom(1); c.setWidth(W); c.setHeight(H); c.setBackgroundColor("#ffffff", c.renderAll.bind(c)); setHasImg(true); hist.current = { st: [], i: -1, lock: false }; pushHist(); }
     function insertImageObject(url) { ensureFabric().then(fab => { const c = fcRef.current; if (!c) return; fab.Image.fromURL(url, im => { const cw = natRef.current.w || c.getWidth(), ch = natRef.current.h || c.getHeight(); const sc = Math.min(1, (cw * 0.6) / im.width, (ch * 0.6) / im.height); im.set({ left: cw * 0.2, top: ch * 0.2, scaleX: sc, scaleY: sc, selectable: true }); c.add(im); c.setActiveObject(im); c.renderAll(); pushHist(); }, { crossOrigin: "anonymous" }); }); }
-    function openFilePick(mode) { insModeRef.current = mode; if (fileRef.current) { fileRef.current.value = ""; fileRef.current.click(); } }
+    function openFilePick(mode) { insModeRef.current = mode; setTool("select"); if (fileRef.current) { fileRef.current.value = ""; fileRef.current.click(); } }
     function onFile(e) { const f = e.target.files && e.target.files[0]; if (!f || f.type.indexOf("image") !== 0) return; const r = new FileReader(); r.onload = () => { if (insModeRef.current === "obj") insertImageObject(r.result); else loadUrl(r.result); }; r.readAsDataURL(f); }
 
     O.useEffect(() => {
@@ -416,7 +417,7 @@ function DDBImageEditor() {
         c.on("object:moving", opt => { const e = opt.e; const m = moveRef.current; if (e && e.shiftKey && m && opt.target === m.obj) { const dx = Math.abs(opt.target.left - m.left), dy = Math.abs(opt.target.top - m.top); if (dx > dy) opt.target.top = m.top; else opt.target.left = m.left; } });
         c.on("path:created", () => pushHist());
         c.on("mouse:down", opt => {
-            const t = toolRef.current; if (t === "select") { const tg = opt.target; moveRef.current = tg ? { obj: tg, left: tg.left, top: tg.top } : null; return; } if (t === "pen" || t === "highlighter" || t === "marker") return;
+            const t = toolRef.current; if (t === "select") { const tg = opt.target; moveRef.current = tg ? { obj: tg, left: tg.left, top: tg.top } : null; xformRef.current = tg ? { obj: tg, props: { left: tg.left, top: tg.top, scaleX: tg.scaleX, scaleY: tg.scaleY, angle: tg.angle } } : null; return; } if (t === "pen" || t === "highlighter" || t === "marker") return;
             const p = c.getPointer(opt.e); const s = styRef.current; const dz = dashArr(s.dash);
             let ob = null;
             const base = { left: p.x, top: p.y, stroke: s.color, strokeWidth: s.lw, fill: s.fillColor || "transparent", strokeDashArray: dz, strokeUniform: true, originX: "left", originY: "top" };
@@ -427,7 +428,7 @@ function DDBImageEditor() {
             else if (t === "polygon" || t === "star") { const pts = polyPts(t === "star", sidesRef.current); ob = new fab.Polygon(pts, { ...base, objectCaching: false }); }
             else if (t === "line") ob = new fab.Line([p.x, p.y, p.x, p.y], { stroke: s.color, strokeWidth: s.lw, strokeDashArray: dz, strokeUniform: true });
             else if (t === "arrow") ob = new fab.Line([p.x, p.y, p.x, p.y], { stroke: s.color, strokeWidth: s.lw, strokeDashArray: dz, strokeUniform: true });
-            else if (t === "text") { const it = new fab.IText("텍스트", { left: p.x, top: p.y, fill: s.color, fontSize: s.fsz, fontFamily: "sans-serif" }); c.add(it); c.setActiveObject(it); it.enterEditing(); it.selectAll(); pushHist(); return; }
+            else if (t === "text") { if (opt.target && (opt.target.type === "i-text" || opt.target.type === "text")) { setTool("select"); return; } const it = new fab.IText("텍스트", { left: p.x, top: p.y, fill: s.color, fontSize: s.fsz, fontFamily: "sans-serif" }); c.add(it); c.setActiveObject(it); it.enterEditing(); it.selectAll(); pushHist(); setTool("select"); return; }
             if (!ob) return; ob.set({ selectable: true }); c.add(ob); drawRef.current = { obj: ob, sx: p.x, sy: p.y, t }; c.selection = false;
         });
         c.on("mouse:move", opt => {
@@ -466,7 +467,7 @@ function DDBImageEditor() {
         if (!open) return;
         const onKey = e => {
             const ae = document.activeElement; const typing = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || (fcRef.current && fcRef.current.getActiveObject() && fcRef.current.getActiveObject().isEditing));
-            if (e.key === "Escape") { if (menu) { setMenu(null); return; } if (typing) return; setOpen(false); return; }
+            if (e.key === "Escape") { e.preventDefault(); const c = fcRef.current; if (menu) { setMenu(null); return; } if (drawRef.current) { if (c && drawRef.current.obj) { try { c.remove(drawRef.current.obj); } catch {} } drawRef.current = null; if (c) { c.selection = true; c.renderAll(); } return; } if (c) { const a = c.getActiveObject(); if (a && a.isEditing) { try { a.exitEditing(); } catch {} return; } if (c._currentTransform && xformRef.current && xformRef.current.obj) { const o2 = xformRef.current.obj, pr = xformRef.current.props; o2.set(pr); o2.setCoords(); c._currentTransform = null; c.renderAll(); return; } if (a) { c.discardActiveObject(); c.renderAll(); return; } } return; }
             if (typing) return;
             if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
             if ((e.ctrlKey || e.metaKey) && (e.key === "x" || e.key === "X")) { e.preventDefault(); redo(); return; }
@@ -1791,7 +1792,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.35";
+const DDB_VERSION = "0.98.36";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3340,7 +3341,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v272"
+                children: "v273"
             }), (() => {
                 const S = [{
                     k: "cal",
