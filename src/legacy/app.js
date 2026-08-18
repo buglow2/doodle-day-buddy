@@ -611,7 +611,7 @@ function DDBTileBar() {
     O.useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 4000); return () => clearTimeout(id); }, [toast]);
     O.useEffect(() => { const mv = e => { if (!mdrag.current) return; setMenu(m => m ? { x: mdrag.current.bx + (e.clientX - mdrag.current.sx), y: Math.max(0, mdrag.current.by + (e.clientY - mdrag.current.sy)) } : m); }; const up = () => { mdrag.current = null; }; window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up); return () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); }; }, []);
     O.useEffect(() => { const el = wrapRef.current; if (!el) return; const upd = () => setW(el.clientWidth || 800); upd(); let ro; try { ro = new ResizeObserver(upd); ro.observe(el); } catch (e) {} window.addEventListener("resize", upd); return () => { try { ro && ro.disconnect(); } catch (e) {} window.removeEventListener("resize", upd); }; }, []);
-    const ROWS = 3, CW = 156, CH = 24, GAP = 3;
+    const ROWS = Math.max(1, Math.min(6, settings.tileRows || 3)), CW = 156, CH = 24, GAP = 3;
     const cols = Math.max(1, Math.floor((w + GAP) / (CW + GAP)));
     const cells = ROWS * cols;
     const used = {}, pos = {};
@@ -641,7 +641,7 @@ function DDBTileBar() {
     const xy = ci => ({ left: (ci % cols) * (CW + GAP) + "px", top: Math.floor(ci / cols) * (CH + GAP) + "px" });
     return o.jsxs("div", { ref: wrapRef, className: "flex-1 relative self-stretch", style: { minWidth: 0, minHeight: ROWS * (CH + GAP) }, children: [
         drag ? o.jsx("div", { style: { position: "absolute", ...xy(drag.cell), width: CW, height: CH, border: "1px dashed rgba(255,255,255,0.65)", borderRadius: 999, background: "rgba(255,255,255,0.08)", pointerEvents: "none", zIndex: 1 } }) : null,
-        ...tiles.map(t => { const ci = pos[t.id]; if (ci == null || ci < 0) return null; const col = t.kind === "ann" ? (qt[t.d.color] || t.d.color || "#f59e0b") : ((t.a && t.a.color) ? t.a.color : (t.kind === "pomo" ? "#ef4444" : t.kind === "memo" ? "#a78bfa" : "#38bdf8")); const _al = settings.pinAlpha || "40"; const isDrag = drag && drag.id === t.id; return o.jsx("button", { onMouseDown: e => onDown(t, e), onMouseUp: () => onUp(t), onMouseLeave: () => { if (lp.current) { clearTimeout(lp.current); lp.current = null; } }, onContextMenu: e => { e.preventDefault(); if (t.kind !== "ann") setActMenu({ x: e.clientX, y: e.clientY, t: t }); }, title: (t.kind === "ann" ? ddbTT(t.d.title) + " · " + t.d.date : t.kind === "pomo" ? pomoLabel(t.a.sec) + " 집중 즉시 시작" : t.kind === "memo" ? "메모 바로가기: " + t.a.label : (((t.a.emails && t.a.emails.length > 1) ? (t.a.emails.length + "명 수신") : (t.a.email || (t.a.emails && t.a.emails[0]) || "")) + (t.a.subject ? " · " + t.a.subject : ""))) + " · 길게 눌러 이동" + (t.kind !== "ann" ? " / 우클릭 삭제" : ""), className: "absolute flex items-center gap-1 px-2 rounded-full border cursor-pointer whitespace-nowrap overflow-hidden" + (isDrag ? " opacity-40" : ""), style: { ...xy(ci), width: CW, height: CH, background: t.kind === "ann" ? col + _al : ((t.a && t.a.color) ? col + "2b" : (t.kind === "pomo" ? "rgba(239,68,68,0.16)" : t.kind === "memo" ? "rgba(167,139,250,0.16)" : "rgba(56,189,248,0.16)")), borderColor: col + "aa", color: (t.a && t.a.color) ? "#fff" : (t.kind === "pomo" ? "#fecaca" : t.kind === "mail" ? "#bae6fd" : t.kind === "memo" ? "#ddd6fe" : undefined), fontSize: 12, textOverflow: "ellipsis", zIndex: isDrag ? 3 : 2 }, children: t.kind === "ann" ? o.jsxs(o.Fragment, { children: [o.jsx("b", { style: { color: col, fontSize: 12, flexShrink: 0 }, children: mm(t.info.daysLeft) }), o.jsx("span", { style: { color: "rgba(255,255,255,0.95)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }, children: ddbTT(t.d.title) })] }) : t.kind === "pomo" ? (t.a.label ? "▶ " + t.a.label : pomoLabel(t.a.sec)) : t.kind === "memo" ? "📄 " + t.a.label : "✉ " + t.a.label }, t.id); }),
+        ...tiles.map(t => { const ci = pos[t.id]; if (ci == null || ci < 0) return null; const col = t.kind === "ann" ? (qt[t.d.color] || t.d.color || "#f59e0b") : ((t.a && t.a.color) ? t.a.color : (t.kind === "pomo" ? "#ef4444" : t.kind === "memo" ? "#a78bfa" : "#38bdf8")); const _al = settings.pinAlpha || "40"; const isDrag = drag && drag.id === t.id; return o.jsx("button", { onMouseDown: e => onDown(t, e), onMouseUp: () => onUp(t), onMouseLeave: () => { if (lp.current) { clearTimeout(lp.current); lp.current = null; } }, onContextMenu: e => { e.preventDefault(); if (t.kind !== "ann") setActMenu({ x: e.clientX, y: e.clientY, t: t }); }, title: (t.kind === "ann" ? ddbTT(t.d.title) + " · " + t.d.date : t.kind === "pomo" ? pomoLabel(t.a.sec) + " 집중 즉시 시작" : t.kind === "memo" ? "메모 바로가기: " + t.a.label : (((t.a.emails && t.a.emails.length > 1) ? (t.a.emails.length + "명 수신") : (t.a.email || (t.a.emails && t.a.emails[0]) || "")) + (t.a.subject ? " · " + t.a.subject : ""))) + " · 길게 눌러 이동" + (t.kind !== "ann" ? " / 우클릭 삭제" : ""), className: "absolute flex items-center gap-1 px-2 " + (settings.uiSkin === "modern" ? "rounded" : settings.uiSkin === "minimal" ? "rounded-md" : "rounded-full") + " border cursor-pointer whitespace-nowrap overflow-hidden" + (isDrag ? " opacity-40" : ""), style: { ...xy(ci), width: CW, height: CH, background: t.kind === "ann" ? col + _al : ((t.a && t.a.color) ? col + "2b" : (t.kind === "pomo" ? "rgba(239,68,68,0.16)" : t.kind === "memo" ? "rgba(167,139,250,0.16)" : "rgba(56,189,248,0.16)")), borderColor: col + "aa", color: (t.a && t.a.color) ? (settings.tileTextColor || "#fff") : (t.kind === "pomo" ? "#fecaca" : t.kind === "mail" ? "#bae6fd" : t.kind === "memo" ? "#ddd6fe" : undefined), fontSize: (settings.tileFontSize || 12), textOverflow: "ellipsis", zIndex: isDrag ? 3 : 2, ...(settings.uiSkin === "modern" ? { maskImage: "linear-gradient(90deg,#000 88%,transparent)", WebkitMaskImage: "linear-gradient(90deg,#000 88%,transparent)" } : {}) }, children: t.kind === "ann" ? o.jsxs(o.Fragment, { children: [o.jsx("b", { style: { color: col, fontSize: 12, flexShrink: 0 }, children: mm(t.info.daysLeft) }), o.jsx("span", { style: { color: "rgba(255,255,255,0.95)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }, children: ddbTT(t.d.title) })] }) : t.kind === "pomo" ? (t.a.label ? "▶ " + t.a.label : pomoLabel(t.a.sec)) : t.kind === "memo" ? "📄 " + t.a.label : "✉ " + t.a.label }, t.id); }),
         o.jsx("button", { onMouseDown: e => e.stopPropagation(), onClick: openAdd, title: "기능 버튼 추가 (포모도로·이메일)", className: "absolute right-0 bottom-0 flex items-center gap-1 px-2 rounded-full border border-dashed border-white/25 text-white/50 hover:text-white/85 hover:border-white/50 cursor-pointer", style: { height: CH, fontSize: 12, background: "rgba(0,0,0,0.3)", zIndex: 4 }, children: "＋ 기능" }),
         menu ? Rr.createPortal(o.jsxs(o.Fragment, { children: [
             o.jsx("div", { className: "fixed inset-0", style: { zIndex: 2147483400 }, onMouseDown: () => { setMenu(null); setForm(null); } }),
@@ -1800,7 +1800,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.30";
+const DDB_VERSION = "0.98.31";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3349,7 +3349,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v267"
+                children: "v268"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -5804,15 +5804,15 @@ function DDBHolidayList() {
     const yr = (state.currentYear) || new Date().getFullYear();
     O.useEffect(() => {
         if (!hol.on) { setMap({}); window.__ddbHolMap = {}; try { window.dispatchEvent(new CustomEvent("ddb-hol-updated")); } catch (e) {} return; }
-        let alive = true; const cc = ddbRegion().hol;
+        let alive = true; const cc = hol.country || "kr";
         Promise.all([ddbLoadHolidays(cc, yr - 1), ddbLoadHolidays(cc, yr), ddbLoadHolidays(cc, yr + 1)]).then(([a, b, d]) => { if (alive) { const merged = Object.assign({}, a || {}, b || {}, d || {}); setMap(merged); window.__ddbHolMap = merged; try { window.dispatchEvent(new CustomEvent("ddb-hol-updated")); } catch (e) {} } }).catch(() => {});
         return () => { alive = false; };
-    }, [hol.on, DDB_LANG, yr]);
+    }, [hol.on, hol.country, yr]);
     if (!hol.on) return null;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const todayStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
     const list = Object.keys(map).filter(d => d >= todayStr).sort().slice(0, 12).map(d => ({ d: d, name: map[d] }));
-    const co = DDB_COUNTRIES[ddbRegion().hol]; const flag = co ? String(co.n).split(" ")[0] : "🎌";
+    const co = DDB_COUNTRIES[hol.country || "kr"]; const flag = co ? String(co.n).split(" ")[0] : "🎌";
     return o.jsxs("div", { className: "px-2 py-2 border-b border-white/10 flex-shrink-0", children: [
         o.jsxs("div", { className: "flex items-center gap-1 mb-1.5", children: [o.jsx("span", { style: { fontSize: 12 }, children: flag }), o.jsx("span", { className: "text-white/55 text-[11px] font-semibold", children: DDBTR("다가오는 공휴일") })] }),
         list.length ? o.jsx("div", { className: "flex flex-col gap-0.5", children: list.map(h => { const dd = new Date(h.d + "T00:00:00"); const dl = Math.round((dd - today) / 864e5); return o.jsxs("div", { className: "flex items-center gap-2 text-[11px]", children: [o.jsx("span", { className: "text-red-300/90 font-mono flex-shrink-0", style: { width: 54 }, children: (dd.getMonth() + 1) + "/" + dd.getDate() + "(" + "일월화수목금토" [dd.getDay()] + ")" }), o.jsx("span", { className: "text-white/85 flex-1 truncate", children: h.name }), o.jsx("span", { className: "text-white/35 flex-shrink-0", children: dl === 0 ? "오늘" : ("D-" + dl) })] }, h.d); }) }) : o.jsx("div", { className: "text-white/30 text-[11px]", children: "표시할 공휴일이 없어요 (인터넷 확인)" })
@@ -5941,10 +5941,10 @@ function fd({
     O.useEffect(() => {
         const hs = (t.settings && t.settings.holidays) || {};
         if (!hs.on) { window.__ddbHolMap = {}; _holTick(); return; }
-        let alive = true; const cc = ddbRegion().hol, yr = s;
+        let alive = true; const cc = (hs.country) || "kr", yr = s;
         Promise.all([ddbLoadHolidays(cc, yr - 1), ddbLoadHolidays(cc, yr), ddbLoadHolidays(cc, yr + 1)]).then(([a1, a2, a3]) => { if (alive) { window.__ddbHolMap = Object.assign({}, a1 || {}, a2 || {}, a3 || {}); _holTick(); } }).catch(() => {});
         return () => { alive = false; };
-    }, [t.settings && t.settings.holidays && t.settings.holidays.on, DDB_LANG, s]);
+    }, [t.settings && t.settings.holidays && t.settings.holidays.on, t.settings && t.settings.holidays && t.settings.holidays.country, s]);
     const [msGeo, setMsGeo] = O.useState(() => ({ x: Math.round(((typeof window !== "undefined" ? window.innerWidth : 1200) - 300) / 2), y: 120, w: 300, h: 250 }));
     const _msdh = ddbDragH(() => msGeo, setMsGeo);
     const [teamEv, setTeamEv] = O.useState([]);
@@ -10209,25 +10209,7 @@ function c4({
                         children: DDBTR("달력 표시 설정")
                     }), o.jsxs("div", {
                         className: "bg-white/5 rounded-xl px-4 py-2",
-                        children: [o.jsxs("div", {
-                            className: _,
-                            children: [o.jsx("span", {
-                                className: "text-white/70 text-sm",
-                                children: DDBTR("토요일 색상 구분")
-                            }), o.jsx("span", {
-                                className: "text-blue-300 text-xs bg-blue-400/10 px-2 py-0.5 rounded",
-                                children: DDBTR("파란색")
-                            })]
-                        }), o.jsxs("div", {
-                            className: _,
-                            children: [o.jsx("span", {
-                                className: "text-white/70 text-sm",
-                                children: DDBTR("일요일 색상 구분")
-                            }), o.jsx("span", {
-                                className: "text-red-300 text-xs bg-red-400/10 px-2 py-0.5 rounded",
-                                children: DDBTR("빨간색")
-                            })]
-                        }), o.jsxs("label", {
+                        children: [o.jsxs("label", {
                             className: _ + " border-0 cursor-pointer",
                             children: [o.jsxs("span", {
                                 className: "text-white/70 text-sm",
@@ -10366,7 +10348,14 @@ function c4({
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["메모 키보드 조작", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "Ctrl+←/ESC후 Backspace→목록, ↑↓ 선택, → 열기, Enter 편집" })] }), o.jsx("input", { type: "checkbox", checked: !!c.memoKbdNav, onChange: k => y("memoKbdNav", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] }),
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["Tab으로 메모 이동", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "체크한 메모끼리 Tab 키로 이동" })] }), o.jsx("input", { type: "checkbox", checked: !!c.memoTabCycle, onChange: k => y("memoTabCycle", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] })
                     ] }),
-                    o.jsx(DDBAccordion, { title: "달력 헤더 버튼 표시", icon: "🔘", children: o.jsx("div", { className: "grid grid-cols-2 gap-x-3 gap-y-1", children: [{ k: "lock", n: "사생활 잠금" }, { k: "do", n: "Do! 리스트" }, { k: "cal", n: "달력 보기" }, { k: "todo", n: "할 일" }, { k: "team", n: "팀" }, { k: "memodetail", n: "메모 상세" }, { k: "share", n: "일정 내보내기" }, { k: "imgedit", n: "이미지 편집" }, { k: "table", n: "표" }, { k: "receipt", n: "영수증" }].map(bt => o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer text-white/60 text-xs", children: [o.jsx("input", { type: "checkbox", checked: !((c.calBtnHidden) || []).includes(bt.k), onChange: k => { const cur = Array.isArray(c.calBtnHidden) ? c.calBtnHidden.slice() : []; const nx = k.target.checked ? cur.filter(z => z !== bt.k) : (cur.includes(bt.k) ? cur : [...cur, bt.k]); y("calBtnHidden", nx); }, className: "w-3.5 h-3.5 flex-shrink-0" }), bt.n] }, bt.k)) }) })
+                    o.jsx(DDBAccordion, { title: "달력 헤더 버튼 표시", icon: "🔘", children: o.jsx("div", { className: "grid grid-cols-2 gap-x-3 gap-y-1", children: [{ k: "lock", n: "사생활 잠금" }, { k: "do", n: "Do! 리스트" }, { k: "cal", n: "달력 보기" }, { k: "todo", n: "할 일" }, { k: "team", n: "팀" }, { k: "memodetail", n: "메모 상세" }, { k: "share", n: "일정 내보내기" }, { k: "imgedit", n: "이미지 편집" }, { k: "table", n: "표" }, { k: "receipt", n: "영수증" }].map(bt => o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer text-white/60 text-xs", children: [o.jsx("input", { type: "checkbox", checked: !((c.calBtnHidden) || []).includes(bt.k), onChange: k => { const cur = Array.isArray(c.calBtnHidden) ? c.calBtnHidden.slice() : []; const nx = k.target.checked ? cur.filter(z => z !== bt.k) : (cur.includes(bt.k) ? cur : [...cur, bt.k]); y("calBtnHidden", nx); }, className: "w-3.5 h-3.5 flex-shrink-0" }), bt.n] }, bt.k)) }) }),
+                    o.jsxs(DDBAccordion, { title: "기능버튼 (상단 툴바)", icon: "🔧", children: [
+                        o.jsxs("div", { className: "flex items-center justify-between gap-2 py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["줄 수", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "상단 기능버튼 영역 (1~6줄)" })] }), o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("button", { onClick: () => y("tileRows", Math.max(1, (c.tileRows || 3) - 1)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "－" }), o.jsx("span", { className: "text-white/85 text-sm w-6 text-center", children: (c.tileRows || 3) }), o.jsx("button", { onClick: () => y("tileRows", Math.min(6, (c.tileRows || 3) + 1)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "＋" })] })] }),
+                        o.jsxs("div", { className: "flex items-center justify-between gap-2 py-1", children: [o.jsx("span", { className: "text-white/75 text-sm", children: "글씨 크기" }), o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("button", { onClick: () => y("tileFontSize", Math.max(9, (c.tileFontSize || 12) - 1)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "－" }), o.jsxs("span", { className: "text-white/85 text-sm w-9 text-center", children: [(c.tileFontSize || 12), "pt"] }), o.jsx("button", { onClick: () => y("tileFontSize", Math.min(20, (c.tileFontSize || 12) + 1)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "＋" })] })] }),
+                        o.jsxs("div", { className: "flex items-center justify-between gap-2 py-1", children: [o.jsx("span", { className: "text-white/75 text-sm", children: "글씨색" }), o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("input", { type: "color", value: c.tileTextColor || "#ffffff", onChange: k => y("tileTextColor", k.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" }), o.jsx("button", { onClick: () => y("tileTextColor", ""), className: "text-[10px] text-white/40 hover:text-white/70 underline bg-transparent border-none cursor-pointer", children: "기본" })] })] }),
+                        o.jsxs("div", { className: "flex items-center justify-between gap-2 py-1", children: [o.jsx("span", { className: "text-white/75 text-sm", children: "고정 기념일 배경 진하기" }), o.jsx("div", { className: "flex items-center gap-1", children: [["22", "연함"], ["40", "보통"], ["77", "진함"], ["cc", "꽉참"]].map(vl => o.jsx("button", { onClick: () => y("pinAlpha", vl[0]), className: "px-2 py-1 rounded text-[10px] border cursor-pointer " + ((c.pinAlpha || "40") === vl[0] ? "bg-blue-500/30 border-blue-400/60 text-blue-100" : "border-white/15 text-white/50 bg-transparent"), children: vl[1] }, vl[0])) })] }),
+                        o.jsx("p", { className: "text-white/30 text-[10px] mt-1", children: "※ 디자인 탭 UI 스킨(모던/미니멀)을 고르면 상단 기능버튼에도 같은 모양이 적용돼요." })
+                    ] })
                 ] }), x === "design" && o.jsxs(o.Fragment, {
                 children: [o.jsxs("section", { children: [o.jsx("h4", { className: "text-white/40 text-xs mb-2 uppercase tracking-wide", children: "🎨 달력 색상 팔레트 (1~8번)" }), o.jsx("div", { className: "text-white/40 text-[11px] mb-2 leading-relaxed", children: "색을 바꾸면 그 색을 쓰던 일정·할일·D-Day가 모두 함께 바뀝니다 (필터·구분 유지)." }), o.jsx("div", { className: "grid grid-cols-4 gap-2 mb-2", children: Object.keys(DDB_QT_DEFAULT).map(nm => o.jsxs("div", { className: "flex flex-col items-center gap-1 bg-white/5 rounded-lg p-2", children: [o.jsx("span", { className: "text-white/55 text-[11px]", children: DDB_QT_LABELS[nm] + "번" }), o.jsx("input", { type: "color", value: qt[nm], title: "클릭해서 색 변경", onChange: k => { const nv = k.target.value; if (window.__ddbPalOK || window.confirm("색상을 바꾸면 기존에 이 색을 사용하던 메모들도 모두 바뀐 색으로 변경됩니다. 그래도 하시겠습니까?")) { window.__ddbPalOK = true; y("palette", { ...(c.palette || {}), [nm]: nv }); } }, style: { width: 36, height: 36, border: "2px solid rgba(255,255,255,0.3)", borderRadius: 8, background: "transparent", cursor: "pointer", padding: 0 } })] }, nm)) }), o.jsx("button", { onClick: () => { if (window.confirm("모든 색을 기본값으로 되돌릴까요? (그 색을 쓰던 항목도 기본색으로 바뀝니다)")) { window.__ddbPalOK = false; y("palette", {}); } }, className: "text-white/50 hover:text-white text-[11px] underline bg-transparent border-none cursor-pointer p-0", children: "기본색으로 전체 되돌리기" })] }), o.jsxs("section", {
                     children: [o.jsx("h4", {
