@@ -339,7 +339,9 @@ function DDBImageEditor() {
     const [labels, setLabels] = O.useState(() => { try { return localStorage.getItem("ddb_img_labels") !== "0"; } catch { return true; } });
     const [cropReady, setCropReady] = O.useState(false);
     const [showCfg, setShowCfg] = O.useState(false);
+    const [order, setOrder] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_img_order") || "null"); if (Array.isArray(v)) return v; } catch {} return null; });
     const cropRef = O.useRef(null);
+    const dndRef = O.useRef(null);
     const [menu, setMenu] = O.useState(null);
     const [toast, setToast] = O.useState("");
     const [ocr, setOcr] = O.useState(null);
@@ -518,45 +520,46 @@ function DDBImageEditor() {
     const abtn = (fn, label, dis) => o.jsx("button", { onClick: fn, disabled: dis, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: labels ? label : label.split(" ")[0] });
     const dropBtn = (id, label, active, opts, cur, onPick) => o.jsxs("div", { className: "relative", children: [o.jsxs("button", { title: label, onClick: () => setMenu(m => m === id ? null : id), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + (active ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/15 text-white/90 hover:bg-white/15"), children: [labels ? label : label.split(" ")[0], " ▾"] }), menu === id && o.jsx("div", { className: "absolute left-0 top-full mt-1 flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { zIndex: 60, minWidth: 150, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: opts.map(op => o.jsx("button", { onClick: () => { onPick(op[0]); setMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + (op[0] === cur ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) })] });
     const penActive = PENS.some(x => x[0] === tool), shapeActive = SHAPES.some(x => x[0] === tool);
-    const zBtn = (op, label) => o.jsx("button", { onClick: () => zOp(op), disabled: !hasSel, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: labels ? label : label.split(" ")[0] });
+    const TILES = [
+        { id: "select", ic: "🖱", nm: "선택", k: "tool" }, { id: "pen", ic: "🖊", nm: "펜", k: "tool" }, { id: "highlighter", ic: "🖍", nm: "형광펜", k: "tool" }, { id: "marker", ic: "🖊", nm: "보드마커", k: "tool" },
+        { id: "line", ic: "／", nm: "선", k: "tool" }, { id: "arrow", ic: "➜", nm: "화살표", k: "tool" },
+        { id: "rect", ic: "▭", nm: "사각형", k: "tool" }, { id: "ellipse", ic: "◯", nm: "원", k: "tool" }, { id: "triangle", ic: "△", nm: "삼각형", k: "tool" }, { id: "diamond", ic: "◆", nm: "마름모", k: "tool" }, { id: "polygon", ic: "⬡", nm: "다각형", k: "tool" }, { id: "star", ic: "★", nm: "별", k: "tool" },
+        { id: "text", ic: "🇹", nm: "텍스트", k: "tool" }, { id: "crop", ic: "✂", nm: "자르기", k: "tool" },
+        { id: "imgbg", ic: "🖼", nm: "이미지열기", k: "act", run: () => openFilePick("bg") }, { id: "imgobj", ic: "🏞", nm: "이미지삽입", k: "act", run: () => openFilePick("obj") }, { id: "blank", ic: "📄", nm: "새캔버스", k: "act", run: newBlank },
+        { id: "rotL", ic: "↺", nm: "왼쪽회전", k: "act", run: () => rotate(-1), img: 1 }, { id: "rotR", ic: "↻", nm: "오른쪽회전", k: "act", run: () => rotate(1), img: 1 }, { id: "flipH", ic: "⇄", nm: "좌우반전", k: "act", run: () => flip("h"), img: 1 }, { id: "flipV", ic: "⇅", nm: "상하반전", k: "act", run: () => flip("v"), img: 1 },
+        { id: "front", ic: "⤒", nm: "맨앞", k: "act", run: () => zOp("front"), sel: 1 }, { id: "fwd", ic: "↑", nm: "앞으로", k: "act", run: () => zOp("fwd"), sel: 1 }, { id: "back", ic: "⤓", nm: "맨뒤", k: "act", run: () => zOp("back"), sel: 1 }, { id: "bwd", ic: "↓", nm: "뒤로", k: "act", run: () => zOp("bwd"), sel: 1 }, { id: "del", ic: "🗑", nm: "삭제", k: "act", run: delSel, sel: 1 },
+        { id: "undo", ic: "↶", nm: "되돌리기", k: "act", run: undo }, { id: "redo", ic: "↷", nm: "다시", k: "act", run: redo },
+        { id: "ocr", ic: "🔤", nm: "글자추출", k: "act", run: runOcr, img: 1 }, { id: "copy", ic: "📋", nm: "복사", k: "act", run: doCopy, img: 1 }, { id: "save", ic: "💾", nm: "저장", k: "act", run: doSave, img: 1 }
+    ];
+    const tileMap = {}; TILES.forEach(t => tileMap[t.id] = t);
+    const orderedIds = (Array.isArray(order) ? order.filter(id => tileMap[id]) : TILES.map(t => t.id));
+    TILES.forEach(t => { if (!orderedIds.includes(t.id)) orderedIds.push(t.id); });
+    const saveOrder = arr => { setOrder(arr); try { localStorage.setItem("ddb_img_order", JSON.stringify(arr)); } catch {} };
+    const reorder = to => { const from = dndRef.current; dndRef.current = null; if (!from || from === to) return; const arr = orderedIds.slice(); const fi = arr.indexOf(from); arr.splice(fi, 1); const ti = arr.indexOf(to); arr.splice(ti < 0 ? arr.length : ti, 0, from); saveOrder(arr); };
+    const cellW = labels ? 62 : 40, cellH = labels ? 54 : 38;
+    const tile = t => o.jsxs("button", { key: t.id, draggable: true, onDragStart: () => { dndRef.current = t.id; }, onDragOver: e => e.preventDefault(), onDrop: () => reorder(t.id), onClick: () => { if (t.k === "tool") { setTool(t.id); setMenu(null); } else t.run(); }, disabled: t.sel ? !hasSel : t.img ? !hasImg : false, title: t.nm, className: "flex flex-col items-center justify-center rounded-lg border cursor-pointer select-none disabled:opacity-35 " + (t.k === "tool" && tool === t.id ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/12 text-white/90 hover:bg-white/15"), style: { width: cellW, height: cellH }, children: [o.jsx("span", { style: { fontSize: 17, lineHeight: 1 }, children: t.ic }), labels && o.jsx("span", { style: { fontSize: 9.5, marginTop: 2, whiteSpace: "nowrap", opacity: 0.85 }, children: t.nm })] });
     return Rr.createPortal(o.jsxs("div", { className: "fixed inset-0 flex flex-col", style: { zIndex: 2147483400, backgroundColor: "rgba(8,10,18,0.97)" }, onMouseDown: () => { menu && setMenu(null); }, children: [
-        o.jsxs("div", { className: "flex items-center gap-1.5 px-3 py-2 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.98)" }, onMouseDown: e => e.stopPropagation(), children: [
+        o.jsxs("div", { className: "flex items-center gap-1.5 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.98)" }, onMouseDown: e => e.stopPropagation(), children: [
             o.jsx("span", { className: "text-white font-bold text-sm mr-1", children: "🖼 이미지 편집" }),
-            tbtn("select", "🖱 선택·이동"),
-            dropBtn("pen", penActive ? PENS.find(x => x[0] === tool)[1] : "🖊 펜", penActive, PENS, tool, k => setTool(k)),
-            tbtn("line", "／ 선"), tbtn("arrow", "➜ 화살표"),
-            dropBtn("shape", shapeActive ? SHAPES.find(x => x[0] === tool)[1] : "◆ 도형", shapeActive, SHAPES, tool, k => setTool(k)),
+            o.jsx("span", { className: "text-white/35 text-[11px]", children: "타일을 드래그해 위치를 바꿀 수 있어요" }),
             (tool === "polygon" || tool === "star") && o.jsxs("label", { className: "flex items-center gap-1 text-white/85 text-xs", children: ["각", o.jsx("input", { type: "number", min: 3, max: 20, value: sides, onChange: e => setSides(Math.max(3, Math.min(20, Number(e.target.value) || 3))), className: "w-12 bg-white/10 border border-white/20 rounded px-1 py-0.5 text-white text-xs" })] }),
-            tbtn("text", "🇹 텍스트"),
-            dropBtn("img", "🖼 이미지", false, [["bg", "배경으로 열기(대체)"], ["obj", "개체로 삽입"]], "", k => openFilePick(k)),
-            o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }),
-            o.jsx("button", { onClick: newBlank, title: "빈 캔버스로 새로 시작", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "📄 새 캔버스" : "📄" }),
-            o.jsx("div", { className: "w-px h-6 bg-white/15 mx-0.5" }),
-            tbtn("crop", "✂ 자르기"),
             cropReady && o.jsx("button", { onClick: applyCrop, className: "px-2.5 py-1 rounded-lg text-[13px] bg-emerald-500/40 border border-emerald-400/60 text-emerald-50 cursor-pointer whitespace-nowrap", children: "잘라내기 적용" }),
             cropReady && o.jsx("button", { onClick: cancelCrop, title: "취소(ESC)", className: "px-2 py-1 rounded-lg text-[13px] bg-white/8 border border-white/15 text-white/80 cursor-pointer", children: "✕" }),
-            abtn(() => rotate(-1), "↺ 왼쪽회전", !hasImg), abtn(() => rotate(1), "↻ 오른쪽회전", !hasImg),
-            abtn(() => flip("h"), "⇄ 좌우반전", !hasImg), abtn(() => flip("v"), "⇅ 상하반전", !hasImg),
-            o.jsx("div", { className: "w-px h-6 bg-white/15 mx-0.5" }),
-            zBtn("front", "⬆ 맨 앞"), zBtn("fwd", "▲ 앞으로"), zBtn("back", "⬇ 맨 뒤"), zBtn("bwd", "▼ 뒤로"),
-            o.jsx("button", { onClick: delSel, disabled: !hasSel, title: "선택 삭제(Del)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40", children: "🗑 삭제" }),
-            o.jsx("div", { className: "w-px h-6 bg-white/15 mx-0.5" }),
-            o.jsx("button", { onClick: undo, title: "되돌리기(Ctrl+Z)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "↶" }),
-            o.jsx("button", { onClick: redo, title: "다시(Ctrl+X)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "↷" }),
             o.jsx("div", { className: "flex-1" }),
-            o.jsx("button", { onClick: runOcr, disabled: !hasImg, title: "글자 추출(OCR)", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40", children: labels ? "🔤 텍스트 추출" : "🔤" }),
-            o.jsx("button", { onClick: toggleLabels, title: labels ? "아이콘만 보기" : "아이콘+이름 보기", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "🔤가" : "🅰" }),
+            o.jsxs("div", { className: "flex items-center gap-1 mr-1", children: [o.jsx("button", { onClick: () => { if (!labels) toggleLabels(); }, className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (labels ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "아이콘+이름" }), o.jsx("button", { onClick: () => { if (labels) toggleLabels(); }, className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (!labels ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "아이콘만" })] }),
             o.jsx("button", { onClick: () => setShowCfg(true), title: "단축키 설정", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "⚙" }),
-            o.jsx("button", { onClick: () => setOpen(false), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "✕ 닫기" : "✕" })
+            o.jsx("button", { onClick: () => setOpen(false), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "✕ 닫기" : "✕" }),
+            o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } })
         ] }),
+        o.jsx("div", { className: "px-3 py-2 border-b border-white/10 flex-shrink-0 overflow-x-auto", style: { backgroundColor: "rgba(12,16,26,0.95)" }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, " + cellW + "px)", gap: 6, justifyContent: "start" }, children: orderedIds.map(id => tile(tileMap[id])) }) }),
         o.jsxs("div", { className: "flex items-center gap-2 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.9)" }, onMouseDown: e => e.stopPropagation(), children: [
             o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["선색", o.jsx("input", { type: "color", value: color, onChange: e => setColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] }),
-            o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["채움", o.jsx("input", { type: "color", value: fillColor || "#ffffff", onChange: e => setFillColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" }), o.jsx("button", { onClick: () => setFillColor(""), className: "text-[10px] text-white/50 underline bg-transparent border-none cursor-pointer", children: fillColor ? "끄기" : "없음" })] }),
+            (shapeActive || hasSel) && o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["채움", o.jsx("input", { type: "color", value: fillColor || "#ffffff", onChange: e => setFillColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" }), o.jsx("button", { onClick: () => setFillColor(""), className: "text-[10px] text-white/50 underline bg-transparent border-none cursor-pointer", children: fillColor ? "끄기" : "없음" })] }),
             o.jsx("div", { className: "flex items-center gap-1", children: pal.map(pc => o.jsx("button", { onClick: () => setColor(pc), title: pc, className: "w-5 h-5 rounded-full border cursor-pointer " + (color.toLowerCase() === pc.toLowerCase() ? "border-white" : "border-white/25"), style: { backgroundColor: pc } }, pc)) }),
             o.jsx("button", { onClick: savePal, title: "현재 색 저장", className: "text-[11px] text-white/50 hover:text-white underline bg-transparent border-none cursor-pointer", children: "색저장" }),
             o.jsx("div", { className: "w-px h-5 bg-white/15" }),
             o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["두께", o.jsx("input", { type: "range", min: 1, max: 40, value: lw, onChange: e => setLw(Number(e.target.value)), className: "w-24 accent-blue-400" }), o.jsxs("span", { className: "w-6 text-white/60", children: [lw] })] }),
-            dropBtn("dash", "선: " + (DASHOPTS.find(x => x[0] === dash) || DASHOPTS[0])[1].split(" ")[1], false, DASHOPTS, dash, k => setDash(k)),
+            (tool === "line" || tool === "arrow" || shapeActive) && dropBtn("dash", "선: " + (DASHOPTS.find(x => x[0] === dash) || DASHOPTS[0])[1].split(" ")[1], false, DASHOPTS, dash, k => setDash(k)),
             (tool === "text" || hasSel) && o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["글자", o.jsx("input", { type: "range", min: 10, max: 120, value: fsz, onChange: e => setFsz(Number(e.target.value)), className: "w-20 accent-blue-400" }), o.jsxs("span", { className: "w-7 text-white/60", children: [fsz] })] })
         ] }),
         o.jsxs("div", { className: "flex-1 overflow-auto flex items-start justify-center p-4 relative", onMouseDown: e => e.stopPropagation(), children: [
@@ -1823,7 +1826,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.37";
+const DDB_VERSION = "0.98.38";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3372,7 +3375,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v274"
+                children: "v275"
             }), (() => {
                 const S = [{
                     k: "cal",
