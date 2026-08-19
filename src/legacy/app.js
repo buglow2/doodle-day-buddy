@@ -338,6 +338,12 @@ function DDBImageEditor() {
     const [hasSel, setHasSel] = O.useState(false);
     const [iconMode, setIconMode] = O.useState(() => { try { return localStorage.getItem("ddb_img_iconmode") || "large"; } catch { return "large"; } });
     const labels = iconMode === "large", small = iconMode === "small";
+    const [smallLabel, setSmallLabel] = O.useState(() => { try { return localStorage.getItem("ddb_img_smalllabel") === "1"; } catch { return false; } });
+    const toggleSmallLabel = () => setSmallLabel(v => { const nv = !v; try { localStorage.setItem("ddb_img_smalllabel", nv ? "1" : "0"); } catch {} return nv; });
+    const showName = labels || (small && smallLabel);
+    const [grpOrder, setGrpOrder] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_img_grporder") || "null"); return Array.isArray(v) ? v : null; } catch { return null; } });
+    const [tileOrd, setTileOrd] = O.useState(() => { try { return JSON.parse(localStorage.getItem("ddb_img_tileord") || "{}") || {}; } catch { return {}; } });
+    const dragG = O.useRef(null), dragTi = O.useRef(null);
     const setMode = m => { setIconMode(m); try { localStorage.setItem("ddb_img_iconmode", m); } catch {} };
     const [ctxMenu, setCtxMenu] = O.useState(null);
     const [tip, setTip] = O.useState(null);
@@ -585,12 +591,20 @@ function DDBImageEditor() {
         { key: "order", label: "정렬", color: "#fbbf24", ids: ["front", "fwd", "back", "bwd"] },
         { key: "tool", label: "도구", color: "#c084fc", ids: ["undo", "redo", "ocr", "copy", "save"] }
     ];
-    const cellW = small ? 24 : 60, cellH = small ? 24 : 52, svgSz = small ? 14 : 20;
+    const gmap = {}; GROUPS.forEach(g => gmap[g.key] = g);
+    const grpOrdered = (grpOrder && grpOrder.length ? grpOrder.filter(k => gmap[k]) : GROUPS.map(g => g.key));
+    GROUPS.forEach(g => { if (!grpOrdered.includes(g.key)) grpOrdered.push(g.key); });
+    const idsFor = g => { const saved = tileOrd[g.key]; if (!Array.isArray(saved)) return g.ids; const arr = saved.filter(id => g.ids.includes(id)); g.ids.forEach(id => { if (!arr.includes(id)) arr.push(id); }); return arr; };
+    const saveGrp = arr => { setGrpOrder(arr); try { localStorage.setItem("ddb_img_grporder", JSON.stringify(arr)); } catch {} };
+    const saveTileOrd = o2 => { setTileOrd(o2); try { localStorage.setItem("ddb_img_tileord", JSON.stringify(o2)); } catch {} };
+    const reorderGrp = toKey => { const from = dragG.current; dragG.current = null; if (!from || from === toKey) return; const arr = grpOrdered.slice(); const fi = arr.indexOf(from); arr.splice(fi, 1); const ti = arr.indexOf(toKey); arr.splice(ti < 0 ? arr.length : ti, 0, from); saveGrp(arr); };
+    const reorderTile = (gk, toId) => { const d = dragTi.current; dragTi.current = null; if (!d || d.grp !== gk || d.id === toId) return; const arr = idsFor(gmap[gk]).slice(); const fi = arr.indexOf(d.id); arr.splice(fi, 1); const ti = arr.indexOf(toId); arr.splice(ti < 0 ? arr.length : ti, 0, d.id); saveTileOrd({ ...tileOrd, [gk]: arr }); };
+    const cellW = small ? (smallLabel ? 44 : 24) : 60, cellH = small ? (smallLabel ? 36 : 24) : 52, svgSz = small ? 14 : 20;
     const openGrpMenu = (grp, e) => { const r = e.currentTarget.getBoundingClientRect(); setGrpMenu(g => (g && g.grp === grp) ? null : { grp, x: r.left, y: r.bottom + 2 }); };
     const grpActive = t => (t.grp === "pen" && penActive) || (t.grp === "shape" && shapeActive) || (t.grp === "line" && tool === "line");
     const tipEnter = (t, e) => { if (!small) return; const r = e.currentTarget.getBoundingClientRect(); clearTimeout(tipT.current); tipT.current = setTimeout(() => { setTip({ text: t.nm, x: r.left + r.width / 2, y: r.bottom + 6 }); setTimeout(() => setTipVis(true), 16); }, 500); };
     const tipLeave = () => { clearTimeout(tipT.current); setTipVis(false); setTimeout(() => setTip(null), 250); };
-    const tile = t => o.jsxs("button", { key: t.id, ref: t.grp ? (el => { if (el) grpBtnRef.current[t.grp] = el; }) : void 0, onMouseEnter: e => tipEnter(t, e), onMouseLeave: tipLeave, onClick: e => { tipLeave(); if (t.k === "grp") openGrpMenu(t.grp, e); else { setGrpMenu(null); if (t.k === "tool") { setTool(t.id); setMenu(null); } else t.run(); } }, disabled: t.sel ? !hasSel : t.img ? !hasImg : false, title: small ? "" : t.nm, className: "flex flex-col items-center justify-center rounded-lg border cursor-pointer select-none disabled:opacity-35 " + (((t.k === "tool" && tool === t.id) || grpActive(t)) ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/12 text-white/90 hover:bg-white/15"), style: { width: cellW, height: cellH, padding: small ? 0 : void 0 }, children: [o.jsxs("span", { style: { display: "flex", alignItems: "center", lineHeight: 1 }, children: [o.jsx("svg", { viewBox: "0 0 24 24", width: svgSz, height: svgSz, fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", dangerouslySetInnerHTML: { __html: ICONS[t.id] || ICONS.shape } }), (t.grp && !small) ? o.jsx("span", { style: { fontSize: 9, marginLeft: 1 }, children: "▾" }) : null] }), labels && o.jsx("span", { style: { fontSize: 9.5, marginTop: 2, whiteSpace: "nowrap", opacity: 0.85 }, children: t.nm })] });
+    const tile = (t, gk) => o.jsxs("button", { key: t.id, ref: t.grp ? (el => { if (el) grpBtnRef.current[t.grp] = el; }) : void 0, draggable: !!gk, onDragStart: gk ? (() => { dragTi.current = { grp: gk, id: t.id }; }) : void 0, onDragOver: gk ? (e => e.preventDefault()) : void 0, onDrop: gk ? (() => reorderTile(gk, t.id)) : void 0, onMouseEnter: e => tipEnter(t, e), onMouseLeave: tipLeave, onClick: e => { tipLeave(); if (t.k === "grp") openGrpMenu(t.grp, e); else { setGrpMenu(null); if (t.k === "tool") { setTool(t.id); setMenu(null); } else t.run(); } }, disabled: t.sel ? !hasSel : t.img ? !hasImg : false, title: small ? "" : t.nm, className: "flex flex-col items-center justify-center rounded-lg border cursor-pointer select-none disabled:opacity-35 " + (((t.k === "tool" && tool === t.id) || grpActive(t)) ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/12 text-white/90 hover:bg-white/15"), style: { width: cellW, height: cellH, padding: small ? 0 : void 0 }, children: [o.jsxs("span", { style: { display: "flex", alignItems: "center", lineHeight: 1 }, children: [o.jsx("svg", { viewBox: "0 0 24 24", width: svgSz, height: svgSz, fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", dangerouslySetInnerHTML: { __html: ICONS[t.id] || ICONS.shape } }), (t.grp && !small) ? o.jsx("span", { style: { fontSize: 9, marginLeft: 1 }, children: "▾" }) : null] }), showName && o.jsx("span", { style: { fontSize: small ? 8 : 9.5, marginTop: 2, whiteSpace: "nowrap", opacity: 0.85 }, children: t.nm })] });
     const grpList = g => (g === "pen" ? PENV : g === "line" ? DASHOPTS : SHAPES);
     const pickGroupKey = grp => { const list = grpList(grp).map(x => x[0]); const mode = (imgKeys.grpMode) || "cycle"; if (mode === "menu") { const el = grpBtnRef.current[grp]; const r = (el && el.getBoundingClientRect) ? el.getBoundingClientRect() : { left: 120, bottom: 150 }; setGrpMenu({ grp, x: r.left, y: r.bottom + 2 }); return; } if (grp === "line") { const cur = styRef.current.dash; const idx = list.indexOf(cur); const nx = list[(idx + 1) % list.length]; setDash(nx); setTool("line"); lastLineRef.current = nx; return; } const cur = toolRef.current; const idx = list.indexOf(cur); if (idx < 0) { const last = grp === "pen" ? lastPenRef.current : lastShapeRef.current; setTool(list.includes(last) ? last : list[0]); if (grp === "shape") { const l2 = grp === "shape" ? lastShapeRef.current : ""; if (l2 === "polygon" || l2 === "star") setPolyModal(true); } } else { const nx = list[(idx + 1) % list.length]; setTool(nx); if (grp === "shape" && (nx === "polygon" || nx === "star")) setPolyModal(true); } };
     const ao0 = fcRef.current && fcRef.current.getActiveObject();
@@ -612,12 +626,12 @@ function DDBImageEditor() {
             cropReady && o.jsx("button", { onClick: applyCrop, className: "px-2.5 py-1 rounded-lg text-[13px] bg-emerald-500/40 border border-emerald-400/60 text-emerald-50 cursor-pointer whitespace-nowrap", children: "잘라내기 적용" }),
             cropReady && o.jsx("button", { onClick: cancelCrop, title: "취소(ESC)", className: "px-2 py-1 rounded-lg text-[13px] bg-white/8 border border-white/15 text-white/80 cursor-pointer", children: "✕" }),
             o.jsx("div", { className: "flex-1" }),
-            o.jsxs("div", { className: "flex items-center gap-1 mr-1", children: [o.jsx("button", { onClick: () => setMode("large"), title: "큰 아이콘 + 이름", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (iconMode === "large" ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "큰 아이콘" }), o.jsx("button", { onClick: () => setMode("small"), title: "작은 아이콘 (커서 올리면 이름 표시)", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (iconMode === "small" ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "작은 아이콘" })] }),
+            o.jsxs("div", { className: "flex items-center gap-1 mr-1", children: [o.jsx("button", { onClick: () => setMode("large"), title: "큰 아이콘 + 이름", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (iconMode === "large" ? "bg-emerald-500/40 border-emerald-400/70 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "🔲 큰" }), o.jsx("button", { onClick: () => setMode("small"), title: "작은 아이콘 (커서 올리면 이름 표시)", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (iconMode === "small" ? "bg-amber-500/40 border-amber-400/70 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "▪ 작은" }), small && o.jsx("button", { onClick: toggleSmallLabel, title: "작은 아이콘 밑에 이름 표시", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (smallLabel ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: smallLabel ? "이름 ✓" : "이름" })] }),
             o.jsx("button", { onClick: () => setShowCfg(true), title: "단축키 설정", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "⚙" }),
             o.jsx("button", { onClick: () => setOpen(false), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "✕ 닫기" : "✕" }),
             o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } })
         ] }),
-        o.jsx("div", { className: "px-3 py-2 border-b border-white/10 flex-shrink-0 overflow-x-auto", style: { backgroundColor: "rgba(12,16,26,0.95)" }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { style: { display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }, children: GROUPS.map(g => o.jsxs("div", { style: { border: "1px solid " + g.color + "66", borderRadius: 10, padding: "3px 6px 6px", background: g.color + "14" }, children: [o.jsx("div", { style: { color: g.color, fontSize: 10, fontWeight: 700, textAlign: "center", marginBottom: 3, letterSpacing: 1 }, children: g.label }), o.jsx("div", { style: { display: "flex", gap: 4 }, children: g.ids.map(id => tileMap[id] ? tile(tileMap[id]) : null) })] }, g.key)) }) }),
+        o.jsx("div", { className: "px-3 py-2 border-b border-white/10 flex-shrink-0 overflow-x-auto", style: { backgroundColor: "rgba(12,16,26,0.95)" }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { style: { display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }, children: grpOrdered.map(k => { const g = gmap[k]; if (!g) return null; return o.jsxs("div", { onDragOver: e => e.preventDefault(), onDrop: () => reorderGrp(k), style: { border: "1px solid " + g.color + "66", borderRadius: 10, padding: "3px 6px 6px", background: g.color + "14" }, children: [o.jsx("div", { draggable: true, onDragStart: () => { dragG.current = k; }, title: "라벨을 드래그해 그룹 순서 변경", style: { color: g.color, fontSize: 10, fontWeight: 700, textAlign: "center", marginBottom: 3, letterSpacing: 1, cursor: "grab" }, children: g.label }), o.jsx("div", { style: { display: "flex", gap: 4 }, children: idsFor(g).map(id => tileMap[id] ? tile(tileMap[id], k) : null) })] }, k); }) }) }),
         o.jsxs("div", { className: "flex items-center gap-2 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.9)" }, onMouseDown: e => { e.stopPropagation(); if (grpMenu) setGrpMenu(null); }, children: [
             o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["선색", o.jsx("input", { type: "color", value: color, onChange: e => setColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] }),
             (shapeActive || hasSel) && o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["채움", o.jsx("input", { type: "color", value: fillColor || "#ffffff", onChange: e => setFillColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" }), o.jsx("button", { onClick: () => setFillColor(""), className: "text-[10px] text-white/50 underline bg-transparent border-none cursor-pointer", children: fillColor ? "끄기" : "없음" })] }),
@@ -1918,7 +1932,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.42";
+const DDB_VERSION = "0.98.43";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3430,7 +3444,7 @@ function um({
             className: "hidden",
             onChange: x
         }), o.jsxs("header", {
-            className: "hidden md:flex items-center gap-1 px-3 py-1.5 bg-black/40 backdrop-blur-sm border-b border-white/10 flex-wrap",
+            className: "hidden md:flex items-center gap-1 px-3 py-1.5 bg-black/40 backdrop-blur-sm border-b border-white/10 flex-wrap relative",
             style: {
                 fontSize: a.settings.topBtnSize ?? 12
             },
@@ -3467,7 +3481,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v279"
+                children: "v280"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -3558,7 +3572,8 @@ function um({
                 return o.jsxs(o.Fragment, {
                     children: [Mo && o.jsx("div", {
                         "data-ddbnav": "1",
-                        className: "flex items-center gap-1 flex-wrap",
+                        className: "flex items-center gap-1 flex-nowrap",
+                        style: { position: "absolute", right: 8, top: "calc(100% + 2px)", background: "rgba(10,12,20,0.97)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "6px 8px", zIndex: 60, maxWidth: "96vw", overflowX: "auto" },
                         children: J.map((Q, ee) => Q.menu ? o.jsxs("div", {
                             className: "relative",
                             draggable: Eo,
