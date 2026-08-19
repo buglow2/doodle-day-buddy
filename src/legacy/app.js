@@ -344,8 +344,14 @@ function DDBImageEditor() {
     const dndRef = O.useRef(null);
     const lastPenRef = O.useRef((() => { try { return localStorage.getItem("ddb_img_lastpen") || "pencil"; } catch { return "pencil"; } })());
     const lastShapeRef = O.useRef((() => { try { return localStorage.getItem("ddb_img_lastshape") || "rect"; } catch { return "rect"; } })());
+    const lastLineRef = O.useRef("solid");
     const grpBtnRef = O.useRef({});
     const [grpMenu, setGrpMenu] = O.useState(null);
+    const [polyModal, setPolyModal] = O.useState(false);
+    const [polyErr, setPolyErr] = O.useState("");
+    const [talign, setTalign] = O.useState("left");
+    const [tvalign, setTvalign] = O.useState("top");
+    const POLY_BAD = [7, 11];
     const [menu, setMenu] = O.useState(null);
     const [toast, setToast] = O.useState("");
     const [ocr, setOcr] = O.useState(null);
@@ -370,6 +376,8 @@ function DDBImageEditor() {
     const styRef = O.useRef({});
     toolRef.current = tool;
     styRef.current = { color, fillColor, lw, dash, fsz };
+    const talignRef = O.useRef("left"), tvalignRef = O.useRef("top");
+    talignRef.current = talign; tvalignRef.current = tvalign;
     const DASHES = { solid: null, dash: [14, 9], dot: [2, 8], dashdot: [16, 8, 3, 8], longdash: [26, 12] };
     const PENV = [["pencil", "✏ 연필"], ["ballpen", "🖊 볼펜"], ["fountain", "🖋 만년필"], ["highlighter", "🖍 형광펜"], ["marker", "🖊 보드마커"]];
     const SHAPES = [["rect", "▭ 사각형"], ["ellipse", "◯ 원·타원"], ["triangle", "△ 삼각형"], ["diamond", "◆ 마름모"], ["polygon", "⬡ 다각형"], ["star", "★ 별"]];
@@ -430,7 +438,7 @@ function DDBImageEditor() {
         const fab = window.fabric;
         const c = new fab.Canvas(elRef.current, { backgroundColor: "#ffffff", preserveObjectStacking: true, selection: true, uniformScaling: false });
         fcRef.current = c;
-        const upd = () => setHasSel(!!c.getActiveObject());
+        const upd = () => { const a = c.getActiveObject(); setHasSel(!!a); if (a && (a.type === "i-text" || a.type === "text")) { setTalign(a.textAlign || "left"); setTvalign(a.originY === "center" ? "middle" : a.originY === "bottom" ? "bottom" : "top"); } };
         c.on("selection:created", upd); c.on("selection:updated", upd); c.on("selection:cleared", () => setHasSel(false));
         c.on("object:modified", () => pushHist());
         c.on("object:moving", opt => { const e = opt.e; const m = moveRef.current; if (e && e.shiftKey && m && opt.target === m.obj) { const dx = Math.abs(opt.target.left - m.left), dy = Math.abs(opt.target.top - m.top); if (dx > dy) opt.target.top = m.top; else opt.target.left = m.left; } });
@@ -444,11 +452,11 @@ function DDBImageEditor() {
             else if (t === "ellipse") ob = new fab.Ellipse({ ...base, rx: 1, ry: 1 });
             else if (t === "triangle") ob = new fab.Triangle({ ...base, width: 1, height: 1 });
             else if (t === "diamond") ob = new fab.Polygon([{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }], { ...base, objectCaching: false });
-            else if (t === "polygon" || t === "star") { const pts = polyPts(t === "star", sidesRef.current); ob = new fab.Polygon(pts, { ...base, objectCaching: false }); }
+            else if (t === "polygon" || t === "star") { let sc = Number(sidesRef.current); if (!(sc >= 3 && sc <= 20) || POLY_BAD.indexOf(sc) >= 0) sc = 6; const pts = polyPts(t === "star", sc); ob = new fab.Polygon(pts, { ...base, objectCaching: false }); }
             else if (t === "line") ob = new fab.Line([p.x, p.y, p.x, p.y], { stroke: s.color, strokeWidth: s.lw, strokeDashArray: dz, strokeUniform: true });
             else if (t === "arrow") ob = new fab.Line([p.x, p.y, p.x, p.y], { stroke: s.color, strokeWidth: s.lw, strokeDashArray: dz, strokeUniform: true });
             else if (t === "crop") { if (cropRef.current) { c.remove(cropRef.current); cropRef.current = null; } ob = new fab.Rect({ left: p.x, top: p.y, width: 1, height: 1, fill: "rgba(0,0,0,0.12)", stroke: "#3b82f6", strokeWidth: 2, strokeDashArray: [6, 4], strokeUniform: true }); }
-            else if (t === "text") { if (opt.target && (opt.target.type === "i-text" || opt.target.type === "text")) { setTool("select"); return; } const it = new fab.IText("텍스트", { left: p.x, top: p.y, fill: s.color, fontSize: s.fsz, fontFamily: "sans-serif" }); c.add(it); c.setActiveObject(it); it.enterEditing(); it.selectAll(); pushHist(); setTool("select"); return; }
+            else if (t === "text") { if (opt.target && (opt.target.type === "i-text" || opt.target.type === "text")) { setTool("select"); return; } const oy = tvalignRef.current === "top" ? "top" : tvalignRef.current === "middle" ? "center" : "bottom"; const it = new fab.IText("텍스트", { left: p.x, top: p.y, fill: s.color, fontSize: s.fsz, fontFamily: "sans-serif", textAlign: talignRef.current, originX: "left", originY: oy }); c.add(it); c.setActiveObject(it); it.enterEditing(); it.selectAll(); pushHist(); setTool("select"); return; }
             if (!ob) return; ob.set({ selectable: true }); c.add(ob); drawRef.current = { obj: ob, sx: p.x, sy: p.y, t }; c.selection = false;
         });
         c.on("mouse:move", opt => {
@@ -488,7 +496,7 @@ function DDBImageEditor() {
         if (!open) return;
         const onKey = e => {
             const ae = document.activeElement; const typing = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || (fcRef.current && fcRef.current.getActiveObject() && fcRef.current.getActiveObject().isEditing));
-            if (e.key === "Escape") { e.preventDefault(); const c = fcRef.current; if (grpMenu) { setGrpMenu(null); return; } if (showCfg) { setShowCfg(false); return; } if (menu) { setMenu(null); return; } if (cropReady) { cancelCrop(); return; } if (drawRef.current) { if (c && drawRef.current.obj) { try { c.remove(drawRef.current.obj); } catch {} } drawRef.current = null; if (c) { c.selection = true; c.renderAll(); } return; } if (c) { const a = c.getActiveObject(); if (a && a.isEditing) { try { a.exitEditing(); } catch {} return; } if (c._currentTransform && xformRef.current && xformRef.current.obj) { const o2 = xformRef.current.obj, pr = xformRef.current.props; o2.set(pr); o2.setCoords(); c._currentTransform = null; c.renderAll(); return; } if (a) { c.discardActiveObject(); c.renderAll(); return; } } return; }
+            if (e.key === "Escape") { e.preventDefault(); const c = fcRef.current; if (polyModal) { setPolyModal(false); return; } if (grpMenu) { setGrpMenu(null); return; } if (showCfg) { setShowCfg(false); return; } if (menu) { setMenu(null); return; } if (cropReady) { cancelCrop(); return; } if (drawRef.current) { if (c && drawRef.current.obj) { try { c.remove(drawRef.current.obj); } catch {} } drawRef.current = null; if (c) { c.selection = true; c.renderAll(); } return; } if (c) { const a = c.getActiveObject(); if (a && a.isEditing) { try { a.exitEditing(); } catch {} return; } if (c._currentTransform && xformRef.current && xformRef.current.obj) { const o2 = xformRef.current.obj, pr = xformRef.current.props; o2.set(pr); o2.setCoords(); c._currentTransform = null; c.renderAll(); return; } if (a) { c.discardActiveObject(); c.renderAll(); return; } } return; }
             if (typing) return;
             if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key || "").length === 1) { const k1 = e.key.toLowerCase(); const match = KEYDEFS.find(kd => { const kk = (imgKeys[kd[0]] ?? kd[2]); return kk && kk.toLowerCase() === k1; }); if (match) { e.preventDefault(); const id = match[0]; if (id === "pen" || id === "shape") pickGroupKey(id); else if (id === "front") zOp("front"); else if (id === "back") zOp("back"); else if (id === "del") delSel(); else setTool(id); return; } }
             if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
@@ -498,7 +506,7 @@ function DDBImageEditor() {
         const onPaste = e => { const items = e.clipboardData && e.clipboardData.items; if (!items) return; for (let i = 0; i < items.length; i++) { const it = items[i]; if (it.type && it.type.indexOf("image") === 0) { const f = it.getAsFile(); if (f) { const r = new FileReader(); r.onload = () => loadUrl(r.result); r.readAsDataURL(f); e.preventDefault(); return; } } } };
         window.addEventListener("keydown", onKey); window.addEventListener("paste", onPaste);
         return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("paste", onPaste); };
-    }, [open, menu, St.settings, showCfg, cropReady, grpMenu]);
+    }, [open, menu, St.settings, showCfg, cropReady, grpMenu, polyModal]);
 
     O.useEffect(() => { const c = fcRef.current; if (!c) return; const PENIDS = ["pencil", "ballpen", "fountain", "highlighter", "marker"]; const draws = PENIDS.includes(tool); c.isDrawingMode = draws; c.selection = tool === "select"; c.forEachObject(o2 => { o2.selectable = tool === "select"; o2.evented = tool === "select"; }); if (draws && window.fabric) { const br = new window.fabric.PencilBrush(c); if (tool === "highlighter") { br.width = Math.max(12, lw * 4); br.color = hexA(color, 0.35); } else if (tool === "marker") { br.width = Math.max(8, lw * 2.4); br.color = color; br.strokeLineCap = "square"; br.strokeLineJoin = "miter"; } else if (tool === "pencil") { br.width = Math.max(1, Math.round(lw * 0.7)); br.color = color; } else if (tool === "fountain") { br.width = Math.max(2, Math.round(lw * 1.3)); br.color = color; } else { br.width = lw; br.color = color; } c.freeDrawingBrush = br; } if (draws) { lastPenRef.current = tool; try { localStorage.setItem("ddb_img_lastpen", tool); } catch {} } if (SHAPES.some(x => x[0] === tool)) { lastShapeRef.current = tool; try { localStorage.setItem("ddb_img_lastshape", tool); } catch {} } c.renderAll(); }, [tool, color, lw]);
 
@@ -528,7 +536,7 @@ function DDBImageEditor() {
     const TILES = [
         { id: "select", ic: "🖱", nm: "선택", k: "tool" },
         { id: "pen", ic: (penTile ? penTile[1].split(" ")[0] : "🖊"), nm: (penTile ? penTile[1].split(" ")[1] : "펜"), k: "grp", grp: "pen" },
-        { id: "line", ic: "／", nm: "선", k: "tool" }, { id: "arrow", ic: "➜", nm: "화살표", k: "tool" },
+        { id: "line", ic: "／", nm: "선", k: "grp", grp: "line" }, { id: "arrow", ic: "➜", nm: "화살표", k: "tool" },
         { id: "shape", ic: (shapeTile ? shapeTile[1].split(" ")[0] : "◆"), nm: (shapeTile ? shapeTile[1].split(" ")[1].split("·")[0] : "도형"), k: "grp", grp: "shape" },
         { id: "text", ic: "🇹", nm: "텍스트", k: "tool" }, { id: "crop", ic: "✂", nm: "자르기", k: "tool" },
         { id: "imgbg", ic: "🖼", nm: "이미지열기", k: "act", run: () => openFilePick("bg") }, { id: "imgobj", ic: "🏞", nm: "이미지삽입", k: "act", run: () => openFilePick("obj") }, { id: "blank", ic: "📄", nm: "새캔버스", k: "act", run: newBlank },
@@ -544,16 +552,22 @@ function DDBImageEditor() {
     const reorder = to => { const from = dndRef.current; dndRef.current = null; if (!from || from === to) return; const arr = orderedIds.slice(); const fi = arr.indexOf(from); arr.splice(fi, 1); const ti = arr.indexOf(to); arr.splice(ti < 0 ? arr.length : ti, 0, from); saveOrder(arr); };
     const cellW = labels ? 62 : 40, cellH = labels ? 54 : 38;
     const openGrpMenu = (grp, e) => { const r = e.currentTarget.getBoundingClientRect(); setGrpMenu(g => (g && g.grp === grp) ? null : { grp, x: r.left, y: r.bottom + 2 }); };
-    const grpActive = t => (t.grp === "pen" && penActive) || (t.grp === "shape" && shapeActive);
-    const tile = t => o.jsxs("button", { key: t.id, ref: t.grp ? (el => { if (el) grpBtnRef.current[t.grp] = el; }) : void 0, draggable: true, onDragStart: () => { dndRef.current = t.id; }, onDragOver: e => e.preventDefault(), onDrop: () => reorder(t.id), onClick: e => { if (t.k === "grp") openGrpMenu(t.grp, e); else if (t.k === "tool") { setTool(t.id); setMenu(null); } else t.run(); }, disabled: t.sel ? !hasSel : t.img ? !hasImg : false, title: t.nm, className: "flex flex-col items-center justify-center rounded-lg border cursor-pointer select-none disabled:opacity-35 " + (((t.k === "tool" && tool === t.id) || grpActive(t)) ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/12 text-white/90 hover:bg-white/15"), style: { width: cellW, height: cellH }, children: [o.jsxs("span", { style: { fontSize: 17, lineHeight: 1 }, children: [t.ic, t.grp ? o.jsx("span", { style: { fontSize: 9 }, children: "▾" }) : null] }), labels && o.jsx("span", { style: { fontSize: 9.5, marginTop: 2, whiteSpace: "nowrap", opacity: 0.85 }, children: t.nm })] });
-    const grpList = g => (g === "pen" ? PENV : SHAPES);
-    const pickGroupKey = grp => { const list = grpList(grp).map(x => x[0]); const mode = (imgKeys.grpMode) || "cycle"; if (mode === "menu") { const el = grpBtnRef.current[grp]; const r = (el && el.getBoundingClientRect) ? el.getBoundingClientRect() : { left: 120, bottom: 150 }; setGrpMenu({ grp, x: r.left, y: r.bottom + 2 }); return; } const cur = toolRef.current; const idx = list.indexOf(cur); if (idx < 0) { const last = grp === "pen" ? lastPenRef.current : lastShapeRef.current; setTool(list.includes(last) ? last : list[0]); } else setTool(list[(idx + 1) % list.length]); };
+    const grpActive = t => (t.grp === "pen" && penActive) || (t.grp === "shape" && shapeActive) || (t.grp === "line" && tool === "line");
+    const tile = t => o.jsxs("button", { key: t.id, ref: t.grp ? (el => { if (el) grpBtnRef.current[t.grp] = el; }) : void 0, draggable: true, onDragStart: () => { dndRef.current = t.id; }, onDragOver: e => e.preventDefault(), onDrop: () => reorder(t.id), onClick: e => { if (t.k === "grp") openGrpMenu(t.grp, e); else { setGrpMenu(null); if (t.k === "tool") { setTool(t.id); setMenu(null); } else t.run(); } }, disabled: t.sel ? !hasSel : t.img ? !hasImg : false, title: t.nm, className: "flex flex-col items-center justify-center rounded-lg border cursor-pointer select-none disabled:opacity-35 " + (((t.k === "tool" && tool === t.id) || grpActive(t)) ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/12 text-white/90 hover:bg-white/15"), style: { width: cellW, height: cellH }, children: [o.jsxs("span", { style: { fontSize: 17, lineHeight: 1 }, children: [t.ic, t.grp ? o.jsx("span", { style: { fontSize: 9 }, children: "▾" }) : null] }), labels && o.jsx("span", { style: { fontSize: 9.5, marginTop: 2, whiteSpace: "nowrap", opacity: 0.85 }, children: t.nm })] });
+    const grpList = g => (g === "pen" ? PENV : g === "line" ? DASHOPTS : SHAPES);
+    const pickGroupKey = grp => { const list = grpList(grp).map(x => x[0]); const mode = (imgKeys.grpMode) || "cycle"; if (mode === "menu") { const el = grpBtnRef.current[grp]; const r = (el && el.getBoundingClientRect) ? el.getBoundingClientRect() : { left: 120, bottom: 150 }; setGrpMenu({ grp, x: r.left, y: r.bottom + 2 }); return; } if (grp === "line") { const cur = styRef.current.dash; const idx = list.indexOf(cur); const nx = list[(idx + 1) % list.length]; setDash(nx); setTool("line"); lastLineRef.current = nx; return; } const cur = toolRef.current; const idx = list.indexOf(cur); if (idx < 0) { const last = grp === "pen" ? lastPenRef.current : lastShapeRef.current; setTool(list.includes(last) ? last : list[0]); if (grp === "shape") { const l2 = grp === "shape" ? lastShapeRef.current : ""; if (l2 === "polygon" || l2 === "star") setPolyModal(true); } } else { const nx = list[(idx + 1) % list.length]; setTool(nx); if (grp === "shape" && (nx === "polygon" || nx === "star")) setPolyModal(true); } };
+    const ao0 = fcRef.current && fcRef.current.getActiveObject();
+    const textActive = !!(ao0 && (ao0.type === "i-text" || ao0.type === "text"));
+    const applyTextAlign = a => { setTalign(a); const c = fcRef.current; if (c) { const ao = c.getActiveObject(); if (ao && (ao.type === "i-text" || ao.type === "text")) { ao.set({ textAlign: a }); c.renderAll(); pushHist(); } } };
+    const applyTextV = a => { setTvalign(a); const c = fcRef.current; if (c) { const ao = c.getActiveObject(); if (ao && (ao.type === "i-text" || ao.type === "text")) { const oy = a === "top" ? "top" : a === "middle" ? "center" : "bottom"; ao.set({ originY: oy }); ao.setCoords(); c.renderAll(); pushHist(); } } };
+    const POLY_MIN = 3, POLY_MAX = 20;
+    const polyOK = n => Number.isInteger(n) && n >= POLY_MIN && n <= POLY_MAX && POLY_BAD.indexOf(n) < 0;
+    const polyStep = dir => { let n = (Number(sides) || 6) + dir; while (n >= POLY_MIN && n <= POLY_MAX && POLY_BAD.indexOf(n) >= 0) n += dir; if (n < POLY_MIN || n > POLY_MAX) return; setSides(n); setPolyErr(""); };
     return Rr.createPortal(o.jsxs("div", { className: "fixed inset-0 flex flex-col", style: { zIndex: 2147483400, backgroundColor: "rgba(8,10,18,0.97)" }, onMouseDown: () => { menu && setMenu(null); grpMenu && setGrpMenu(null); }, children: [
-        grpMenu && o.jsx("div", { style: { position: "fixed", left: grpMenu.x, top: grpMenu.y, zIndex: 80 }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { className: "flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { minWidth: 148, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: grpList(grpMenu.grp).map(op => o.jsx("button", { onClick: () => { setTool(op[0]); if (grpMenu.grp === "pen") lastPenRef.current = op[0]; else lastShapeRef.current = op[0]; setGrpMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + (op[0] === tool ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) }) }),
-        o.jsxs("div", { className: "flex items-center gap-1.5 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.98)" }, onMouseDown: e => e.stopPropagation(), children: [
+        grpMenu && o.jsx("div", { style: { position: "fixed", left: grpMenu.x, top: grpMenu.y, zIndex: 80 }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { className: "flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { minWidth: 148, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: grpList(grpMenu.grp).map(op => o.jsx("button", { onClick: () => { if (grpMenu.grp === "line") { setDash(op[0]); setTool("line"); lastLineRef.current = op[0]; } else { setTool(op[0]); if (grpMenu.grp === "pen") lastPenRef.current = op[0]; else { lastShapeRef.current = op[0]; if (op[0] === "polygon" || op[0] === "star") setPolyModal(true); } } setGrpMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + ((grpMenu.grp === "line" ? op[0] === dash : op[0] === tool) ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) }) }),
+        o.jsxs("div", { className: "flex items-center gap-1.5 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.98)" }, onMouseDown: e => { e.stopPropagation(); if (grpMenu) setGrpMenu(null); }, children: [
             o.jsx("span", { className: "text-white font-bold text-sm mr-1", children: "🖼 이미지 편집" }),
             o.jsx("span", { className: "text-white/35 text-[11px]", children: "타일을 드래그해 위치를 바꿀 수 있어요" }),
-            (tool === "polygon" || tool === "star") && o.jsxs("label", { className: "flex items-center gap-1 text-white/85 text-xs", children: ["각", o.jsx("input", { type: "number", min: 3, max: 20, value: sides, onChange: e => setSides(Math.max(3, Math.min(20, Number(e.target.value) || 3))), className: "w-12 bg-white/10 border border-white/20 rounded px-1 py-0.5 text-white text-xs" })] }),
             cropReady && o.jsx("button", { onClick: applyCrop, className: "px-2.5 py-1 rounded-lg text-[13px] bg-emerald-500/40 border border-emerald-400/60 text-emerald-50 cursor-pointer whitespace-nowrap", children: "잘라내기 적용" }),
             cropReady && o.jsx("button", { onClick: cancelCrop, title: "취소(ESC)", className: "px-2 py-1 rounded-lg text-[13px] bg-white/8 border border-white/15 text-white/80 cursor-pointer", children: "✕" }),
             o.jsx("div", { className: "flex-1" }),
@@ -563,15 +577,16 @@ function DDBImageEditor() {
             o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } })
         ] }),
         o.jsx("div", { className: "px-3 py-2 border-b border-white/10 flex-shrink-0 overflow-x-auto", style: { backgroundColor: "rgba(12,16,26,0.95)" }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, " + cellW + "px)", gap: 6, justifyContent: "start" }, children: orderedIds.map(id => tile(tileMap[id])) }) }),
-        o.jsxs("div", { className: "flex items-center gap-2 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.9)" }, onMouseDown: e => e.stopPropagation(), children: [
+        o.jsxs("div", { className: "flex items-center gap-2 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.9)" }, onMouseDown: e => { e.stopPropagation(); if (grpMenu) setGrpMenu(null); }, children: [
             o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["선색", o.jsx("input", { type: "color", value: color, onChange: e => setColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] }),
             (shapeActive || hasSel) && o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["채움", o.jsx("input", { type: "color", value: fillColor || "#ffffff", onChange: e => setFillColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" }), o.jsx("button", { onClick: () => setFillColor(""), className: "text-[10px] text-white/50 underline bg-transparent border-none cursor-pointer", children: fillColor ? "끄기" : "없음" })] }),
             o.jsx("div", { className: "flex items-center gap-1", children: pal.map(pc => o.jsx("button", { onClick: () => setColor(pc), title: pc, className: "w-5 h-5 rounded-full border cursor-pointer " + (color.toLowerCase() === pc.toLowerCase() ? "border-white" : "border-white/25"), style: { backgroundColor: pc } }, pc)) }),
             o.jsx("button", { onClick: savePal, title: "현재 색 저장", className: "text-[11px] text-white/50 hover:text-white underline bg-transparent border-none cursor-pointer", children: "색저장" }),
             o.jsx("div", { className: "w-px h-5 bg-white/15" }),
             o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["두께", o.jsx("input", { type: "range", min: 1, max: 40, value: lw, onChange: e => setLw(Number(e.target.value)), className: "w-24 accent-blue-400" }), o.jsxs("span", { className: "w-6 text-white/60", children: [lw] })] }),
-            (tool === "line" || tool === "arrow" || shapeActive) && dropBtn("dash", "선: " + (DASHOPTS.find(x => x[0] === dash) || DASHOPTS[0])[1].split(" ")[1], false, DASHOPTS, dash, k => setDash(k)),
-            (tool === "text" || hasSel) && o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["글자", o.jsx("input", { type: "range", min: 10, max: 120, value: fsz, onChange: e => setFsz(Number(e.target.value)), className: "w-20 accent-blue-400" }), o.jsxs("span", { className: "w-7 text-white/60", children: [fsz] })] })
+            (tool === "arrow" || shapeActive) && dropBtn("dash", "선: " + (DASHOPTS.find(x => x[0] === dash) || DASHOPTS[0])[1].split(" ")[1], false, DASHOPTS, dash, k => setDash(k)),
+            (tool === "text" || hasSel) && o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["글자", o.jsx("input", { type: "range", min: 10, max: 120, value: fsz, onChange: e => setFsz(Number(e.target.value)), className: "w-20 accent-blue-400" }), o.jsxs("span", { className: "w-7 text-white/60", children: [fsz] })] }),
+            (tool === "text" || textActive) && o.jsxs("div", { className: "flex items-center gap-2", children: [o.jsx("div", { className: "w-px h-5 bg-white/15" }), o.jsx("span", { className: "text-white/55 text-[11px]", children: "가로" }), o.jsx("div", { className: "flex items-center gap-0.5", children: [["left", "⬅"], ["center", "⬌"], ["right", "➡"]].map(a => o.jsx("button", { onClick: () => applyTextAlign(a[0]), title: a[0] === "left" ? "왼쪽 정렬" : a[0] === "center" ? "가운데 정렬" : "오른쪽 정렬", className: "px-1.5 py-1 rounded text-[13px] cursor-pointer border " + (talign === a[0] ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/80"), children: a[1] }, a[0])) }), o.jsx("span", { className: "text-white/55 text-[11px] ml-1", children: "세로" }), o.jsx("div", { className: "flex items-center gap-0.5", children: [["top", "⬆"], ["middle", "▬"], ["bottom", "⬇"]].map(a => o.jsx("button", { onClick: () => applyTextV(a[0]), title: a[0] === "top" ? "위 정렬" : a[0] === "middle" ? "가운데(세로)" : "아래 정렬", className: "px-1.5 py-1 rounded text-[13px] cursor-pointer border " + (tvalign === a[0] ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/80"), children: a[1] }, a[0])) })] })
         ] }),
         o.jsxs("div", { className: "flex-1 overflow-auto flex items-start justify-center p-4 relative", onMouseDown: e => e.stopPropagation(), children: [
             o.jsx("div", { className: "shadow-2xl", style: { lineHeight: 0, display: hasImg ? "block" : "none" }, children: o.jsx("canvas", { ref: elRef }) }),
@@ -586,6 +601,20 @@ function DDBImageEditor() {
             o.jsx("button", { onClick: doCopy, disabled: !hasImg, className: "px-3 py-1.5 rounded-lg text-[13px] cursor-pointer border bg-white/10 border-white/20 text-white hover:bg-white/20 disabled:opacity-40", children: "📋 복사" }),
             o.jsx("button", { onClick: doSave, disabled: !hasImg, className: "px-3 py-1.5 rounded-lg text-[13px] cursor-pointer border bg-emerald-500/40 border-emerald-400/60 text-emerald-50 hover:bg-emerald-500/60 disabled:opacity-40", children: "💾 저장" })
         ] }),
+        polyModal && o.jsx("div", { className: "absolute inset-0 flex items-center justify-center", style: { backgroundColor: "rgba(0,0,0,0.55)", zIndex: 74 }, onMouseDown: e => { e.stopPropagation(); if (e.target === e.currentTarget) setPolyModal(false); }, children: o.jsxs("div", { className: "bg-gray-900 border border-white/20 rounded-2xl p-5 w-[320px] max-w-[92vw] flex flex-col gap-3 items-center", children: [
+            o.jsx("span", { className: "text-white font-bold", children: tool === "star" ? "별 꼭짓점 수" : "다각형 각 수" }),
+            o.jsxs("div", { className: "flex items-center gap-3", children: [
+                o.jsx("button", { onClick: () => polyStep(-1), className: "w-9 h-9 rounded-lg bg-white/10 text-white text-lg cursor-pointer border border-white/15", children: "▼" }),
+                o.jsx("input", { type: "number", value: sides, onChange: e => { const raw = e.target.value; if (raw === "") { setSides(""); setPolyErr(""); return; } const v = parseInt(raw, 10); if (!polyOK(v)) { setPolyErr(v + "각은 생성이 불가합니다"); setSides(raw); } else { setPolyErr(""); setSides(v); } }, className: "w-20 text-center text-2xl bg-white/10 border border-white/20 rounded-lg py-1 text-white outline-none" }),
+                o.jsx("button", { onClick: () => polyStep(1), className: "w-9 h-9 rounded-lg bg-white/10 text-white text-lg cursor-pointer border border-white/15", children: "▲" })
+            ] }),
+            o.jsx("span", { className: "text-white/40 text-[11px]", children: "※ " + POLY_BAD.join("·") + "각은 만들 수 없어 화살표에서 건너뜁니다" }),
+            polyErr && o.jsx("span", { className: "text-amber-300 text-xs", children: polyErr }),
+            o.jsxs("div", { className: "flex gap-2 w-full", children: [
+                o.jsx("button", { onClick: () => setPolyModal(false), className: "flex-1 py-2 rounded-lg bg-white/10 border border-white/20 text-white/80 cursor-pointer", children: "취소" }),
+                o.jsx("button", { onClick: () => { if (polyOK(Number(sides))) { setPolyModal(false); setPolyErr(""); } else setPolyErr("생성 가능한 각 수를 입력하세요"); }, className: "flex-1 py-2 rounded-lg bg-blue-500/40 border border-blue-400/60 text-white cursor-pointer", children: "확인 (드래그로 그리기)" })
+            ] })
+        ] }) }),
         showCfg && o.jsx("div", { className: "absolute inset-0 flex items-center justify-center", style: { backgroundColor: "rgba(0,0,0,0.55)", zIndex: 72 }, onMouseDown: e => { e.stopPropagation(); if (e.target === e.currentTarget) setShowCfg(false); }, children: o.jsxs("div", { className: "bg-gray-900 border border-white/20 rounded-2xl p-4 w-[440px] max-w-[92vw] flex flex-col gap-3", children: [
             o.jsxs("div", { className: "flex items-center justify-between", children: [o.jsx("span", { className: "text-white font-bold", children: "⚙ 이미지 편집 단축키" }), o.jsx("button", { onClick: () => setShowCfg(false), className: "text-white/50 hover:text-white bg-transparent border-none cursor-pointer text-lg", children: "✕" })] }),
             o.jsxs("div", { className: "bg-white/5 rounded-lg p-2.5", children: [o.jsx("div", { className: "text-white/75 text-sm mb-1.5", children: "펜·도형 그룹 단축키 방식" }), o.jsx("div", { className: "grid grid-cols-2 gap-2", children: [["cycle", "순환 (다시 누르면 다음)"], ["menu", "메뉴 (누르면 목록 표시)"]].map(m => o.jsx("button", { onClick: () => setImgKey("grpMode", m[0]), className: "py-1.5 rounded-lg text-xs border cursor-pointer " + (((imgKeys.grpMode) || "cycle") === m[0] ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: m[1] }, m[0])) }), o.jsx("p", { className: "text-white/35 text-[10px] mt-1", children: "예: 순환이면 p=마지막 펜 → 또 p=다음 펜. 메뉴면 p=연필/볼펜/… 목록." })] }),
@@ -1838,7 +1867,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.39";
+const DDB_VERSION = "0.98.40";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3387,7 +3416,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v276"
+                children: "v277"
             }), (() => {
                 const S = [{
                     k: "cal",
