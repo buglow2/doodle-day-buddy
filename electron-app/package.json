@@ -1,7 +1,7 @@
 {
   "name": "momentplan",
   "productName": "MomentPlan",
-  "version": "0.98.46",
+  "version": "0.98.47",
   "private": true,
   "main": "main.js",
   "scripts": { "start": "electron .", "dist": "electron-builder --win" },
@@ -11,7 +11,7 @@
     "productName": "MomentPlan",
     "files": ["main.js", "preload.js", "dist/**", "icon.png", "icon.ico"],
     "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "signAndEditExecutable": true, "icon": "build/mp-icon.ico" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "shortcutName": "MomentPlan", "license": "license.txt", "installerIcon": "build/mp-icon.ico", "uninstallerIcon": "build/mp-icon.ico", "artifactName": "MomentPlan-Setup-${version}-${arch}.${ext}" },
+    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "deleteAppDataOnUninstall": false, "createDesktopShortcut": true, "shortcutName": "MomentPlan", "license": "license.txt", "installerIcon": "build/mp-icon.ico", "uninstallerIcon": "build/mp-icon.ico", "artifactName": "MomentPlan-Setup-${version}-${arch}.${ext}" },
     "mac": { "target": [{ "target": "dmg", "arch": ["universal"] }], "category": "public.app-category.productivity", "identity": null, "icon": "build/source-icon.png" },
     "dmg": { "title": "MomentPlan" },
     "extraResources": [
