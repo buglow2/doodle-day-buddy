@@ -40,6 +40,39 @@ jobs:
             · Windows 10 / 11 : MomentPlan-Setup_win10-11-버전.exe
             · Mac : MomentPlan-Setup_mac-버전.dmg
 
+  # ── 0.5) 업데이트 알림용: Supabase app_meta 버전 자동 갱신 ─────
+  #  · 릴리스가 만들어지면 앱 안 "새 버전" 알림이 이 값을 보고 뜹니다.
+  #  · 저장소가 private여도 GitHub API 없이 알림이 뜨게 해줍니다.
+  #  · 필요 시크릿(저장소 → Settings → Secrets and variables → Actions):
+  #      SUPABASE_URL          예) https://xxxx.supabase.co
+  #      SUPABASE_SERVICE_KEY  Supabase → Settings → API → service_role 키
+  #    (service_role 키는 GitHub 비밀값에만 두고, 앱(클라이언트)엔 절대 넣지 않습니다)
+  bumpmeta:
+    needs: mkrelease
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supabase app_meta.latest_version 갱신
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TAG: ${{ needs.mkrelease.outputs.tag }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "::warning::SUPABASE_URL / SUPABASE_SERVICE_KEY 시크릿이 없어 건너뜁니다. (설정하면 자동 갱신됩니다)"
+            exit 0
+          fi
+          VER="${TAG#v}"
+          echo "app_meta.latest_version -> $VER"
+          code=$(curl -sS -o /tmp/resp.txt -w "%{http_code}" -X POST "$SUPABASE_URL/rest/v1/app_meta" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates,return=representation" \
+            -d "[{\"id\":1,\"latest_version\":\"$VER\"}]")
+          echo "HTTP $code"; cat /tmp/resp.txt
+          if [ "$code" -ge 300 ]; then echo "::error::app_meta 갱신 실패 (HTTP $code)"; exit 1; fi
+          echo "✅ 업데이트 알림 버전이 $VER 로 갱신되었습니다."
+
   # ── 1) Mac 설치본 (.dmg) ─────────────────────────────
   mac:
     needs: mkrelease
