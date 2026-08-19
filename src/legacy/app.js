@@ -1887,6 +1887,10 @@ function Gk(e, t) {
             return {
                 ...e, dodos: (e.dodos ?? []).filter(r => r.id !== t.id)
             };
+        case "UPDATE_DODO":
+            return {
+                ...e, dodos: (e.dodos ?? []).map(r => r.id === t.id ? { ...r, ...t.patch } : r)
+            };
         case "MOVE_EVENT_NEAR": {
             const r = e.events.find(s => s.id === t.id);
             if (!r) return e;
@@ -1961,7 +1965,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.45";
+const DDB_VERSION = "0.98.46";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3414,6 +3418,7 @@ function um({
         v = a.panels.some(k => k.type === "player"),
         g = a.settings.showCalGrid ?? !0;
     const [Mo, Bo] = O.useState(!1),
+        [navRect, setNavRect] = O.useState(null),
         [Eo, So] = O.useState(!1),
         [dmenu, setDmenu] = O.useState(null),
         [dpos, setDpos] = O.useState({ left: 0, top: 0 }),
@@ -3510,7 +3515,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v282"
+                children: "v283"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -3599,10 +3604,11 @@ function um({
                         })
                     };
                 return o.jsxs(o.Fragment, {
-                    children: [Mo && o.jsx("div", {
+                    children: [Mo && Rr.createPortal(o.jsxs(o.Fragment, {
+                        children: [o.jsx("div", { style: { position: "fixed", inset: 0, zIndex: 2147483599 }, onClick: () => Bo(!1) }), o.jsx("div", {
                         "data-ddbnav": "1",
-                        className: "flex items-center gap-1 flex-wrap w-full mt-1 pt-1.5 border-t border-white/10",
-                        style: { flexBasis: "100%", order: 99 },
+                        className: "flex items-center gap-1 flex-wrap",
+                        style: { position: "fixed", top: (navRect ? navRect.top : 46), right: (navRect ? navRect.right : 8), zIndex: 2147483600, background: "rgba(10,12,20,0.98)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: 8, boxShadow: "0 12px 34px rgba(0,0,0,0.65)", maxWidth: "94vw" },
                         children: J.map((Q, ee) => Q.menu ? o.jsxs("div", {
                             className: "relative",
                             draggable: Eo,
@@ -3646,12 +3652,13 @@ function um({
                             className: m + (Q.on ? " bg-white/20 text-white" : "") + (Q.danger ? " text-red-300 hover:bg-red-400/20" : "") + (Eo ? " ring-1 ring-amber-400/80 cursor-move" : ""),
                             children: [Q.icon, Q.label]
                         }, Q.k))
-                    }), Eo && o.jsx("span", {
+                    })] }), document.body), Eo && o.jsx("span", {
                         className: "text-amber-300 text-[10px] px-1 whitespace-nowrap",
                         children: DDBTR("순서 변경 중 — 빈 곳 클릭하면 종료")
                     }), o.jsxs("button", {
                         "data-ddbnav": "1",
-                        onClick: () => {
+                        onClick: (ev) => {
+                            try { const r = ev.currentTarget.getBoundingClientRect(); setNavRect({ top: Math.round(r.bottom + 4), right: Math.round(Math.max(4, window.innerWidth - r.right)) }); } catch (e) {}
                             Bo(Q => !Q), So(!1)
                         },
                         className: m + (Mo ? " bg-white/20 text-white" : ""),
@@ -5991,19 +5998,18 @@ function DDBClock() {
     const { state } = vt();
     const cl = (state.settings && state.settings.clock) || {};
     const [now, setNow] = O.useState(Date.now());
-    const [pick, setPick] = O.useState(false);
+    const [pick, setPick] = O.useState(null);
     const [extras, setExtras] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_worldclock") || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } });
     O.useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
     if (!cl.on) return null;
     const cc0 = cl.country || "kr";
     const saveEx = a => { setExtras(a); try { localStorage.setItem("ddb_worldclock", JSON.stringify(a)); } catch {} };
     const fmt = cc => { const tz = DDB_TZ[cc] || "Asia/Seoul", co = DDB_COUNTRIES[cc] || DDB_COUNTRIES.kr; let tstr = "", dstr = ""; try { const d = new Date(now); tstr = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(d); dstr = new Intl.DateTimeFormat(DDB_LANG === "en" ? "en-US" : "ko-KR", { timeZone: tz, month: "short", day: "numeric", weekday: "short" }).format(d); } catch (e) {} return { flag: String(co.n || "").split(" ")[0] || "🕐", tstr, dstr, co, tz }; };
-    const chip = (cc, primary) => { const f = fmt(cc); return o.jsxs("div", { onClick: primary ? (() => setPick(v => !v)) : void 0, className: "flex items-center gap-1.5 px-2 py-0.5 rounded-lg flex-shrink-0 whitespace-nowrap" + (primary ? " cursor-pointer" : ""), style: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }, title: f.co.n + " · " + f.tz + (primary ? " · 클릭해서 세계시간 추가" : ""), children: [o.jsx("span", { style: { fontSize: 13 }, children: f.flag }), o.jsx("span", { className: "font-mono", style: { color: "#e5e7eb", fontSize: 13, fontWeight: 600, letterSpacing: 0.3 }, children: f.tstr }), o.jsx("span", { style: { color: "rgba(255,255,255,0.45)", fontSize: 10 }, children: f.dstr }), !primary && o.jsx("span", { onClick: e => { e.stopPropagation(); saveEx(extras.filter(x => x !== cc)); }, className: "cursor-pointer", style: { color: "rgba(255,255,255,0.4)", fontSize: 11, marginLeft: 2 }, children: "✕" })] }, cc + (primary ? "-p" : "-e")); };
+    const chip = (cc, primary) => { const f = fmt(cc); return o.jsxs("div", { onClick: primary ? (e => { const r = e.currentTarget.getBoundingClientRect(); setPick(p => p ? null : { top: Math.round(r.bottom + 4), right: Math.round(Math.max(4, window.innerWidth - r.right)) }); }) : void 0, className: "flex items-center gap-1.5 px-2 py-0.5 rounded-lg flex-shrink-0 whitespace-nowrap" + (primary ? " cursor-pointer" : ""), style: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }, title: f.co.n + " · " + f.tz + (primary ? " · 클릭해서 세계시간 추가" : ""), children: [o.jsx("span", { style: { fontSize: 13 }, children: f.flag }), o.jsx("span", { className: "font-mono", style: { color: "#e5e7eb", fontSize: 13, fontWeight: 600, letterSpacing: 0.3 }, children: f.tstr }), o.jsx("span", { style: { color: "rgba(255,255,255,0.45)", fontSize: 10 }, children: f.dstr }), !primary && o.jsx("span", { onClick: e => { e.stopPropagation(); saveEx(extras.filter(x => x !== cc)); }, className: "cursor-pointer", style: { color: "rgba(255,255,255,0.4)", fontSize: 11, marginLeft: 2 }, children: "✕" })] }, cc + (primary ? "-p" : "-e")); };
     return o.jsxs("div", { className: "flex items-center gap-1 flex-shrink-0", style: { position: "relative" }, children: [
         chip(cc0, true),
         ...extras.filter(cc => cc !== cc0).map(cc => chip(cc, false)),
-        pick && o.jsx("div", { className: "fixed inset-0", style: { zIndex: 2147483000 }, onClick: () => setPick(false) }),
-        pick && o.jsx("div", { style: { position: "absolute", top: "100%", right: 0, marginTop: 4, zIndex: 2147483001, background: "#111827", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 10, padding: 6, maxHeight: 340, overflowY: "auto", width: 200, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }, children: o.jsxs("div", { children: [o.jsx("div", { style: { color: "rgba(255,255,255,0.5)", fontSize: 10, padding: "2px 6px 4px" }, children: "🌍 세계시간 추가 (연락용)" }), ...Object.keys(DDB_COUNTRIES).map(cc => { const co = DDB_COUNTRIES[cc]; const on = extras.includes(cc); return o.jsxs("button", { onClick: () => { if (cc === cc0) { setPick(false); return; } saveEx(on ? extras.filter(x => x !== cc) : [...extras, cc]); }, className: "flex items-center gap-2 w-full text-left px-2 py-1.5 rounded hover:bg-white/10 border-none bg-transparent cursor-pointer", style: { color: on ? "#93c5fd" : "rgba(255,255,255,0.85)" }, children: [o.jsx("span", { style: { fontSize: 13 }, children: String(co.n || "").split(" ")[0] }), o.jsx("span", { style: { fontSize: 12 }, children: String(co.n || "").split(" ").slice(1).join(" ") || cc }), o.jsx("span", { style: { marginLeft: "auto", fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "monospace" }, children: fmt(cc).tstr }), on && o.jsx("span", { style: { fontSize: 10, color: "#93c5fd" }, children: "✓" })] }, cc); })] }) })
+        pick && Rr.createPortal(o.jsxs(o.Fragment, { children: [o.jsx("div", { style: { position: "fixed", inset: 0, zIndex: 2147483599 }, onClick: () => setPick(null) }), o.jsx("div", { style: { position: "fixed", top: pick.top, right: pick.right, zIndex: 2147483600, background: "#111827", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 10, padding: 6, maxHeight: 340, overflowY: "auto", width: 200, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }, children: o.jsxs("div", { children: [o.jsx("div", { style: { color: "rgba(255,255,255,0.5)", fontSize: 10, padding: "2px 6px 4px" }, children: "🌍 세계시간 추가 (연락용)" }), ...Object.keys(DDB_COUNTRIES).map(cc => { const co = DDB_COUNTRIES[cc]; const on = extras.includes(cc); return o.jsxs("button", { onClick: () => { if (cc === cc0) { setPick(null); return; } saveEx(on ? extras.filter(x => x !== cc) : [...extras, cc]); }, className: "flex items-center gap-2 w-full text-left px-2 py-1.5 rounded hover:bg-white/10 border-none bg-transparent cursor-pointer", style: { color: on ? "#93c5fd" : "rgba(255,255,255,0.85)" }, children: [o.jsx("span", { style: { fontSize: 13 }, children: String(co.n || "").split(" ")[0] }), o.jsx("span", { style: { fontSize: 12 }, children: String(co.n || "").split(" ").slice(1).join(" ") || cc }), o.jsx("span", { style: { marginLeft: "auto", fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "monospace" }, children: fmt(cc).tstr }), on && o.jsx("span", { style: { fontSize: 10, color: "#93c5fd" }, children: "✓" })] }, cc); })] }) })] }), document.body)
     ] });
 }
 
@@ -6104,6 +6110,9 @@ function fd({
     }), [te, he] = O.useState(null), [ne, ue] = O.useState(null), de = O.useRef(), [N, V] = O.useState(null), ae = O.useRef(null), ve = O.useRef(!1), Te = O.useRef(null), xe = O.useRef(null), Me = O.useRef(), Fe = O.useRef(), [me, oe] = O.useState(!1), [fe, Ne] = O.useState(null), [We, Je] = O.useState(null), [Gt, nr] = O.useState(null), nt = O.useRef(), mr = t.feedbackMemos ?? [], Le = t.settings.feedbackThresholds ?? iu, et = mr.filter(S => !S.isDismissed).slice(0, 3), [Kt, tt] = O.useState(null), [Wo, Do_] = O.useState(!1), [Ki, Ko] = O.useState(null), [Xi, Xo] = O.useState(null), [Pv, Pw_] = O.useState(!1), [Ceo, CeoS] = O.useState(!1), It = mr.find(S => S.id === Kt) ?? null;
     const [teamOn, setTeamOn] = O.useState(!1);
     const [doGeo, setDoGeo] = O.useState(() => ({ x: (typeof window !== "undefined" ? window.innerWidth : 1200) - 300, y: 88, w: 280, h: 340 }));
+    const [doColor, setDoColor] = O.useState(() => { try { const _lc = ddbLastEvColor(); return _lc.cc || qt[_lc.c] || "#42a5f5"; } catch { return "#42a5f5"; } });
+    const [doCe, setDoCe] = O.useState(null);
+    const DODO_PAL = ["#ef4444", "#f59e0b", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#64748b"];
     const doDrag = R => { if (R.target.closest && (R.target.closest("button") || R.target.closest("input"))) return; R.preventDefault(); const sx = R.clientX, sy = R.clientY, ox = doGeo.x, oy = doGeo.y; const mm = ev => setDoGeo(g => ({ ...g, x: ox + (ev.clientX - sx), y: Math.max(0, oy + (ev.clientY - sy)) })); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu) }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu) };
     const doResize = R => { R.preventDefault(); R.stopPropagation(); const sx = R.clientX, sy = R.clientY, ow = doGeo.w, oh = doGeo.h; const mm = ev => setDoGeo(g => ({ ...g, w: Math.max(220, ow + (ev.clientX - sx)), h: Math.max(160, oh + (ev.clientY - sy)) })); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu) }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu) };
     const [, _holTick] = O.useReducer(z0 => z0 + 1, 0);
@@ -6703,20 +6712,21 @@ function fd({
                         size: 12
                     })
                 })]
-            }), o.jsx("input", {
+            }), o.jsxs("div", { className: "flex items-center gap-1.5 relative", children: [o.jsx("button", { onClick: () => setDoCe(doCe === "__add" ? null : "__add"), title: "색상 선택", className: "w-4 h-4 rounded-sm border border-white/40 flex-shrink-0", style: { background: doColor } }), doCe === "__add" && o.jsxs("div", { className: "absolute top-full left-0 mt-1 p-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1 flex-wrap shadow-2xl", style: { zIndex: 2147483300, minWidth: 140 }, children: [...DODO_PAL.map(col => o.jsx("button", { onClick: () => { setDoColor(col); setDoCe(null); }, className: "w-5 h-5 rounded-full border-2 " + (doColor === col ? "border-white" : "border-transparent"), style: { background: col } }, col)), o.jsx("input", { type: "color", value: doColor, onChange: e => setDoColor(e.target.value), className: "w-5 h-5 cursor-pointer bg-transparent border-0", title: "직접 선택" })] }), o.jsx("input", {
                 placeholder: DDBTR("할 일 입력 후 Enter"),
-                className: "w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-xs text-white placeholder-white/30 focus:outline-none focus:border-yellow-400",
+                className: "flex-1 min-w-0 bg-white/10 border border-white/20 rounded px-2 py-1 text-xs text-white placeholder-white/30 focus:outline-none focus:border-yellow-400",
                 onKeyDown: S => {
                     S.key === "Enter" && S.currentTarget.value.trim() && (n({
                         type: "ADD_DODO",
                         item: {
                             id: `dodo-${Ft()}`,
                             text: S.currentTarget.value.trim(),
-                            checked: !1
+                            checked: !1,
+                            color: doColor
                         }
                     }), S.currentTarget.value = "")
                 }
-            }), o.jsx("div", {
+            })] }), o.jsx("div", {
                 className: "flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto",
                 style: {
                     scrollbarWidth: "thin"
@@ -6740,7 +6750,7 @@ function fd({
                     children: [o.jsx("span", {
                         className: "flex-shrink-0",
                         children: S.checked ? "☑" : "☐"
-                    }), o.jsx("span", {
+                    }), o.jsxs("div", { className: "relative flex-shrink-0", onClick: e => e.stopPropagation(), children: [o.jsx("button", { onClick: () => setDoCe(doCe === S.id ? null : S.id), title: "색상 변경", className: "w-3 h-3 rounded-sm border border-white/40 block", style: { background: S.color || "#888" } }), doCe === S.id && o.jsxs("div", { className: "absolute top-full left-0 mt-1 p-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1 flex-wrap shadow-2xl", style: { zIndex: 2147483300, minWidth: 140 }, children: [...DODO_PAL.map(col => o.jsx("button", { onClick: () => { n({ type: "UPDATE_DODO", id: S.id, patch: { color: col } }); setDoCe(null); }, className: "w-5 h-5 rounded-full border-2 " + (S.color === col ? "border-white" : "border-transparent"), style: { background: col } }, col)), o.jsx("input", { type: "color", value: S.color || "#888888", onChange: e => n({ type: "UPDATE_DODO", id: S.id, patch: { color: e.target.value } }), className: "w-5 h-5 cursor-pointer bg-transparent border-0" })] })] }), o.jsx("span", {
                         className: "flex-1 min-w-0 truncate",
                         children: S.text
                     }), o.jsx("button", {
