@@ -431,6 +431,8 @@ function DDBImageEditor() {
     function rotate(dir) { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (a) { a.rotate((((a.angle || 0) + dir * 90) % 360 + 360) % 360); a.setCoords(); c.renderAll(); pushHist(); return; } const u = flattenUrl(); if (!u) return; const im = new Image(); im.onload = () => { const cc = document.createElement("canvas"); cc.width = im.height; cc.height = im.width; const g = cc.getContext("2d"); g.translate(cc.width / 2, cc.height / 2); g.rotate(dir * Math.PI / 2); g.drawImage(im, -im.width / 2, -im.height / 2); loadUrl(cc.toDataURL("image/png")); }; im.src = u; }
     function flip(axis) { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (a) { if (axis === "h") a.set("flipX", !a.flipX); else a.set("flipY", !a.flipY); a.setCoords(); c.renderAll(); pushHist(); return; } const u = flattenUrl(); if (!u) return; const im = new Image(); im.onload = () => { const cc = document.createElement("canvas"); cc.width = im.width; cc.height = im.height; const g = cc.getContext("2d"); if (axis === "h") { g.translate(im.width, 0); g.scale(-1, 1); } else { g.translate(0, im.height); g.scale(1, -1); } g.drawImage(im, 0, 0); loadUrl(cc.toDataURL("image/png")); }; im.src = u; }
     function applyCanvasSize(w, h) { const c = fcRef.current; if (!c) return; w = Math.max(50, Math.min(6000, Math.round(w))); h = Math.max(50, Math.min(6000, Math.round(h))); const f = fitTo(w, h); fitRef.current = f; setZoom(f); natRef.current = { w, h }; c.setZoom(f); c.setWidth(Math.round(w * f)); c.setHeight(Math.round(h * f)); c.renderAll(); pushHist(); }
+    function alignObjs(mode) { const c = fcRef.current; if (!c) return; const objs = c.getActiveObjects(); if (objs.length < 1) { flash("정렬할 개체를 선택하세요 (여러 개는 Shift·드래그로)"); return; } c.discardActiveObject(); const R2 = objs.map(o2 => ({ o: o2, b: o2.getBoundingRect(true, true) })); const minL = Math.min(...R2.map(r => r.b.left)), maxR = Math.max(...R2.map(r => r.b.left + r.b.width)), minT = Math.min(...R2.map(r => r.b.top)), maxB = Math.max(...R2.map(r => r.b.top + r.b.height)), cx = (minL + maxR) / 2, cy = (minT + maxB) / 2; R2.forEach(r => { let dx = 0, dy = 0; if (mode === "left") dx = minL - r.b.left; else if (mode === "right") dx = maxR - (r.b.left + r.b.width); else if (mode === "centerH") dx = cx - (r.b.left + r.b.width / 2); else if (mode === "top") dy = minT - r.b.top; else if (mode === "bottom") dy = maxB - (r.b.top + r.b.height); else if (mode === "middleV") dy = cy - (r.b.top + r.b.height / 2); r.o.set({ left: (r.o.left || 0) + dx, top: (r.o.top || 0) + dy }); r.o.setCoords(); }); c.renderAll(); pushHist(); }
+    function distribute(axis) { const c = fcRef.current; if (!c) return; const objs = c.getActiveObjects(); if (objs.length < 3) { flash("균등 배치는 3개 이상 선택하세요"); return; } c.discardActiveObject(); const R2 = objs.map(o2 => ({ o: o2, b: o2.getBoundingRect(true, true) })); const key = axis === "h" ? "left" : "top", dim = axis === "h" ? "width" : "height", pk = axis === "h" ? "left" : "top"; R2.sort((a, b) => (a.b[key] + a.b[dim] / 2) - (b.b[key] + b.b[dim] / 2)); const c1 = R2[0].b[key] + R2[0].b[dim] / 2, c2 = R2[R2.length - 1].b[key] + R2[R2.length - 1].b[dim] / 2, step = (c2 - c1) / (R2.length - 1); R2.forEach((r, i) => { const target = c1 + step * i, cur = r.b[key] + r.b[dim] / 2; r.o.set({ [pk]: (r.o[pk] || 0) + (target - cur) }); r.o.setCoords(); }); c.renderAll(); pushHist(); }
     function applyCrop() { const c = fcRef.current; const r = cropRef.current; if (!c || !r) return; const left = r.left, top = r.top, w = r.getScaledWidth(), h = r.getScaledHeight(); if (w < 4 || h < 4) return; c.remove(r); cropRef.current = null; setCropReady(false); const u = flattenUrl(); if (!u) return; const im = new Image(); im.onload = () => { const sx = Math.max(0, Math.round(left)), sy = Math.max(0, Math.round(top)), sw = Math.min(im.width - sx, Math.round(w)), sh = Math.min(im.height - sy, Math.round(h)); if (sw < 2 || sh < 2) return; const cc = document.createElement("canvas"); cc.width = sw; cc.height = sh; cc.getContext("2d").drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh); loadUrl(cc.toDataURL("image/png")); }; im.src = u; }
     function cancelCrop() { const c = fcRef.current, r = cropRef.current; if (c && r) { c.remove(r); c.renderAll(); } cropRef.current = null; setCropReady(false); }
     const imgKeys = (St.settings && St.settings.imgKeys) || {};
@@ -570,7 +572,15 @@ function DDBImageEditor() {
         redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 000 10h3"/>',
         ocr: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/>',
         copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>',
-        save: '<path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M8 3v5h7"/>'
+        save: '<path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M8 3v5h7"/>',
+        alL: '<path d="M3 3v18"/><rect x="6" y="6" width="11" height="3.5"/><rect x="6" y="14" width="15" height="3.5"/>',
+        alC: '<path d="M12 3v18"/><rect x="6.5" y="6" width="11" height="3.5"/><rect x="4.5" y="14" width="15" height="3.5"/>',
+        alR: '<path d="M21 3v18"/><rect x="7" y="6" width="11" height="3.5"/><rect x="3" y="14" width="15" height="3.5"/>',
+        alT: '<path d="M3 3h18"/><rect x="6" y="6" width="3.5" height="11"/><rect x="14" y="6" width="3.5" height="15"/>',
+        alM: '<path d="M3 12h18"/><rect x="6" y="6.5" width="3.5" height="11"/><rect x="14" y="4.5" width="3.5" height="15"/>',
+        alB: '<path d="M3 21h18"/><rect x="6" y="7" width="3.5" height="11"/><rect x="14" y="3" width="3.5" height="15"/>',
+        distH: '<path d="M3 3v18"/><path d="M21 3v18"/><rect x="10" y="8" width="4" height="8"/>',
+        distV: '<path d="M3 3h18"/><path d="M3 21h18"/><rect x="8" y="10" width="8" height="4"/>'
     };
     const penTile = PENV.find(x => x[0] === tool), shapeTile = SHAPES.find(x => x[0] === tool);
     const TILES = [
@@ -582,13 +592,14 @@ function DDBImageEditor() {
         { id: "blank", nm: "새캔버스", k: "act", run: newBlank }, { id: "imgbg", nm: "이미지열기", k: "act", run: () => openFilePick("bg") }, { id: "imgobj", nm: "이미지삽입", k: "act", run: () => openFilePick("obj") }, { id: "imgset", nm: "이미지설정", k: "act", run: () => { setIset({ w: Math.round(natRef.current.w || 800), h: Math.round(natRef.current.h || 600) }); setShowImgSet(true); } },
         { id: "rotL", nm: "왼쪽회전", k: "act", run: () => rotate(-1), img: 1 }, { id: "rotR", nm: "오른쪽회전", k: "act", run: () => rotate(1), img: 1 }, { id: "flipH", nm: "좌우반전", k: "act", run: () => flip("h"), img: 1 }, { id: "flipV", nm: "상하반전", k: "act", run: () => flip("v"), img: 1 },
         { id: "front", nm: "맨앞", k: "act", run: () => zOp("front"), sel: 1 }, { id: "fwd", nm: "앞으로", k: "act", run: () => zOp("fwd"), sel: 1 }, { id: "back", nm: "맨뒤", k: "act", run: () => zOp("back"), sel: 1 }, { id: "bwd", nm: "뒤로", k: "act", run: () => zOp("bwd"), sel: 1 },
+        { id: "alL", nm: "왼쪽정렬", k: "act", run: () => alignObjs("left"), sel: 1 }, { id: "alC", nm: "가로중앙", k: "act", run: () => alignObjs("centerH"), sel: 1 }, { id: "alR", nm: "오른쪽정렬", k: "act", run: () => alignObjs("right"), sel: 1 }, { id: "alT", nm: "위정렬", k: "act", run: () => alignObjs("top"), sel: 1 }, { id: "alM", nm: "세로중앙", k: "act", run: () => alignObjs("middleV"), sel: 1 }, { id: "alB", nm: "아래정렬", k: "act", run: () => alignObjs("bottom"), sel: 1 }, { id: "distH", nm: "가로균등", k: "act", run: () => distribute("h"), sel: 1 }, { id: "distV", nm: "세로균등", k: "act", run: () => distribute("v"), sel: 1 },
         { id: "undo", nm: "되돌리기", k: "act", run: undo }, { id: "redo", nm: "다시", k: "act", run: redo }, { id: "ocr", nm: "글자추출", k: "act", run: runOcr, img: 1 }, { id: "copy", nm: "복사", k: "act", run: doCopy, img: 1 }, { id: "save", nm: "저장", k: "act", run: doSave, img: 1 }
     ];
     const tileMap = {}; TILES.forEach(t => tileMap[t.id] = t);
     const GROUPS = [
         { key: "sketch", label: "스케치", color: "#60a5fa", ids: ["select", "pen", "line", "arrow", "shape", "text", "crop"] },
         { key: "image", label: "이미지", color: "#34d399", ids: ["blank", "imgbg", "imgobj", "imgset", "rotL", "rotR", "flipH", "flipV"] },
-        { key: "order", label: "정렬", color: "#fbbf24", ids: ["front", "fwd", "back", "bwd"] },
+        { key: "order", label: "정렬·배치", color: "#fbbf24", ids: ["front", "fwd", "back", "bwd", "alL", "alC", "alR", "alT", "alM", "alB", "distH", "distV"] },
         { key: "tool", label: "도구", color: "#c084fc", ids: ["undo", "redo", "ocr", "copy", "save"] }
     ];
     const gmap = {}; GROUPS.forEach(g => gmap[g.key] = g);
@@ -604,7 +615,8 @@ function DDBImageEditor() {
     const grpActive = t => (t.grp === "pen" && penActive) || (t.grp === "shape" && shapeActive) || (t.grp === "line" && tool === "line");
     const tipEnter = (t, e) => { if (!small) return; const r = e.currentTarget.getBoundingClientRect(); clearTimeout(tipT.current); tipT.current = setTimeout(() => { setTip({ text: t.nm, x: r.left + r.width / 2, y: r.bottom + 6 }); setTimeout(() => setTipVis(true), 16); }, 500); };
     const tipLeave = () => { clearTimeout(tipT.current); setTipVis(false); setTimeout(() => setTip(null), 250); };
-    const tile = (t, gk) => o.jsxs("button", { key: t.id, ref: t.grp ? (el => { if (el) grpBtnRef.current[t.grp] = el; }) : void 0, draggable: !!gk, onDragStart: gk ? (() => { dragTi.current = { grp: gk, id: t.id }; }) : void 0, onDragOver: gk ? (e => e.preventDefault()) : void 0, onDrop: gk ? (() => reorderTile(gk, t.id)) : void 0, onMouseEnter: e => tipEnter(t, e), onMouseLeave: tipLeave, onClick: e => { tipLeave(); if (t.k === "grp") openGrpMenu(t.grp, e); else { setGrpMenu(null); if (t.k === "tool") { setTool(t.id); setMenu(null); } else t.run(); } }, disabled: t.sel ? !hasSel : t.img ? !hasImg : false, title: small ? "" : t.nm, className: "flex flex-col items-center justify-center rounded-lg border cursor-pointer select-none disabled:opacity-35 " + (((t.k === "tool" && tool === t.id) || grpActive(t)) ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/12 text-white/90 hover:bg-white/15"), style: { width: cellW, height: cellH, padding: small ? 0 : void 0 }, children: [o.jsxs("span", { style: { display: "flex", alignItems: "center", lineHeight: 1 }, children: [o.jsx("svg", { viewBox: "0 0 24 24", width: svgSz, height: svgSz, fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", dangerouslySetInnerHTML: { __html: ICONS[t.id] || ICONS.shape } }), (t.grp && !small) ? o.jsx("span", { style: { fontSize: 9, marginLeft: 1 }, children: "▾" }) : null] }), showName && o.jsx("span", { style: { fontSize: small ? 8 : 9.5, marginTop: 2, whiteSpace: "nowrap", opacity: 0.85 }, children: t.nm })] });
+    const ICOLORS = { select: "#e2e8f0", pen: "#fbbf24", line: "#38bdf8", arrow: "#38bdf8", shape: "#a78bfa", text: "#f472b6", crop: "#34d399", blank: "#94a3b8", imgbg: "#22d3ee", imgobj: "#22d3ee", imgset: "#cbd5e1", rotL: "#fb923c", rotR: "#fb923c", flipH: "#a3e635", flipV: "#a3e635", front: "#f87171", fwd: "#fca5a5", back: "#60a5fa", bwd: "#93c5fd", undo: "#e2e8f0", redo: "#e2e8f0", ocr: "#2dd4bf", copy: "#93c5fd", save: "#4ade80", alL: "#f472b6", alC: "#f472b6", alR: "#f472b6", alT: "#c084fc", alM: "#c084fc", alB: "#c084fc", distH: "#f59e0b", distV: "#f59e0b" };
+    const tile = (t, gk) => { const act = (t.k === "tool" && tool === t.id) || grpActive(t); return o.jsxs("button", { key: t.id, ref: t.grp ? (el => { if (el) grpBtnRef.current[t.grp] = el; }) : void 0, draggable: !!gk, onDragStart: gk ? (() => { dragTi.current = { grp: gk, id: t.id }; }) : void 0, onDragOver: gk ? (e => e.preventDefault()) : void 0, onDrop: gk ? (() => reorderTile(gk, t.id)) : void 0, onMouseEnter: e => tipEnter(t, e), onMouseLeave: tipLeave, onClick: e => { tipLeave(); if (t.k === "grp") openGrpMenu(t.grp, e); else { setGrpMenu(null); if (t.k === "tool") { setTool(t.id); setMenu(null); } else t.run(); } }, disabled: t.sel ? !hasSel : t.img ? !hasImg : false, title: small ? "" : t.nm, className: "flex flex-col items-center justify-center rounded-lg border cursor-pointer select-none disabled:opacity-35 " + (act ? "bg-blue-500/40 border-blue-400/70" : "bg-white/8 border-white/12 hover:bg-white/15"), style: { width: cellW, height: cellH, padding: small ? 0 : void 0, color: act ? "#fff" : (ICOLORS[t.id] || "#cbd5e1") }, children: [o.jsxs("span", { style: { display: "flex", alignItems: "center", lineHeight: 1 }, children: [o.jsx("svg", { viewBox: "0 0 24 24", width: svgSz, height: svgSz, fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", dangerouslySetInnerHTML: { __html: ICONS[t.id] || ICONS.shape } }), (t.grp && !small) ? o.jsx("span", { style: { fontSize: 9, marginLeft: 1 }, children: "▾" }) : null] }), showName && o.jsx("span", { style: { fontSize: small ? 8 : 9.5, marginTop: 2, whiteSpace: "nowrap", opacity: 0.85, color: "rgba(255,255,255,0.85)" }, children: t.nm })] }); };
     const grpList = g => (g === "pen" ? PENV : g === "line" ? DASHOPTS : SHAPES);
     const pickGroupKey = grp => { const list = grpList(grp).map(x => x[0]); const mode = (imgKeys.grpMode) || "cycle"; if (mode === "menu") { const el = grpBtnRef.current[grp]; const r = (el && el.getBoundingClientRect) ? el.getBoundingClientRect() : { left: 120, bottom: 150 }; setGrpMenu({ grp, x: r.left, y: r.bottom + 2 }); return; } if (grp === "line") { const cur = styRef.current.dash; const idx = list.indexOf(cur); const nx = list[(idx + 1) % list.length]; setDash(nx); setTool("line"); lastLineRef.current = nx; return; } const cur = toolRef.current; const idx = list.indexOf(cur); if (idx < 0) { const last = grp === "pen" ? lastPenRef.current : lastShapeRef.current; setTool(list.includes(last) ? last : list[0]); if (grp === "shape") { const l2 = grp === "shape" ? lastShapeRef.current : ""; if (l2 === "polygon" || l2 === "star") setPolyModal(true); } } else { const nx = list[(idx + 1) % list.length]; setTool(nx); if (grp === "shape" && (nx === "polygon" || nx === "star")) setPolyModal(true); } };
     const ao0 = fcRef.current && fcRef.current.getActiveObject();
@@ -1932,7 +1944,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.43";
+const DDB_VERSION = "0.98.44";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3481,7 +3493,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v280"
+                children: "v281"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -3572,8 +3584,8 @@ function um({
                 return o.jsxs(o.Fragment, {
                     children: [Mo && o.jsx("div", {
                         "data-ddbnav": "1",
-                        className: "flex items-center gap-1 flex-nowrap",
-                        style: { position: "absolute", right: 8, top: "calc(100% + 2px)", background: "rgba(10,12,20,0.97)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "6px 8px", zIndex: 60, maxWidth: "96vw", overflowX: "auto" },
+                        className: "flex items-center gap-1 flex-wrap w-full mt-1 pt-1.5 border-t border-white/10",
+                        style: { flexBasis: "100%", order: 99 },
                         children: J.map((Q, ee) => Q.menu ? o.jsxs("div", {
                             className: "relative",
                             draggable: Eo,
@@ -16044,7 +16056,7 @@ function g2({
 }) {
     return e.type === "calendar" ? o.jsx(fd, {
         onTodo: () => {}
-    }) : e.type === "dday" ? o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }, children: [o.jsx(DDBHolidayList, {}), o.jsx("div", { style: { flex: 1, minHeight: 0, overflow: "hidden" }, children: o.jsx(Rw, {}) })] }) : e.type === "calculator" ? o.jsx(TO, {}) : e.type === "fortune" ? o.jsx(zO, {}) : e.type === "player" ? o.jsx(GO, {}) : e.type === "todo" ? o.jsx(AT, {}) : e.type === "todo-view" ? o.jsx(jT, {}) : o.jsx(jw, {
+    }) : e.type === "dday" ? o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }, children: [false && o.jsx(DDBHolidayList, {}), o.jsx("div", { style: { flex: 1, minHeight: 0, overflow: "hidden" }, children: o.jsx(Rw, {}) })] }) : e.type === "calculator" ? o.jsx(TO, {}) : e.type === "fortune" ? o.jsx(zO, {}) : e.type === "player" ? o.jsx(GO, {}) : e.type === "todo" ? o.jsx(AT, {}) : e.type === "todo-view" ? o.jsx(jT, {}) : o.jsx(jw, {
         tabId: e.memoTabId
     })
 }
