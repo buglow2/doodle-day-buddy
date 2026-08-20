@@ -1053,46 +1053,69 @@ function DDBGantt() {
         ] })
     ] }), document.body) : null] });
 }
+const POMO_SOUNDS = [["none", "🔇 없음"], ["white", "⚪ 백색소음"], ["pink", "🌸 핑크노이즈"], ["brown", "🟤 브라운(저음)"], ["rain", "🌧 빗소리"], ["ocean", "🌊 파도소리"]];
 function DDBPomodoro() {
     const [open, setOpen] = O.useState(false);
-    const [work, setWork] = O.useState(() => { const v = +localStorage.getItem("ddb_pomo_work"); return v > 0 ? v : 25; });
-    const [brk, setBrk] = O.useState(() => { const v = +localStorage.getItem("ddb_pomo_break"); return v > 0 ? v : 5; });
-    const [mode, setMode] = O.useState("work");
-    const [sec, setSec] = O.useState(25 * 60);
+    const [steps, setSteps] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_pomo_steps") || "null"); if (Array.isArray(v) && v.length) return v; } catch {} return [{ id: "s1", h: 0, m: 25, s: 0, memo: "집중" }, { id: "s2", h: 0, m: 5, s: 0, memo: "휴식" }]; });
+    const [loop, setLoop] = O.useState(() => { try { return localStorage.getItem("ddb_pomo_loop") === "1"; } catch { return false; } });
+    const [sound, setSound] = O.useState(() => { try { return localStorage.getItem("ddb_pomo_sound") || "none"; } catch { return "none"; } });
+    const [cur, setCur] = O.useState(0);
+    const [remain, setRemain] = O.useState(0);
     const [run, setRun] = O.useState(false);
     const [done, setDone] = O.useState(() => { try { const d = JSON.parse(localStorage.getItem("ddb_pomo_done") || "{}"); const today = new Date().toISOString().slice(0, 10); return d.date === today ? (d.n || 0) : 0; } catch { return 0; } });
-    const [pos, setPos] = O.useState(() => { try { const p = JSON.parse(localStorage.getItem("ddb_pomo_pos") || "null"); if (p && typeof p.x === "number") return p; } catch {} return { x: Math.round(((typeof window !== "undefined" ? window.innerWidth : 900) || 900) / 2 - 130), y: 110 }; });
-    const modeRef = O.useRef(mode); modeRef.current = mode;
-    function beep() { try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; const ac = new AC(); let ti = 0; [880, 1320, 880].forEach((fr, i) => { const o1 = ac.createOscillator(), g = ac.createGain(); o1.connect(g); g.connect(ac.destination); o1.type = "sine"; o1.frequency.value = fr; const t0 = ac.currentTime + ti; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35); o1.start(t0); o1.stop(t0 + 0.37); ti += 0.4; }); setTimeout(() => { try { ac.close(); } catch {} }, 1600); } catch {} }
+    const [pos, setPos] = O.useState(() => { try { const p = JSON.parse(localStorage.getItem("ddb_pomo_pos") || "null"); if (p && typeof p.x === "number") return p; } catch {} return { x: Math.round(((typeof window !== "undefined" ? window.innerWidth : 900) || 900) / 2 - 160), y: 110 }; });
+    const [pSize, setPSize] = O.useState(() => { try { const s = JSON.parse(localStorage.getItem("ddb_pomo_size") || "null"); if (s && s.w > 0) return s; } catch {} return { w: 320, h: 420 }; });
+    const stepsRef = O.useRef(steps); stepsRef.current = steps;
+    const curRef = O.useRef(cur); curRef.current = cur;
+    const loopRef = O.useRef(loop); loopRef.current = loop;
+    const noiseRef = O.useRef(null);
+    const stepSec = st => st ? (Math.max(0, +st.h || 0) * 3600 + Math.max(0, +st.m || 0) * 60 + Math.max(0, +st.s || 0)) : 0;
+    const persist = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+    function beep() { try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; const ac = new AC(); let ti = 0;[880, 1320, 880].forEach(fr => { const o1 = ac.createOscillator(), g = ac.createGain(); o1.connect(g); g.connect(ac.destination); o1.type = "sine"; o1.frequency.value = fr; const t0 = ac.currentTime + ti; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35); o1.start(t0); o1.stop(t0 + 0.37); ti += 0.4; }); setTimeout(() => { try { ac.close(); } catch {} }, 1600); } catch {} }
+    function stopNoise() { const n = noiseRef.current; if (n) { try { n.src.stop(); } catch {} try { n.ac.close(); } catch {} noiseRef.current = null; } }
+    function startNoise(type) { stopNoise(); if (!type || type === "none") return; try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; const ac = new AC(); const N = 2 * ac.sampleRate; const buf = ac.createBuffer(1, N, ac.sampleRate); const d = buf.getChannelData(0); if (type === "pink") { let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0; for (let i = 0; i < N; i++) { const w = Math.random() * 2 - 1; b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.969 * b2 + w * 0.153852; b3 = 0.8665 * b3 + w * 0.3104856; b4 = 0.55 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.016898; d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11; b6 = w * 0.115926; } } else if (type === "brown") { let last = 0; for (let i = 0; i < N; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; } } else { for (let i = 0; i < N; i++) d[i] = Math.random() * 2 - 1; } const src = ac.createBufferSource(); src.buffer = buf; src.loop = true; const gain = ac.createGain(); gain.gain.value = 0.22; let node = src; if (type === "rain") { const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1400; bp.Q.value = 0.6; src.connect(bp); node = bp; } else if (type === "ocean") { const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 480; src.connect(lp); node = lp; const lfo = ac.createOscillator(); lfo.frequency.value = 0.14; const lg = ac.createGain(); lg.gain.value = 0.13; lfo.connect(lg); lg.connect(gain.gain); lfo.start(); } node.connect(gain); gain.connect(ac.destination); src.start(); noiseRef.current = { ac, src, gain }; } catch {} }
     O.useEffect(() => { const h = () => { setOpen(v => !v); try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch {} }; window.addEventListener("ddb-open-pomodoro", h); return () => window.removeEventListener("ddb-open-pomodoro", h); }, []);
-    O.useEffect(() => { const h = e => { const totalSec = Math.max(1, (e.detail && e.detail.sec) || (((e.detail && e.detail.min) || 25) * 60)); const mn = Math.max(1, Math.round(totalSec / 60)); setMode("work"); setWork(mn); setSec(totalSec); setRun(true); setOpen(true); try { localStorage.setItem("ddb_pomo_work", String(mn)); } catch {} try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch {} }; window.addEventListener("ddb-pomo-start", h); return () => window.removeEventListener("ddb-pomo-start", h); }, []);
-    O.useEffect(() => { if (!run) setSec((mode === "work" ? work : brk) * 60); }, [work, brk, mode]);
-    O.useEffect(() => { if (!run) return; const id = setInterval(() => setSec(s => s - 1), 1000); return () => clearInterval(id); }, [run]);
-    O.useEffect(() => { if (run && sec <= 0) { beep(); if (modeRef.current === "work") { const nd = done + 1; setDone(nd); try { localStorage.setItem("ddb_pomo_done", JSON.stringify({ date: new Date().toISOString().slice(0, 10), n: nd })); } catch {} try { if (window.Notification && Notification.permission === "granted") new Notification("🍅 집중 완료! 잠시 휴식하세요"); } catch {} setMode("break"); setSec(brk * 60); setRun(true); } else { try { if (window.Notification && Notification.permission === "granted") new Notification("💪 휴식 끝! 다시 집중해요"); } catch {} setMode("work"); setSec(work * 60); setRun(false); } } }, [sec, run]);
-    function drag(e) { if (e.target.closest && (e.target.closest("button") || e.target.closest("input"))) return; e.preventDefault(); const sx = e.clientX, sy = e.clientY, ox = pos.x, oy = pos.y; const mm = ev => { const np = { x: Math.max(0, ox + ev.clientX - sx), y: Math.max(0, oy + ev.clientY - sy) }; setPos(np); }; const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); setPos(p => { try { localStorage.setItem("ddb_pomo_pos", JSON.stringify(p)); } catch {} return p; }); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
-    const [pSize, setPSize] = O.useState(() => { try { const s = JSON.parse(localStorage.getItem("ddb_pomo_size") || "null"); if (s && s.w > 0) return s; } catch {} return { w: 260, h: 300 }; });
-    function pRz(e) { e.preventDefault(); e.stopPropagation(); const sx = e.clientX, sy = e.clientY, ow = pSize.w, oh = pSize.h; const mmv = ev => setPSize({ w: Math.max(220, ow + ev.clientX - sx), h: Math.max(240, oh + ev.clientY - sy) }); const muv = () => { document.removeEventListener("mousemove", mmv); document.removeEventListener("mouseup", muv); setPSize(s => { try { localStorage.setItem("ddb_pomo_size", JSON.stringify(s)); } catch {} return s; }); }; document.addEventListener("mousemove", mmv); document.addEventListener("mouseup", muv); }
+    O.useEffect(() => { const h = e => { const totalSec = Math.max(1, (e.detail && e.detail.sec) || (((e.detail && e.detail.min) || 25) * 60)); const st = [{ id: "q" + Date.now(), h: Math.floor(totalSec / 3600), m: Math.floor((totalSec % 3600) / 60), s: totalSec % 60, memo: "집중" }]; setSteps(st); stepsRef.current = st; setCur(0); curRef.current = 0; setRemain(totalSec); setRun(true); setOpen(true); }; window.addEventListener("ddb-pomo-start", h); return () => window.removeEventListener("ddb-pomo-start", h); }, []);
+    O.useEffect(() => { if (!run) setRemain(stepSec(steps[cur])); }, [cur, steps, run]);
+    O.useEffect(() => { if (!run) { stopNoise(); return; } startNoise(sound); const id = setInterval(() => setRemain(r => r - 1), 1000); return () => { clearInterval(id); }; }, [run, sound]);
+    O.useEffect(() => { if (!run || remain > 0) return; beep(); const nd = done + 1; setDone(nd); persist("ddb_pomo_done", JSON.stringify({ date: new Date().toISOString().slice(0, 10), n: nd })); const arr = stepsRef.current; let ni = curRef.current + 1; if (ni >= arr.length) { if (loopRef.current) ni = 0; else { setRun(false); setCur(0); setRemain(stepSec(arr[0])); try { if (window.Notification && Notification.permission === "granted") new Notification("🍅 타이머 완료!"); } catch {} return; } } setCur(ni); setRemain(stepSec(arr[ni])); }, [remain, run]);
+    O.useEffect(() => () => stopNoise(), []);
+    function drag(e) { if (e.target.closest && (e.target.closest("button") || e.target.closest("input"))) return; e.preventDefault(); const sx = e.clientX, sy = e.clientY, ox = pos.x, oy = pos.y; const mm = ev => setPos({ x: Math.max(0, ox + ev.clientX - sx), y: Math.max(0, oy + ev.clientY - sy) }); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); setPos(p => { persist("ddb_pomo_pos", JSON.stringify(p)); return p; }); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
+    function pRz(e) { e.preventDefault(); e.stopPropagation(); const sx = e.clientX, sy = e.clientY, ow = pSize.w, oh = pSize.h; const mmv = ev => setPSize({ w: Math.max(280, ow + ev.clientX - sx), h: Math.max(320, oh + ev.clientY - sy) }); const muv = () => { document.removeEventListener("mousemove", mmv); document.removeEventListener("mouseup", muv); setPSize(s => { persist("ddb_pomo_size", JSON.stringify(s)); return s; }); }; document.addEventListener("mousemove", mmv); document.addEventListener("mouseup", muv); }
+    const saveSteps = a => { setSteps(a); persist("ddb_pomo_steps", JSON.stringify(a)); };
+    const updStep = (i, patch) => saveSteps(steps.map((s, j) => j === i ? { ...s, ...patch } : s));
+    const addStep = () => saveSteps([...steps, { id: "s" + Date.now(), h: 0, m: 10, s: 0, memo: "" }]);
+    const delStep = i => { if (steps.length <= 1) return; const a = steps.filter((_, j) => j !== i); saveSteps(a); if (cur >= a.length) setCur(0); };
+    const fmtT = sc => { sc = Math.max(0, sc); const h = Math.floor(sc / 3600), m = Math.floor((sc % 3600) / 60), s = sc % 60, p = n => String(n).padStart(2, "0"); return h > 0 ? h + ":" + p(m) + ":" + p(s) : p(m) + ":" + p(s); };
     if (!open) return null;
-    const mm = String(Math.floor(Math.max(0, sec) / 60)).padStart(2, "0"), ss = String(Math.max(0, sec) % 60).padStart(2, "0");
-    const isWork = mode === "work";
-    const setW = v => { const n = Math.max(1, Math.min(120, v)); setWork(n); try { localStorage.setItem("ddb_pomo_work", String(n)); } catch {} };
-    const setB = v => { const n = Math.max(1, Math.min(60, v)); setBrk(n); try { localStorage.setItem("ddb_pomo_break", String(n)); } catch {} };
-    const stepBtn = "w-6 h-6 rounded bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer text-sm leading-none";
-    return Rr.createPortal(o.jsxs("div", { className: "fixed rounded-2xl shadow-2xl select-none", style: { zIndex: 2147483300, left: pos.x + "px", top: pos.y + "px", width: pSize.w + "px", height: pSize.h + "px", minWidth: 220, minHeight: 240, overflow: "hidden", background: "#141824", border: "1px solid rgba(255,255,255,0.15)" }, children: [
-        o.jsxs("div", { onMouseDown: drag, style: { cursor: "grab" }, className: "flex items-center gap-2 px-3 py-2 border-b border-white/10", children: [o.jsx("span", { className: "text-white font-semibold text-sm flex-1", children: "🍅 포모도로" }), o.jsxs("span", { className: "text-white/40 text-[11px]", children: ["오늘 ", done, "회"] }), o.jsx("button", { onClick: () => setOpen(false), className: "text-white/50 hover:text-white text-base leading-none bg-transparent border-none cursor-pointer", children: "✕" })] }),
-        o.jsxs("div", { className: "px-4 py-3 flex flex-col items-center gap-2", children: [
-            o.jsx("div", { className: "text-[11px] font-semibold px-2 py-0.5 rounded-full", style: { background: isWork ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.25)", color: isWork ? "#fca5a5" : "#86efac" }, children: isWork ? "집중" : "휴식" }),
-            o.jsx("div", { className: "font-mono font-bold text-white", style: { fontSize: 46, letterSpacing: 1 }, children: mm + ":" + ss }),
-            o.jsxs("div", { className: "flex items-center gap-2 mt-1", children: [
-                o.jsx("button", { onClick: () => { if (!run && sec <= 0) setSec((isWork ? work : brk) * 60); setRun(r => !r); }, className: "px-4 py-1.5 rounded-lg text-sm font-semibold border-none cursor-pointer " + (run ? "bg-white/15 text-white" : "bg-red-500/80 text-white hover:bg-red-500"), children: run ? "일시정지" : "시작" }),
-                o.jsx("button", { onClick: () => { setRun(false); setSec((isWork ? work : brk) * 60); }, className: "px-3 py-1.5 rounded-lg text-sm bg-white/10 text-white/70 hover:bg-white/20 border-none cursor-pointer", children: "리셋" }),
-                o.jsx("button", { onClick: () => { setRun(false); setMode(isWork ? "break" : "work"); }, className: "px-3 py-1.5 rounded-lg text-sm bg-white/10 text-white/70 hover:bg-white/20 border-none cursor-pointer", title: "집중/휴식 전환", children: "전환" })
-            ] }),
-            o.jsxs("div", { className: "flex items-center justify-between w-full mt-2 text-white/60 text-xs", children: [
-                o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("span", { children: "집중" }), o.jsx("button", { onClick: () => setW(work - 5), className: stepBtn, children: "−" }), o.jsxs("span", { className: "w-8 text-center text-white", children: [work, "분"] }), o.jsx("button", { onClick: () => setW(work + 5), className: stepBtn, children: "+" })] }),
-                o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("span", { children: "휴식" }), o.jsx("button", { onClick: () => setB(brk - 1), className: stepBtn, children: "−" }), o.jsxs("span", { className: "w-8 text-center text-white", children: [brk, "분"] }), o.jsx("button", { onClick: () => setB(brk + 1), className: stepBtn, children: "+" })] })
+    const curStep = steps[cur] || steps[0] || { memo: "" };
+    const totalSec = steps.reduce((a, s) => a + stepSec(s), 0);
+    const numIn = "w-9 bg-white/10 border border-white/15 rounded px-1 py-0.5 text-white text-xs text-center outline-none";
+    return Rr.createPortal(o.jsxs("div", { className: "fixed rounded-2xl shadow-2xl select-none flex flex-col", style: { zIndex: 2147483300, left: pos.x + "px", top: pos.y + "px", width: pSize.w + "px", height: pSize.h + "px", minWidth: 280, minHeight: 320, overflow: "hidden", background: "#141824", border: "1px solid rgba(255,255,255,0.15)" }, children: [
+        o.jsxs("div", { onMouseDown: drag, style: { cursor: "grab" }, className: "flex items-center gap-2 px-3 py-2 border-b border-white/10 flex-shrink-0", children: [o.jsx("span", { className: "text-white font-semibold text-sm flex-1", children: "🍅 포모도로" }), o.jsxs("span", { className: "text-white/40 text-[11px]", children: ["오늘 ", done, "회"] }), o.jsx("button", { onClick: () => setOpen(false), className: "text-white/50 hover:text-white text-base leading-none bg-transparent border-none cursor-pointer", children: "✕" })] }),
+        o.jsxs("div", { className: "px-4 pt-3 pb-2 flex flex-col items-center flex-shrink-0", children: [
+            o.jsx("div", { className: "font-mono font-bold text-white", style: { fontSize: 44, letterSpacing: 1, lineHeight: 1.1 }, children: fmtT(run || remain > 0 ? remain : stepSec(curStep)) }),
+            o.jsx("div", { className: "text-white/70 text-sm mt-0.5 mb-2 text-center", style: { minHeight: 18 }, children: (curStep.memo || "") + (steps.length > 1 ? "  (" + (cur + 1) + "/" + steps.length + ")" : "") }),
+            o.jsxs("div", { className: "flex items-center gap-1.5", children: [
+                o.jsx("button", { onClick: () => { if (!run && remain <= 0) setRemain(stepSec(steps[cur])); setRun(r => !r); }, className: "px-4 py-1.5 rounded-lg text-sm font-semibold border-none cursor-pointer " + (run ? "bg-white/15 text-white" : "bg-red-500/80 text-white hover:bg-red-500"), children: run ? "⏸ 일시정지" : "▶ 시작" }),
+                o.jsx("button", { onClick: () => { setRun(false); setCur(0); setRemain(stepSec(steps[0])); }, title: "리셋", className: "px-3 py-1.5 rounded-lg text-sm bg-white/10 text-white/70 hover:bg-white/20 border-none cursor-pointer", children: "⏹ 리셋" }),
+                o.jsx("button", { onClick: () => { const nv = !loop; setLoop(nv); persist("ddb_pomo_loop", nv ? "1" : "0"); }, title: loop ? "반복 켜짐 (끄면 1회만)" : "반복 꺼짐 (누르면 루프)", className: "px-3 py-1.5 rounded-lg text-sm border cursor-pointer " + (loop ? "bg-blue-500/30 border-blue-400/60 text-blue-100" : "bg-white/10 border-white/15 text-white/60"), children: "🔁" })
             ] })
-        ] }), ddbRzHandle(pRz)
+        ] }),
+        o.jsxs("div", { className: "flex-1 overflow-y-auto px-3 pb-2 min-h-0", children: [
+            o.jsxs("div", { className: "flex items-center justify-between text-white/45 text-[11px] px-1 mb-1", children: [o.jsx("span", { children: "단계 (시:분:초 · 메모)" }), o.jsxs("span", { children: ["총 ", fmtT(totalSec)] })] }),
+            ...steps.map((st, i) => o.jsxs("div", { className: "flex items-center gap-1 mb-1 px-1 py-1 rounded", style: { background: (run && i === cur) ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.04)" }, children: [
+                o.jsx("span", { className: "text-white/30 text-[10px] w-3", children: i + 1 }),
+                o.jsx("input", { type: "number", min: 0, value: st.h, onChange: e => updStep(i, { h: Math.max(0, +e.target.value || 0) }), className: numIn }), o.jsx("span", { className: "text-white/40 text-xs", children: ":" }),
+                o.jsx("input", { type: "number", min: 0, max: 59, value: st.m, onChange: e => updStep(i, { m: Math.max(0, Math.min(59, +e.target.value || 0)) }), className: numIn }), o.jsx("span", { className: "text-white/40 text-xs", children: ":" }),
+                o.jsx("input", { type: "number", min: 0, max: 59, value: st.s, onChange: e => updStep(i, { s: Math.max(0, Math.min(59, +e.target.value || 0)) }), className: numIn }),
+                o.jsx("input", { value: st.memo, onChange: e => updStep(i, { memo: e.target.value }), placeholder: "메모 (예: 공부)", className: "flex-1 min-w-0 bg-white/10 border border-white/15 rounded px-2 py-0.5 text-white text-xs outline-none placeholder-white/25" }),
+                o.jsx("button", { onClick: () => delStep(i), className: "text-white/25 hover:text-red-300 bg-transparent border-none cursor-pointer text-xs px-0.5", children: "✕" })
+            ] }, st.id)),
+            o.jsx("button", { onClick: addStep, className: "w-full mt-1 py-1.5 rounded-lg border border-dashed border-white/20 text-white/55 hover:text-white/85 hover:border-white/40 text-xs cursor-pointer bg-transparent", children: "＋ 단계 추가" })
+        ] }),
+        o.jsxs("div", { className: "flex items-center gap-2 px-3 py-2 border-t border-white/10 flex-shrink-0", children: [o.jsx("span", { className: "text-white/50 text-[11px]", children: "🎧 소리" }), o.jsx("select", { value: sound, onChange: e => { setSound(e.target.value); persist("ddb_pomo_sound", e.target.value); }, className: "flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs cursor-pointer", style: { colorScheme: "dark" }, children: POMO_SOUNDS.map(s => o.jsx("option", { value: s[0], style: { color: "#000" }, children: s[1] }, s[0])) })] }),
+        ddbRzHandle(pRz)
     ] }), document.body);
 }
 
@@ -1108,7 +1131,7 @@ function DDBMemoOverview() {
     const [fon, setFon] = O.useState(!1);
     const [csel, setCsel] = O.useState([]);
     const [con, setCon] = O.useState(!1);
-    const [carousel, setCarousel] = O.useState(!0);
+    const [carousel, setCarousel] = O.useState(!1);
     const [cadx, setCadx] = O.useState(0);
     const [evSort, setEvSort] = O.useState("date-asc");
     const [itemIdx, setItemIdx] = O.useState(0);
@@ -2067,7 +2090,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.51";
+const DDB_VERSION = "0.98.52";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3617,7 +3640,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v288"
+                children: "v289"
             }), (() => {
                 const S = [{
                     k: "cal",
