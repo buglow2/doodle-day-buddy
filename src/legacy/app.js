@@ -320,6 +320,50 @@ function ddbICSToEvents(text) {
 }
 
 function ensureFabric() { return new Promise((res, rej) => { if (window.fabric) return res(window.fabric); const done = () => window.fabric ? res(window.fabric) : rej(new Error("no")); const s = document.createElement("script"); s.src = "./fabric.min.js"; s.async = true; s.onload = done; s.onerror = () => { const s2 = document.createElement("script"); s2.src = "https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"; s2.async = true; s2.onload = done; s2.onerror = () => rej(new Error("load")); document.head.appendChild(s2); }; document.head.appendChild(s); }); }
+
+// ── PPT식 도형 라이브러리: 0..100 좌표의 SVG path 생성기 ──
+const _cl01 = v => Math.max(0, Math.min(1, v || 0));
+function _polyD(n, rot, cx, cy, rx, ry) { rot = rot ?? -Math.PI / 2; cx = cx ?? 50; cy = cy ?? 50; rx = rx ?? 48; ry = ry ?? 48; let d = ""; for (let i = 0; i < n; i++) { const a = rot + i * 2 * Math.PI / n; d += (i ? "L " : "M ") + (cx + rx * Math.cos(a)).toFixed(1) + " " + (cy + ry * Math.sin(a)).toFixed(1) + " "; } return d + "Z"; }
+function _starD(n, inner) { let d = ""; for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n; const r = i % 2 ? 48 * inner : 48; d += (i ? "L " : "M ") + (50 + r * Math.cos(a)).toFixed(1) + " " + (50 + r * Math.sin(a)).toFixed(1) + " "; } return d + "Z"; }
+const shapeGen = {
+  rect: () => "M 2 2 L 98 2 L 98 98 L 2 98 Z",
+  roundRect: (p) => { const r = 50 * _cl01((p && p.r) ?? 0.28); return `M ${r + 2} 2 L ${98 - r} 2 Q 98 2 98 ${r + 2} L 98 ${98 - r} Q 98 98 ${98 - r} 98 L ${r + 2} 98 Q 2 98 2 ${98 - r} L 2 ${r + 2} Q 2 2 ${r + 2} 2 Z`; },
+  ellipse: () => "M 50 2 A 48 48 0 1 1 49.9 2 Z",
+  triangle: () => "M 50 4 L 96 96 L 4 96 Z",
+  rtri: () => "M 4 4 L 4 96 L 96 96 Z",
+  trapezoid: (p) => { const i = 100 * _cl01((p && p.ins) ?? 0.25); return `M ${i} 6 L ${100 - i} 6 L 96 96 L 4 96 Z`; },
+  parallelogram: (p) => { const k = 100 * _cl01((p && p.sk) ?? 0.24); return `M ${k} 6 L 96 6 L ${96 - k} 96 L 4 96 Z`; },
+  diamond: () => "M 50 3 L 97 50 L 50 97 L 3 50 Z",
+  pentagon: () => _polyD(5), hexagon: () => _polyD(6, 0), heptagon: () => _polyD(7), octagon: () => _polyD(8, Math.PI / 8),
+  halfCircle: () => "M 4 92 A 48 48 0 0 1 96 92 Z",
+  quarterCircle: () => "M 6 94 L 6 8 A 86 86 0 0 1 92 94 Z",
+  pie: () => "M 50 50 L 96 50 A 46 46 0 0 1 50 96 Z",
+  cone: () => "M 50 4 L 84 86 A 34 12 0 0 1 16 86 Z",
+  cylinder: () => "M 12 16 A 38 12 0 0 1 88 16 L 88 84 A 38 12 0 0 1 12 84 Z",
+  cross: () => "M 36 4 L 64 4 L 64 36 L 96 36 L 96 64 L 64 64 L 64 96 L 36 96 L 36 64 L 4 64 L 4 36 L 36 36 Z",
+  lightning: () => "M 56 2 L 20 56 L 44 56 L 34 98 L 82 40 L 54 40 Z",
+  heart: () => "M 50 90 C 10 55 8 22 30 18 C 42 16 48 26 50 32 C 52 26 58 16 70 18 C 92 22 90 55 50 90 Z",
+  cloud: () => "M 30 80 A 18 18 0 0 1 27 46 A 22 22 0 0 1 66 36 A 17 17 0 0 1 82 66 A 14 14 0 0 1 72 80 Z",
+  moon: () => "M 68 8 A 46 46 0 1 0 68 92 A 36 36 0 1 1 68 8 Z",
+  sun: () => _starD(12, 0.64),
+  arrowR: (p) => { const bt = 100 * _cl01((p && p.t) ?? 0.4), hl = 100 * _cl01((p && p.head) ?? 0.4), yT = (100 - bt) / 2, yB = (100 + bt) / 2, xb = 100 - hl; return `M 0 ${yT} L ${xb} ${yT} L ${xb} 0 L 100 50 L ${xb} 100 L ${xb} ${yB} L 0 ${yB} Z`; },
+  arrowL: (p) => { const bt = 100 * _cl01((p && p.t) ?? 0.4), hl = 100 * _cl01((p && p.head) ?? 0.4), yT = (100 - bt) / 2, yB = (100 + bt) / 2, xb = hl; return `M 100 ${yT} L ${xb} ${yT} L ${xb} 0 L 0 50 L ${xb} 100 L ${xb} ${yB} L 100 ${yB} Z`; },
+  arrowU: (p) => { const bt = 100 * _cl01((p && p.t) ?? 0.4), hl = 100 * _cl01((p && p.head) ?? 0.4), xL = (100 - bt) / 2, xR = (100 + bt) / 2, yb = hl; return `M ${xL} 100 L ${xL} ${yb} L 0 ${yb} L 50 0 L 100 ${yb} L ${xR} ${yb} L ${xR} 100 Z`; },
+  arrowD: (p) => { const bt = 100 * _cl01((p && p.t) ?? 0.4), hl = 100 * _cl01((p && p.head) ?? 0.4), xL = (100 - bt) / 2, xR = (100 + bt) / 2, yb = 100 - hl; return `M ${xL} 0 L ${xL} ${yb} L 0 ${yb} L 50 100 L 100 ${yb} L ${xR} ${yb} L ${xR} 0 Z`; },
+  arrowLR: (p) => { const bt = 100 * _cl01((p && p.t) ?? 0.4), hl = 100 * _cl01((p && p.head) ?? 0.3), yT = (100 - bt) / 2, yB = (100 + bt) / 2; return `M 0 50 L ${hl} 0 L ${hl} ${yT} L ${100 - hl} ${yT} L ${100 - hl} 0 L 100 50 L ${100 - hl} 100 L ${100 - hl} ${yB} L ${hl} ${yB} L ${hl} 100 Z`; },
+  chevron: () => "M 4 6 L 70 6 L 96 50 L 70 94 L 4 94 L 30 50 Z",
+  pentArrow: () => "M 4 6 L 70 6 L 96 50 L 70 94 L 4 94 Z",
+  star4: () => _starD(4, 0.38), star5: () => _starD(5, 0.42), star6: () => _starD(6, 0.5), star8: () => _starD(8, 0.55), gear: () => _starD(12, 0.8),
+  speechRect: () => "M 6 6 L 94 6 L 94 66 L 42 66 L 24 90 L 28 66 L 6 66 Z",
+  speechRound: () => "M 22 8 L 78 8 Q 94 8 94 26 L 94 50 Q 94 68 78 68 L 44 68 L 24 90 L 30 68 Q 6 66 6 50 L 6 26 Q 6 8 22 8 Z",
+  plaque: () => "M 4 18 Q 4 4 18 4 L 82 4 Q 96 4 96 18 L 96 82 Q 96 96 82 96 L 18 96 Q 4 96 4 82 Z"
+};
+const SHAPE_LIB = [
+  { pid: "rect", nm: "직사각형", t: "rect" }, { pid: "roundRect", nm: "둥근 사각형", t: "s:roundRect" }, { pid: "ellipse", nm: "타원", t: "ellipse" }, { pid: "triangle", nm: "삼각형", t: "triangle" }, { pid: "rtri", nm: "직각삼각형", t: "s:rtri" }, { pid: "trapezoid", nm: "사다리꼴", t: "s:trapezoid" }, { pid: "parallelogram", nm: "평행사변형", t: "s:parallelogram" }, { pid: "diamond", nm: "마름모", t: "diamond" }, { pid: "pentagon", nm: "오각형", t: "s:pentagon" }, { pid: "hexagon", nm: "육각형", t: "s:hexagon" },
+  { pid: "heptagon", nm: "칠각형", t: "s:heptagon" }, { pid: "octagon", nm: "팔각형", t: "s:octagon" }, { pid: "halfCircle", nm: "반원", t: "s:halfCircle" }, { pid: "quarterCircle", nm: "사분원", t: "s:quarterCircle" }, { pid: "pie", nm: "부채꼴", t: "s:pie" }, { pid: "cone", nm: "원뿔", t: "s:cone" }, { pid: "cylinder", nm: "원기둥", t: "s:cylinder" }, { pid: "cross", nm: "십자", t: "s:cross" }, { pid: "plaque", nm: "액자", t: "s:plaque" }, { pid: "heart", nm: "하트", t: "s:heart" },
+  { pid: "lightning", nm: "번개", t: "s:lightning" }, { pid: "cloud", nm: "구름", t: "s:cloud" }, { pid: "moon", nm: "달", t: "s:moon" }, { pid: "sun", nm: "해", t: "s:sun" }, { pid: "arrowR", nm: "오른쪽 화살표", t: "s:arrowR" }, { pid: "arrowL", nm: "왼쪽 화살표", t: "s:arrowL" }, { pid: "arrowU", nm: "위쪽 화살표", t: "s:arrowU" }, { pid: "arrowD", nm: "아래쪽 화살표", t: "s:arrowD" }, { pid: "arrowLR", nm: "양쪽 화살표", t: "s:arrowLR" }, { pid: "chevron", nm: "갈매기형", t: "s:chevron" },
+  { pid: "pentArrow", nm: "오각 화살표", t: "s:pentArrow" }, { pid: "star4", nm: "4각 별", t: "s:star4" }, { pid: "star5", nm: "5각 별", t: "s:star5" }, { pid: "star6", nm: "6각 별", t: "s:star6" }, { pid: "star8", nm: "8각 별", t: "s:star8" }, { pid: "gear", nm: "톱니바퀴", t: "s:gear" }, { pid: "hexagon", nm: "다각형(각수 지정)", t: "polygon" }, { pid: "star5", nm: "별(꼭짓점 지정)", t: "star" }, { pid: "speechRect", nm: "말풍선", t: "s:speechRect" }, { pid: "speechRound", nm: "둥근 말풍선", t: "s:speechRound" }
+];
 function DDBImageEditor() {
     const { state: St, dispatch: Dp } = vt();
     const [open, setOpen] = O.useState(false);
@@ -359,6 +403,7 @@ function DDBImageEditor() {
     const lastLineRef = O.useRef("solid");
     const grpBtnRef = O.useRef({});
     const [grpMenu, setGrpMenu] = O.useState(null);
+    const [shapeExpand, setShapeExpand] = O.useState(false);
     const [polyModal, setPolyModal] = O.useState(false);
     const [polyErr, setPolyErr] = O.useState("");
     const [showImgSet, setShowImgSet] = O.useState(false);
@@ -484,6 +529,7 @@ function DDBImageEditor() {
             else if (t === "triangle") ob = new fab.Triangle({ ...base, width: 1, height: 1 });
             else if (t === "diamond") ob = new fab.Polygon([{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }], { ...base, objectCaching: false });
             else if (t === "polygon" || t === "star") { let sc = Number(sidesRef.current); if (!(sc >= 3 && sc <= 20) || POLY_BAD.indexOf(sc) >= 0) sc = 6; const pts = polyPts(t === "star", sc); ob = new fab.Polygon(pts, { ...base, objectCaching: false }); }
+            else if (t.indexOf("s:") === 0) { const sid = t.slice(2); const gen = shapeGen[sid]; if (gen) { const P = {}; ob = new fab.Path(gen(P), { stroke: s.color, strokeWidth: s.lw, fill: s.fillColor || "transparent", strokeDashArray: dz, strokeUniform: true, left: p.x, top: p.y, originX: "left", originY: "top", scaleX: 0.001, scaleY: 0.001 }); ob.ddbKind = sid; ob.ddbP = P; } }
             else if (t === "line") ob = new fab.Line([p.x, p.y, p.x, p.y], { stroke: s.color, strokeWidth: s.lw, strokeDashArray: dz, strokeUniform: true });
             else if (t === "arrow") ob = new fab.Line([p.x, p.y, p.x, p.y], { stroke: s.color, strokeWidth: s.lw, strokeDashArray: dz, strokeUniform: true });
             else if (t === "crop") { if (cropRef.current) { c.remove(cropRef.current); cropRef.current = null; } ob = new fab.Rect({ left: p.x, top: p.y, width: 1, height: 1, fill: "rgba(0,0,0,0.12)", stroke: "#3b82f6", strokeWidth: 2, strokeDashArray: [6, 4], strokeUniform: true }); }
@@ -500,6 +546,7 @@ function DDBImageEditor() {
             if (ct) { w = w * 2; h = h * 2; }
             if (d.t === "ellipse") { d.obj.set({ left, top, rx: Math.max(1, w / 2), ry: Math.max(1, h / 2) }); }
             else if (d.t === "diamond" || d.t === "polygon" || d.t === "star") { d.obj.set({ left, top, scaleX: Math.max(0.01, w / 2), scaleY: Math.max(0.01, h / 2) }); }
+            else if (d.t.indexOf("s:") === 0) { d.obj.set({ left, top, scaleX: Math.max(0.001, w / (d.obj.width || 100)), scaleY: Math.max(0.001, h / (d.obj.height || 100)) }); }
             else { d.obj.set({ left, top, width: Math.max(1, w), height: Math.max(1, h) }); }
             d.obj.setCoords(); c.renderAll();
         });
@@ -507,6 +554,7 @@ function DDBImageEditor() {
             if (ctrlDragRef.current) { ctrlDragRef.current = null; pushHist(); }
             const d = drawRef.current; if (!d) { return; } drawRef.current = null; c.selection = true;
             if (d.t === "crop") { if (d.obj && d.obj.getScaledWidth() > 4 && d.obj.getScaledHeight() > 4) { d.obj.set({ selectable: true, evented: true }); cropRef.current = d.obj; c.selection = true; c.setActiveObject(d.obj); c.renderAll(); setCropReady(true); } else { c.remove(d.obj); } return; }
+            if (d.t.indexOf("s:") === 0 && d.obj && d.obj.getScaledWidth() < 4 && d.obj.getScaledHeight() < 4) { c.remove(d.obj); drawRef.current = null; return; }
             if (d.t === "arrow") { addArrowHead(c, d.obj); }
             const ob = d.obj; if (ob && ((ob.width != null && ob.width < 2 && ob.height < 2 && d.t !== "line" && d.t !== "arrow"))) { c.remove(ob); }
             else { c.setActiveObject(d.t === "arrow" ? c.getActiveObject() : d.obj); }
@@ -629,7 +677,7 @@ function DDBImageEditor() {
     const reorderTile = (gk, toId) => { const d = dragTi.current; dragTi.current = null; if (!d || d.grp !== gk || d.id === toId) return; const arr = idsFor(gmap[gk]).slice(); const fi = arr.indexOf(d.id); arr.splice(fi, 1); const ti = arr.indexOf(toId); arr.splice(ti < 0 ? arr.length : ti, 0, d.id); saveTileOrd({ ...tileOrd, [gk]: arr }); };
     const cellW = small ? (smallLabel ? 44 : 24) : 60, cellH = small ? (smallLabel ? 36 : 24) : 52, svgSz = small ? 14 : 20;
     const openGrpMenu = (grp, e) => { const r = e.currentTarget.getBoundingClientRect(); setGrpMenu(g => (g && g.grp === grp) ? null : { grp, x: r.left, y: r.bottom + 2 }); };
-    const grpActive = t => (t.grp === "pen" && penActive) || (t.grp === "shape" && shapeActive) || (t.grp === "line" && tool === "line");
+    const grpActive = t => (t.grp === "pen" && penActive) || (t.grp === "shape" && (shapeActive || (tool || "").indexOf("s:") === 0)) || (t.grp === "line" && tool === "line");
     const tipEnter = (t, e) => { if (!small) return; const r = e.currentTarget.getBoundingClientRect(); clearTimeout(tipT.current); tipT.current = setTimeout(() => { setTip({ text: t.nm, x: r.left + r.width / 2, y: r.bottom + 6 }); setTimeout(() => setTipVis(true), 16); }, 500); };
     const tipLeave = () => { clearTimeout(tipT.current); setTipVis(false); setTimeout(() => setTip(null), 250); };
     const ICOLORS = { select: "#e2e8f0", pen: "#fbbf24", line: "#38bdf8", arrow: "#38bdf8", shape: "#a78bfa", text: "#f472b6", crop: "#34d399", blank: "#94a3b8", imgbg: "#22d3ee", imgobj: "#22d3ee", imgset: "#cbd5e1", rotL: "#fb923c", rotR: "#fb923c", flipH: "#a3e635", flipV: "#a3e635", front: "#f87171", fwd: "#fca5a5", back: "#60a5fa", bwd: "#93c5fd", undo: "#e2e8f0", redo: "#e2e8f0", ocr: "#2dd4bf", copy: "#93c5fd", save: "#4ade80", alL: "#f472b6", alC: "#f472b6", alR: "#f472b6", alT: "#c084fc", alM: "#c084fc", alB: "#c084fc", distH: "#f59e0b", distV: "#f59e0b" };
@@ -647,7 +695,11 @@ function DDBImageEditor() {
     const CTX = [["clone", "복제", cloneSel], ["del", "삭제", delSel], ["_", "", null], ["front", "맨 앞으로", () => zOp("front")], ["fwd", "앞으로", () => zOp("fwd")], ["back", "맨 뒤로", () => zOp("back")], ["bwd", "뒤로", () => zOp("bwd")], ["_", "", null], ["copyall", "전체 이미지 복사", doCopy], ["save", "저장", doSave]];
     const CROPCTX = [["docrop", "✂ 자르기 (선택 부분만 남김)", applyCrop], ["copy", "📋 선택 영역 복사", cropCopy], ["invert", "🧽 선택 영역 지우기 (반전)", cropInvert], ["_", "", null], ["all", "⬚ 모두 선택", cropSelectAll], ["cancel", "✕ 선택 취소", cancelCrop]];
     return Rr.createPortal(o.jsxs("div", { className: "fixed inset-0 flex flex-col", style: { zIndex: 2147483400, backgroundColor: "rgba(8,10,18,0.97)" }, onMouseDown: () => { menu && setMenu(null); grpMenu && setGrpMenu(null); ctxMenu && setCtxMenu(null); }, children: [
-        grpMenu && o.jsx("div", { style: { position: "fixed", left: grpMenu.x, top: grpMenu.y, zIndex: 80 }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { className: "flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { minWidth: 148, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: grpList(grpMenu.grp).map(op => o.jsx("button", { onClick: () => { if (grpMenu.grp === "line") { setDash(op[0]); setTool("line"); lastLineRef.current = op[0]; } else { setTool(op[0]); if (grpMenu.grp === "pen") lastPenRef.current = op[0]; else { lastShapeRef.current = op[0]; if (op[0] === "polygon" || op[0] === "star") setPolyModal(true); } } setGrpMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + ((grpMenu.grp === "line" ? op[0] === dash : op[0] === tool) ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) }) }),
+        grpMenu && grpMenu.grp === "shape" && o.jsx("div", { style: { position: "fixed", left: grpMenu.x, top: grpMenu.y, zIndex: 80 }, onMouseDown: e => e.stopPropagation(), children: o.jsxs("div", { onMouseEnter: () => setShapeExpand(true), onMouseLeave: () => setShapeExpand(false), className: "rounded-lg shadow-2xl", style: { backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)", padding: 6, transition: "width 0.15s ease" }, children: [
+            o.jsx("div", { style: { color: "rgba(255,255,255,0.45)", fontSize: 10, padding: "0 2px 4px" }, children: shapeExpand ? "도형 선택 — 클릭 후 캔버스에 드래그" : "▸ 커서를 올리면 전체 도형" }),
+            o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + (shapeExpand ? 10 : 2) + ", 26px)", gap: 3, maxHeight: 5 * 29, overflow: "hidden" }, children: SHAPE_LIB.map((sh, i) => o.jsx("button", { title: sh.nm, onClick: () => { setTool(sh.t); setGrpMenu(null); if (sh.t === "polygon" || sh.t === "star") setPolyModal(true); }, style: { width: 26, height: 26, padding: 3, background: tool === sh.t ? "rgba(59,130,246,0.4)" : "transparent", border: "1px solid " + (tool === sh.t ? "rgba(96,165,250,0.7)" : "rgba(255,255,255,0.1)"), borderRadius: 5, cursor: "pointer" }, children: o.jsx("svg", { viewBox: "0 0 100 100", width: 20, height: 20, fill: "none", stroke: "#cbd5e1", strokeWidth: 6, strokeLinejoin: "round", dangerouslySetInnerHTML: { __html: '<path d="' + (shapeGen[sh.pid] ? shapeGen[sh.pid]({}) : "") + '"/>' } }) }, i)) })
+        ] }) }),
+        grpMenu && grpMenu.grp !== "shape" && o.jsx("div", { style: { position: "fixed", left: grpMenu.x, top: grpMenu.y, zIndex: 80 }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { className: "flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { minWidth: 148, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: grpList(grpMenu.grp).map(op => o.jsx("button", { onClick: () => { if (grpMenu.grp === "line") { setDash(op[0]); setTool("line"); lastLineRef.current = op[0]; } else { setTool(op[0]); if (grpMenu.grp === "pen") lastPenRef.current = op[0]; } setGrpMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + ((grpMenu.grp === "line" ? op[0] === dash : op[0] === tool) ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) }) }),
         tip && o.jsx("div", { style: { position: "fixed", left: tip.x, top: tip.y, transform: "translateX(-50%)", background: "rgba(20,24,36,0.96)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", fontSize: 11, padding: "3px 8px", borderRadius: 6, pointerEvents: "none", opacity: tipVis ? 1 : 0, transition: "opacity 1s ease", zIndex: 90, whiteSpace: "nowrap" }, children: tip.text }),
         ctxMenu && o.jsx("div", { style: { position: "fixed", left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 320), zIndex: 82 }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { className: "flex flex-col rounded-lg overflow-hidden shadow-2xl py-1", style: { minWidth: 158, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: (ctxMenu.crop ? CROPCTX : CTX).map((it, i) => it[0] === "_" ? o.jsx("div", { className: "my-1 border-t border-white/10" }, "d" + i) : o.jsx("button", { onClick: () => { setCtxMenu(null); it[2] && it[2](); }, className: "text-left px-3 py-1.5 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap text-white/85", children: it[1] }, it[0])) }) }),
         o.jsxs("div", { className: "flex items-center gap-1.5 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.98)" }, onMouseDown: e => { e.stopPropagation(); if (grpMenu) setGrpMenu(null); }, children: [
@@ -664,12 +716,12 @@ function DDBImageEditor() {
         o.jsx("div", { className: "px-3 py-2 border-b border-white/10 flex-shrink-0 overflow-x-auto", style: { backgroundColor: "rgba(12,16,26,0.95)" }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { style: { display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }, children: grpOrdered.map(k => { const g = gmap[k]; if (!g) return null; return o.jsxs("div", { onDragOver: e => e.preventDefault(), onDrop: () => reorderGrp(k), style: { border: "1px solid " + g.color + "66", borderRadius: 10, padding: "3px 6px 6px", background: g.color + "14" }, children: [o.jsx("div", { draggable: true, onDragStart: () => { dragG.current = k; }, title: "라벨을 드래그해 그룹 순서 변경", style: { color: g.color, fontSize: 10, fontWeight: 700, textAlign: "center", marginBottom: 3, letterSpacing: 1, cursor: "grab" }, children: g.label }), o.jsx("div", { style: small ? { display: "grid", gridAutoFlow: "column", gridTemplateRows: "repeat(2, auto)", gap: 4 } : { display: "flex", gap: 4 }, children: idsFor(g).map(id => tileMap[id] ? tile(tileMap[id], k) : null) })] }, k); }) }) }),
         o.jsxs("div", { className: "flex items-center gap-2 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.9)" }, onMouseDown: e => { e.stopPropagation(); if (grpMenu) setGrpMenu(null); }, children: [
             o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["선색", o.jsx("input", { type: "color", value: color, onChange: e => setColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] }),
-            (shapeActive || hasSel) && o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["채움", o.jsx("input", { type: "color", value: fillColor || "#ffffff", onChange: e => setFillColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" }), o.jsx("button", { onClick: () => setFillColor(""), className: "text-[10px] text-white/50 underline bg-transparent border-none cursor-pointer", children: fillColor ? "끄기" : "없음" })] }),
+            (shapeActive || hasSel || (tool || "").indexOf("s:") === 0) && o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["채움", o.jsx("input", { type: "color", value: fillColor || "#ffffff", onChange: e => setFillColor(e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" }), o.jsx("button", { onClick: () => setFillColor(""), className: "text-[10px] text-white/50 underline bg-transparent border-none cursor-pointer", children: fillColor ? "끄기" : "없음" })] }),
             o.jsx("div", { className: "flex items-center gap-1", children: pal.map(pc => o.jsx("button", { onClick: () => setColor(pc), title: pc, className: "w-5 h-5 rounded-full border cursor-pointer " + (color.toLowerCase() === pc.toLowerCase() ? "border-white" : "border-white/25"), style: { backgroundColor: pc } }, pc)) }),
             o.jsx("button", { onClick: savePal, title: "현재 색 저장", className: "text-[11px] text-white/50 hover:text-white underline bg-transparent border-none cursor-pointer", children: "색저장" }),
             o.jsx("div", { className: "w-px h-5 bg-white/15" }),
             o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["두께", o.jsx("input", { type: "range", min: 1, max: 40, value: lw, onChange: e => setLw(Number(e.target.value)), className: "w-24 accent-blue-400" }), o.jsxs("span", { className: "w-6 text-white/60", children: [lw] })] }),
-            (tool === "arrow" || shapeActive) && dropBtn("dash", "선: " + (DASHOPTS.find(x => x[0] === dash) || DASHOPTS[0])[1].split(" ")[1], false, DASHOPTS, dash, k => setDash(k)),
+            (tool === "arrow" || shapeActive || (tool || "").indexOf("s:") === 0) && dropBtn("dash", "선: " + (DASHOPTS.find(x => x[0] === dash) || DASHOPTS[0])[1].split(" ")[1], false, DASHOPTS, dash, k => setDash(k)),
             (tool === "text" || hasSel) && o.jsxs("label", { className: "flex items-center gap-1 text-white/80 text-xs", children: ["글자", o.jsx("input", { type: "range", min: 10, max: 120, value: fsz, onChange: e => setFsz(Number(e.target.value)), className: "w-20 accent-blue-400" }), o.jsxs("span", { className: "w-7 text-white/60", children: [fsz] })] }),
             (tool === "text" || textActive) && o.jsxs("div", { className: "flex items-center gap-2", children: [o.jsx("div", { className: "w-px h-5 bg-white/15" }), o.jsx("span", { className: "text-white/55 text-[11px]", children: "가로" }), o.jsx("div", { className: "flex items-center gap-0.5", children: [["left", "⬅"], ["center", "⬌"], ["right", "➡"]].map(a => o.jsx("button", { onClick: () => applyTextAlign(a[0]), title: a[0] === "left" ? "왼쪽 정렬" : a[0] === "center" ? "가운데 정렬" : "오른쪽 정렬", className: "px-1.5 py-1 rounded text-[13px] cursor-pointer border " + (talign === a[0] ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/80"), children: a[1] }, a[0])) }), o.jsx("span", { className: "text-white/55 text-[11px] ml-1", children: "세로" }), o.jsx("div", { className: "flex items-center gap-0.5", children: [["top", "⬆"], ["middle", "▬"], ["bottom", "⬇"]].map(a => o.jsx("button", { onClick: () => applyTextV(a[0]), title: a[0] === "top" ? "위 정렬" : a[0] === "middle" ? "가운데(세로)" : "아래 정렬", className: "px-1.5 py-1 rounded text-[13px] cursor-pointer border " + (tvalign === a[0] ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/80"), children: a[1] }, a[0])) })] })
         ] }),
@@ -1972,7 +2024,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.48";
+const DDB_VERSION = "0.98.49";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3522,7 +3574,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v285"
+                children: "v286"
             }), (() => {
                 const S = [{
                     k: "cal",
