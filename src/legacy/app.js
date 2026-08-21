@@ -1059,6 +1059,7 @@ function DDBPomodoro() {
     const [steps, setSteps] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_pomo_steps") || "null"); if (Array.isArray(v) && v.length) return v; } catch {} return [{ id: "s1", h: 0, m: 25, s: 0, memo: "집중" }, { id: "s2", h: 0, m: 5, s: 0, memo: "휴식" }]; });
     const [loop, setLoop] = O.useState(() => { try { return localStorage.getItem("ddb_pomo_loop") === "1"; } catch { return false; } });
     const [sound, setSound] = O.useState(() => { try { return localStorage.getItem("ddb_pomo_sound") || "none"; } catch { return "none"; } });
+    const [preview, setPreview] = O.useState(false);
     const [cur, setCur] = O.useState(0);
     const [remain, setRemain] = O.useState(0);
     const [run, setRun] = O.useState(false);
@@ -1077,7 +1078,8 @@ function DDBPomodoro() {
     O.useEffect(() => { const h = () => { setOpen(v => !v); try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch {} }; window.addEventListener("ddb-open-pomodoro", h); return () => window.removeEventListener("ddb-open-pomodoro", h); }, []);
     O.useEffect(() => { const h = e => { const totalSec = Math.max(1, (e.detail && e.detail.sec) || (((e.detail && e.detail.min) || 25) * 60)); const st = [{ id: "q" + Date.now(), h: Math.floor(totalSec / 3600), m: Math.floor((totalSec % 3600) / 60), s: totalSec % 60, memo: "집중" }]; setSteps(st); stepsRef.current = st; setCur(0); curRef.current = 0; setRemain(totalSec); setRun(true); setOpen(true); }; window.addEventListener("ddb-pomo-start", h); return () => window.removeEventListener("ddb-pomo-start", h); }, []);
     O.useEffect(() => { if (!run) setRemain(stepSec(steps[cur])); }, [cur, steps, run]);
-    O.useEffect(() => { if (!run) { stopNoise(); return; } startNoise(sound); const id = setInterval(() => setRemain(r => r - 1), 1000); return () => { clearInterval(id); }; }, [run, sound]);
+    O.useEffect(() => { if (!run) return; const id = setInterval(() => setRemain(r => r - 1), 1000); return () => clearInterval(id); }, [run]);
+    O.useEffect(() => { if (run || preview) startNoise(sound); else stopNoise(); }, [run, preview, sound]);
     O.useEffect(() => { if (!run || remain > 0) return; beep(); const nd = done + 1; setDone(nd); persist("ddb_pomo_done", JSON.stringify({ date: new Date().toISOString().slice(0, 10), n: nd })); const arr = stepsRef.current; let ni = curRef.current + 1; if (ni >= arr.length) { if (loopRef.current) ni = 0; else { setRun(false); setCur(0); setRemain(stepSec(arr[0])); try { if (window.Notification && Notification.permission === "granted") new Notification("🍅 타이머 완료!"); } catch {} return; } } setCur(ni); setRemain(stepSec(arr[ni])); }, [remain, run]);
     O.useEffect(() => () => stopNoise(), []);
     function drag(e) { if (e.target.closest && (e.target.closest("button") || e.target.closest("input"))) return; e.preventDefault(); const sx = e.clientX, sy = e.clientY, ox = pos.x, oy = pos.y; const mm = ev => setPos({ x: Math.max(0, ox + ev.clientX - sx), y: Math.max(0, oy + ev.clientY - sy) }); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); setPos(p => { persist("ddb_pomo_pos", JSON.stringify(p)); return p; }); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
@@ -1090,7 +1092,8 @@ function DDBPomodoro() {
     if (!open) return null;
     const curStep = steps[cur] || steps[0] || { memo: "" };
     const totalSec = steps.reduce((a, s) => a + stepSec(s), 0);
-    const numIn = "w-9 bg-white/10 border border-white/15 rounded px-1 py-0.5 text-white text-xs text-center outline-none";
+    const numIn = "w-7 bg-white/10 border border-white/15 rounded px-0.5 py-0.5 text-white text-xs text-center outline-none";
+    const clampD = (v, mx) => { const n = String(v).replace(/[^0-9]/g, ""); return Math.max(0, Math.min(mx, +n || 0)); };
     return Rr.createPortal(o.jsxs("div", { className: "fixed rounded-2xl shadow-2xl select-none flex flex-col", style: { zIndex: 2147483300, left: pos.x + "px", top: pos.y + "px", width: pSize.w + "px", height: pSize.h + "px", minWidth: 280, minHeight: 320, overflow: "hidden", background: "#141824", border: "1px solid rgba(255,255,255,0.15)" }, children: [
         o.jsxs("div", { onMouseDown: drag, style: { cursor: "grab" }, className: "flex items-center gap-2 px-3 py-2 border-b border-white/10 flex-shrink-0", children: [o.jsx("span", { className: "text-white font-semibold text-sm flex-1", children: "🍅 포모도로" }), o.jsxs("span", { className: "text-white/40 text-[11px]", children: ["오늘 ", done, "회"] }), o.jsx("button", { onClick: () => setOpen(false), className: "text-white/50 hover:text-white text-base leading-none bg-transparent border-none cursor-pointer", children: "✕" })] }),
         o.jsxs("div", { className: "px-4 pt-3 pb-2 flex flex-col items-center flex-shrink-0", children: [
@@ -1099,22 +1102,22 @@ function DDBPomodoro() {
             o.jsxs("div", { className: "flex items-center gap-1.5", children: [
                 o.jsx("button", { onClick: () => { if (!run && remain <= 0) setRemain(stepSec(steps[cur])); setRun(r => !r); }, className: "px-4 py-1.5 rounded-lg text-sm font-semibold border-none cursor-pointer " + (run ? "bg-white/15 text-white" : "bg-red-500/80 text-white hover:bg-red-500"), children: run ? "⏸ 일시정지" : "▶ 시작" }),
                 o.jsx("button", { onClick: () => { setRun(false); setCur(0); setRemain(stepSec(steps[0])); }, title: "리셋", className: "px-3 py-1.5 rounded-lg text-sm bg-white/10 text-white/70 hover:bg-white/20 border-none cursor-pointer", children: "⏹ 리셋" }),
-                o.jsx("button", { onClick: () => { const nv = !loop; setLoop(nv); persist("ddb_pomo_loop", nv ? "1" : "0"); }, title: loop ? "반복 켜짐 (끄면 1회만)" : "반복 꺼짐 (누르면 루프)", className: "px-3 py-1.5 rounded-lg text-sm border cursor-pointer " + (loop ? "bg-blue-500/30 border-blue-400/60 text-blue-100" : "bg-white/10 border-white/15 text-white/60"), children: "🔁" })
+                o.jsx("button", { onClick: () => { const nv = !loop; setLoop(nv); persist("ddb_pomo_loop", nv ? "1" : "0"); }, title: loop ? "반복 켜짐 (끄면 1회만 재생)" : "반복 꺼짐 (누르면 루프)", className: "px-3 py-1.5 rounded-lg text-sm border cursor-pointer whitespace-nowrap " + (loop ? "bg-blue-500/30 border-blue-400/60 text-blue-100" : "bg-white/10 border-white/15 text-white/60"), children: "🔁 반복" })
             ] })
         ] }),
-        o.jsxs("div", { className: "flex-1 overflow-y-auto px-3 pb-2 min-h-0", children: [
+        o.jsxs("div", { className: "flex-1 overflow-y-auto overflow-x-hidden px-3 pb-2 min-h-0", children: [
             o.jsxs("div", { className: "flex items-center justify-between text-white/45 text-[11px] px-1 mb-1", children: [o.jsx("span", { children: "단계 (시:분:초 · 메모)" }), o.jsxs("span", { children: ["총 ", fmtT(totalSec)] })] }),
-            ...steps.map((st, i) => o.jsxs("div", { className: "flex items-center gap-1 mb-1 px-1 py-1 rounded", style: { background: (run && i === cur) ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.04)" }, children: [
-                o.jsx("span", { className: "text-white/30 text-[10px] w-3", children: i + 1 }),
-                o.jsx("input", { type: "number", min: 0, value: st.h, onChange: e => updStep(i, { h: Math.max(0, +e.target.value || 0) }), className: numIn }), o.jsx("span", { className: "text-white/40 text-xs", children: ":" }),
-                o.jsx("input", { type: "number", min: 0, max: 59, value: st.m, onChange: e => updStep(i, { m: Math.max(0, Math.min(59, +e.target.value || 0)) }), className: numIn }), o.jsx("span", { className: "text-white/40 text-xs", children: ":" }),
-                o.jsx("input", { type: "number", min: 0, max: 59, value: st.s, onChange: e => updStep(i, { s: Math.max(0, Math.min(59, +e.target.value || 0)) }), className: numIn }),
-                o.jsx("input", { value: st.memo, onChange: e => updStep(i, { memo: e.target.value }), placeholder: "메모 (예: 공부)", className: "flex-1 min-w-0 bg-white/10 border border-white/15 rounded px-2 py-0.5 text-white text-xs outline-none placeholder-white/25" }),
-                o.jsx("button", { onClick: () => delStep(i), className: "text-white/25 hover:text-red-300 bg-transparent border-none cursor-pointer text-xs px-0.5", children: "✕" })
+            ...steps.map((st, i) => o.jsxs("div", { className: "flex items-center gap-0.5 mb-1 px-1 py-1 rounded", style: { background: (run && i === cur) ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.04)" }, children: [
+                o.jsx("span", { className: "text-white/30 text-[10px] w-3 flex-shrink-0", children: i + 1 }),
+                o.jsx("input", { inputMode: "numeric", maxLength: 2, value: st.h, onChange: e => updStep(i, { h: clampD(e.target.value, 99) }), title: "시", className: numIn }), o.jsx("span", { className: "text-white/40 text-[11px]", children: ":" }),
+                o.jsx("input", { inputMode: "numeric", maxLength: 2, value: st.m, onChange: e => updStep(i, { m: clampD(e.target.value, 59) }), title: "분", className: numIn }), o.jsx("span", { className: "text-white/40 text-[11px]", children: ":" }),
+                o.jsx("input", { inputMode: "numeric", maxLength: 2, value: st.s, onChange: e => updStep(i, { s: clampD(e.target.value, 59) }), title: "초", className: numIn }),
+                o.jsx("input", { value: st.memo, onChange: e => updStep(i, { memo: e.target.value }), placeholder: "메모", className: "flex-1 min-w-0 bg-white/10 border border-white/15 rounded px-1.5 py-0.5 ml-1 text-white text-xs outline-none placeholder-white/25" }),
+                o.jsx("button", { onClick: () => delStep(i), className: "text-white/25 hover:text-red-300 bg-transparent border-none cursor-pointer text-xs px-0.5 flex-shrink-0", children: "✕" })
             ] }, st.id)),
             o.jsx("button", { onClick: addStep, className: "w-full mt-1 py-1.5 rounded-lg border border-dashed border-white/20 text-white/55 hover:text-white/85 hover:border-white/40 text-xs cursor-pointer bg-transparent", children: "＋ 단계 추가" })
         ] }),
-        o.jsxs("div", { className: "flex items-center gap-2 px-3 py-2 border-t border-white/10 flex-shrink-0", children: [o.jsx("span", { className: "text-white/50 text-[11px]", children: "🎧 소리" }), o.jsx("select", { value: sound, onChange: e => { setSound(e.target.value); persist("ddb_pomo_sound", e.target.value); }, className: "flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs cursor-pointer", style: { colorScheme: "dark" }, children: POMO_SOUNDS.map(s => o.jsx("option", { value: s[0], style: { color: "#000" }, children: s[1] }, s[0])) })] }),
+        o.jsxs("div", { className: "flex items-center gap-1.5 px-3 py-2 border-t border-white/10 flex-shrink-0", children: [o.jsx("span", { className: "text-white/50 text-[11px] flex-shrink-0", children: "🎧" }), o.jsx("select", { value: sound, onChange: e => { setSound(e.target.value); persist("ddb_pomo_sound", e.target.value); }, className: "flex-1 min-w-0 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs cursor-pointer", style: { colorScheme: "dark" }, children: POMO_SOUNDS.map(s => o.jsx("option", { value: s[0], style: { color: "#000" }, children: s[1] }, s[0])) }), o.jsx("button", { onClick: () => setPreview(p => !p), disabled: sound === "none", title: preview ? "미리듣기 정지" : "미리듣기", className: "flex-shrink-0 w-8 py-1 rounded text-sm border cursor-pointer disabled:opacity-30 " + (preview ? "bg-blue-500/30 border-blue-400/60 text-blue-100" : "bg-white/10 border-white/20 text-white/70"), children: preview ? "⏸" : "▶" })] }),
         ddbRzHandle(pRz)
     ] }), document.body);
 }
@@ -2090,7 +2093,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.52";
+const DDB_VERSION = "0.98.53";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3640,7 +3643,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v289"
+                children: "v290"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8303,7 +8306,7 @@ function jw({
     } = vt(), {
         memoTabs: n,
         activeTab: s
-    } = t, a = e ?? s, i = n.find(R => R.id === a), [l, c] = O.useState(""), u = O.useRef(null), ml = O.useRef(null), [h, d] = O.useState(!1), [f, x] = O.useState([0, 0]), p = O.useRef(null), [m, y] = O.useState(() => M0(a ?? "").input), [w, v] = O.useState(() => M0(a ?? "").list); const [mo, setMo] = O.useState("input"); const [selIdx, setSelIdx] = O.useState(0); const escRef = O.useRef(0); const [editId, setEditId] = O.useState(null); const [focusId, setFocusId] = O.useState(null); const [listFocused, setListFocused] = O.useState(false);
+    } = t, a = e ?? s, i = n.find(R => R.id === a), [l, c] = O.useState(""), u = O.useRef(null), ml = O.useRef(null), [h, d] = O.useState(!1), [f, x] = O.useState([0, 0]), p = O.useRef(null), [m, y] = O.useState(() => M0(a ?? "").input), [w, v] = O.useState(() => M0(a ?? "").list); const [mo, setMo] = O.useState("list"); const [selIdx, setSelIdx] = O.useState(0); const escRef = O.useRef(0); const [editId, setEditId] = O.useState(null); const [focusId, setFocusId] = O.useState(null); const [listFocused, setListFocused] = O.useState(false);
     O.useEffect(() => {
         if (!a) return;
         const R = M0(a);
