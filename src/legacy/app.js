@@ -1868,6 +1868,18 @@ function Gk(e, t) {
                 } : s)
             }
         }
+        case "REORDER_PANEL": {
+            const dp = e.panels.find(p => p.id === t.id);
+            if (!dp) return e;
+            const slot = dp.slot;
+            let arr = e.panels.filter(p => p.slot === slot && p.id !== t.id).sort((a, b) => (a.order || 0) - (b.order || 0));
+            const ti = arr.findIndex(p => p.id === t.toId);
+            const at = ti < 0 ? arr.length : (t.before ? ti : ti + 1);
+            arr.splice(at, 0, dp);
+            const om = {};
+            arr.forEach((p, i) => om[p.id] = i);
+            return { ...e, panels: e.panels.map(p => (p.slot === slot && om[p.id] != null) ? { ...p, order: om[p.id] } : p) };
+        }
         case "FLOAT_PANEL":
             return {
                 ...e, panels: e.panels.map(r => r.id === t.id ? {
@@ -2134,7 +2146,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.57";
+const DDB_VERSION = "0.98.58";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3684,7 +3696,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v294"
+                children: "v295"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -13944,28 +13956,16 @@ function Td({
         dispatch: s,
         state: St
     } = vt(), a = e.slot === "float", i = O.useRef(null);
+    const [dragging, setDragging] = O.useState(false);
 
     function l(m) {
-        m.target.closest("button") || (m.preventDefault(), e.slot === "float" ? (console.log("[DDB DRAG] float mousedown", e.id, "at", m.clientX, m.clientY), s({
-            type: "BRING_FRONT",
-            id: e.id
-        }), Object.assign(ot, {
-            active: !0,
-            potentialDrag: !1,
-            panelId: e.id,
-            startX: m.clientX,
-            startY: m.clientY,
-            origX: e.floatX,
-            origY: e.floatY
-        }), console.log("[DDB DRAG] gDrag set:", JSON.stringify(ot))) : (console.log("[DDB DRAG] slotted potentialDrag", e.id, "slot:", e.slot), Object.assign(ot, {
-            active: !1,
-            potentialDrag: !0,
-            panelId: e.id,
-            startX: m.clientX,
-            startY: m.clientY,
-            origX: e.floatX,
-            origY: e.floatY
-        })))
+        if (m.target.closest("button")) return;
+        m.preventDefault();
+        if (e.slot === "float") { s({ type: "BRING_FRONT", id: e.id }); Object.assign(ot, { active: !0, potentialDrag: !1, panelId: e.id, startX: m.clientX, startY: m.clientY, origX: e.floatX, origY: e.floatY }); return; }
+        const id = e.id, sx0 = m.clientX, sy0 = m.clientY; let moved = false;
+        const onMove = ev => { if (!moved) { if (Math.hypot(ev.clientX - sx0, ev.clientY - sy0) < 6) return; moved = true; setDragging(true); } };
+        const onUp = ev => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); setDragging(false); if (moved) { const el = document.elementFromPoint(ev.clientX, ev.clientY); const pnl = el && el.closest && el.closest("[data-ddb-panel]"); const overId = pnl && pnl.getAttribute("data-ddb-panel"); if (overId && overId !== id) { const rc = pnl.getBoundingClientRect(); s({ type: "REORDER_PANEL", id: id, toId: overId, before: ev.clientY < rc.top + rc.height / 2 }); } } };
+        document.addEventListener("mousemove", onMove); document.addEventListener("mouseup", onUp);
     }
 
     function c(m, y) {
@@ -14033,7 +14033,8 @@ function Td({
         };
     return o.jsxs("div", {
         ref: i,
-        style: p,
+        "data-ddb-panel": e.id,
+        style: { ...p, ...(dragging ? { opacity: 0.5 } : {}) },
         className: "relative flex flex-col rounded-lg overflow-hidden border border-white/15 bg-black/30 backdrop-blur-sm shadow-xl",
         onMouseDown: () => a && s({
             type: "BRING_FRONT",
