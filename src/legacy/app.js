@@ -2166,7 +2166,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.60";
+const DDB_VERSION = "0.98.61";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3716,7 +3716,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v297"
+                children: "v298"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -6190,8 +6190,11 @@ function DDBHolidayList() {
 }
 function DDBAccordion({ title, icon, children, defaultOpen }) {
     const [open, setOpen] = O.useState(!!defaultOpen);
+    const idRef = O.useRef("acc" + Math.random().toString(36).slice(2));
+    O.useEffect(() => { const h = e => { if (e.detail && e.detail.id !== idRef.current) setOpen(false); }; window.addEventListener("ddb-acc-open", h); return () => window.removeEventListener("ddb-acc-open", h); }, []);
+    const toggle = () => setOpen(v => { const nv = !v; if (nv) try { window.dispatchEvent(new CustomEvent("ddb-acc-open", { detail: { id: idRef.current } })); } catch {} return nv; });
     return o.jsxs("div", { className: "mb-2 bg-white/5 rounded-xl overflow-hidden border border-white/5", children: [
-        o.jsxs("button", { onClick: () => setOpen(v => !v), className: "w-full flex items-center gap-2 px-4 py-3 text-left cursor-pointer border-none bg-transparent hover:bg-white/5", children: [o.jsx("span", { style: { fontSize: 15 }, children: icon || "📂" }), o.jsx("span", { className: "text-white/85 text-sm font-medium flex-1", children: title }), o.jsx("span", { className: "text-white/40 text-xs", children: open ? "▲" : "▼" })] }),
+        o.jsxs("button", { onClick: toggle, className: "w-full flex items-center gap-2 px-4 py-3 text-left cursor-pointer border-none bg-transparent hover:bg-white/5", children: [o.jsx("span", { style: { fontSize: 15 }, children: icon || "📂" }), o.jsx("span", { className: "text-white/85 text-sm font-medium flex-1", children: title }), o.jsx("span", { className: "text-white/40 text-xs", children: open ? "▲" : "▼" })] }),
         open ? o.jsx("div", { className: "px-3 pb-3 pt-1 flex flex-col gap-1 border-t border-white/5", children: children }) : null
     ] });
 }
