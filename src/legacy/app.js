@@ -979,6 +979,13 @@ function DDBFeedbackLog() {
     const fmt = s => { if (!s) return ""; const d = new Date(s); return isNaN(d.getTime()) ? "" : (d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate()); };
     const list = memos.filter(m => tab === "all" ? true : tab === "active" ? (!m.completedAt && !m.isDismissed) : !!m.completedAt);
     const tabs = [["all", "전체"], ["active", "진행 중"], ["done", "완료"]];
+    const daysOf = m => { const c = new Date(m.createdAt), d = new Date(m.completedAt); const v = (d - c) / 864e5; return isFinite(v) && v >= 0 ? v : null; };
+    const doneList = memos.filter(m => m.completedAt);
+    const allDays = doneList.map(daysOf).filter(v => v != null);
+    const avgAll = allDays.length ? (allDays.reduce((a, b) => a + b, 0) / allDays.length) : 0;
+    const byMonth = {};
+    doneList.forEach(m => { const d = new Date(m.completedAt); if (isNaN(d.getTime())) return; const k = d.getFullYear() + "." + (d.getMonth() + 1); (byMonth[k] = byMonth[k] || []).push(daysOf(m)); });
+    const monthRows = Object.keys(byMonth).sort((a, b) => b.localeCompare(a, undefined, { numeric: true })).map(k => { const arr = byMonth[k].filter(v => v != null); const avg = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; return { k, n: byMonth[k].length, avg }; });
     return o.jsxs("div", { style: { position: "fixed", left: pos.x, top: pos.y, zIndex: 2147483200, width: size.w, height: size.h, minWidth: 300, minHeight: 240, background: "#0f1420", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }, children: [o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%" }, children: [
         o.jsxs("div", { onMouseDown: drag, style: { cursor: "grab", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", flexShrink: 0, userSelect: "none" }, children: [
             o.jsx("span", { style: { color: "#fff", fontWeight: 600, fontSize: 13 }, children: "피드백 기록" }),
@@ -987,6 +994,10 @@ function DDBFeedbackLog() {
             o.jsx("button", { onMouseDown: e => { e.preventDefault(); e.stopPropagation(); setOpen(false); }, style: { background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", fontSize: 16, cursor: "pointer" }, title: "닫기", children: "✕" })
         ] }),
         o.jsx("div", { style: { display: "flex", gap: 5, padding: "6px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }, children: tabs.map(([k, lb]) => o.jsx("button", { onClick: () => setTab(k), style: { padding: "2px 10px", borderRadius: 999, fontSize: 11, cursor: "pointer", border: "1px solid " + (tab === k ? "rgba(96,165,250,0.6)" : "rgba(255,255,255,0.15)"), background: tab === k ? "rgba(96,165,250,0.25)" : "transparent", color: tab === k ? "#bfdbfe" : "rgba(255,255,255,0.6)" }, children: lb }, k)) }),
+        (tab === "done" && doneList.length > 0) ? o.jsxs("div", { style: { flexShrink: 0, padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(52,211,153,0.06)" }, children: [
+            o.jsxs("div", { style: { fontSize: 12, color: "#a7f3d0", fontWeight: 600, marginBottom: 5 }, children: ["📊 총 ", doneList.length, "건 완료 · 평균 ", avgAll.toFixed(1), "일 소요"] }),
+            o.jsx("div", { style: { display: "flex", flexDirection: "column", gap: 3, maxHeight: 96, overflowY: "auto" }, children: monthRows.map(r => o.jsxs("div", { style: { display: "flex", alignItems: "center", fontSize: 11, color: "rgba(255,255,255,0.7)" }, children: [o.jsx("span", { style: { width: 62, color: "rgba(255,255,255,0.55)" }, children: r.k }), o.jsxs("span", { style: { flex: 1 }, children: [r.n, "건"] }), o.jsxs("span", { style: { color: "rgba(255,255,255,0.45)" }, children: ["평균 ", r.avg.toFixed(1), "일"] })] }, r.k)) })
+        ] }) : null,
         o.jsx("div", { className: "thin-scroll", style: { overflow: "auto", flex: 1, padding: "6px 10px" }, children: list.length ? list.map(m => { const done = !!m.completedAt, dis = !done && m.isDismissed; return o.jsxs("div", { style: { border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "7px 9px", marginBottom: 6, background: done ? "rgba(34,197,94,0.06)" : "rgba(255,255,255,0.03)", opacity: dis ? 0.55 : 1 }, children: [
             o.jsx("div", { style: { color: "rgba(255,255,255,0.9)", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.4 }, children: m.content || "(내용 없음)" }),
             o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 5, fontSize: 10, color: "rgba(255,255,255,0.4)" }, children: [
@@ -994,7 +1005,8 @@ function DDBFeedbackLog() {
                 done ? o.jsx("span", { style: { color: "#86efac" }, children: "· 완료 " + fmt(m.completedAt) }) : (dis ? o.jsx("span", { children: "· 닫힘" }) : o.jsx("span", { style: { color: "#fca5a5" }, children: "· 진행 중" })),
                 o.jsx("div", { style: { flex: 1 } }),
                 !done && o.jsx("button", { onClick: () => dispatch({ type: "COMPLETE_FEEDBACK_MEMO", id: m.id }), className: "px-2 py-0.5 rounded border border-emerald-400/40 text-emerald-200 hover:bg-emerald-500/20 bg-transparent cursor-pointer", style: { fontSize: 10 }, children: "완료" }),
-                !done && !dis && o.jsx("button", { onClick: () => dispatch({ type: "DISMISS_FEEDBACK_MEMO", id: m.id }), className: "px-2 py-0.5 rounded border border-white/20 text-white/50 hover:bg-white/10 bg-transparent cursor-pointer", style: { fontSize: 10 }, children: "닫기" })
+                !done && !dis && o.jsx("button", { onClick: () => dispatch({ type: "DISMISS_FEEDBACK_MEMO", id: m.id }), className: "px-2 py-0.5 rounded border border-white/20 text-white/50 hover:bg-white/10 bg-transparent cursor-pointer", style: { fontSize: 10 }, children: "닫기" }),
+                o.jsx("button", { onClick: () => { if (confirm("이 피드백 기록을 삭제할까요? (기록만 지워지고 달력·메모 내용은 그대로예요)")) dispatch({ type: "DELETE_FEEDBACK_MEMO", id: m.id }); }, title: "기록에서 삭제 (내용은 유지)", className: "px-1 py-0.5 rounded text-white/30 hover:text-red-300 hover:bg-white/10 bg-transparent border-none cursor-pointer", style: { fontSize: 11 }, children: "🗑" })
             ] })
         ] }, m.id); }) : o.jsx("div", { style: { padding: "30px 12px", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 12 }, children: "표시할 피드백이 없어요." }) })
     ] }), ddbRzHandle(rz)] });
@@ -2023,6 +2035,10 @@ function Gk(e, t) {
                     isDismissed: !0
                 } : r)
             };
+        case "DELETE_FEEDBACK_MEMO":
+            return {
+                ...e, feedbackMemos: (e.feedbackMemos ?? []).filter(r => r.id !== t.id)
+            };
         case "ADD_TODO":
             return {
                 ...e, todos: [...e.todos ?? [], t.todo]
@@ -2146,7 +2162,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.58";
+const DDB_VERSION = "0.98.59";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3696,7 +3712,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v295"
+                children: "v296"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -11772,7 +11788,7 @@ function c4({
                                 }, K.id)
                             })
                         })]
-                    }), T.length > 0 && o.jsxs("section", {
+                    }), false && o.jsxs("section", {
                         children: [o.jsxs("h4", {
                             className: "text-white/40 text-xs mb-2 uppercase tracking-wide",
                             children: ["완료 이력 (", T.length, "개)"]
