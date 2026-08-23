@@ -2167,7 +2167,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.62";
+const DDB_VERSION = "0.98.63";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3717,7 +3717,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v299"
+                children: "v300"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -6650,10 +6650,14 @@ function fd({
                     minWidth: 0
                 },
                 children: [(() => {
-                    const tc = (t.todos ?? []).filter(td => !td.completedAt).length;
-                    return o.jsxs("span", {
-                        className: "flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-200 text-[10px] font-semibold flex-shrink-0 mr-1",
-                        title: DDBTR("미완료 할 일"),
+                    const inc = (t.todos ?? []).filter(td => !td.completedAt);
+                    const tc = inc.length;
+                    if (!tc) return null;
+                    const tip = "미완료 할 일 " + tc + "개 (클릭 → 목록 열기)\n" + inc.slice(0, 12).map(x => "• " + (((x.content || "").split("\n")[0]) || "").slice(0, 40)).join("\n") + (tc > 12 ? "\n…" : "");
+                    return o.jsxs("button", {
+                        onClick: () => { R(!0); H(!1); },
+                        className: "flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-200 hover:bg-blue-500/40 text-[10px] font-semibold flex-shrink-0 mr-1 border-none cursor-pointer",
+                        title: tip,
                         children: [o.jsx(rl, { size: 10 }), tc]
                     })
                 })(), ...((t.feedbackMemos || []).filter(m => m && !m.isDismissed && !m.completedAt && (!m.eventId || (t.events || []).some(ev => ev && ev.id === m.eventId))).slice(0, 5).map(m => { const dd = new Date(m.createdAt); const lbl = isNaN(dd.getTime()) ? "" : (dd.getMonth() + 1) + "/" + dd.getDate(); return o.jsxs("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-open-feedback")), title: ddbTT(m.content || "피드백"), className: "flex items-center gap-0.5 px-1 py-0.5 rounded-md text-[10px] font-semibold flex-shrink-0 mr-0.5 border-none cursor-pointer hover:brightness-125", style: { background: (m.color || "#f59e0b") + "33", color: m.color || "#fbbf24" }, children: [o.jsx("span", { className: "rounded-full flex-shrink-0", style: { width: 6, height: 6, backgroundColor: m.color || "#fbbf24" } }), lbl] }, m.id); })), o.jsx("button", {
