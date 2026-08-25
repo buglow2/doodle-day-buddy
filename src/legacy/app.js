@@ -428,6 +428,10 @@ function DDBImageEditor() {
     const [favs, setFavs] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_img_shapefavs") || "null"); if (Array.isArray(v) && v.length >= 2) return v; } catch {} return [0, 1, 2, 3, 7, 24, 32, 39]; });
     const [favEdit, setFavEdit] = O.useState(false);
     const [etcHover, setEtcHover] = O.useState(false);
+    const [iconScale, setIconScale] = O.useState(() => { try { const v = parseFloat(localStorage.getItem("ddb_img_iconscale")); return v >= 1 && v <= 2.5 ? v : 1; } catch { return 1; } });
+    const setIsc = v => { const n = Math.max(1, Math.min(2.5, Math.round(v * 4) / 4)); setIconScale(n); try { localStorage.setItem("ddb_img_iconscale", String(n)); } catch {} };
+    const [etcRect, setEtcRect] = O.useState(null);
+    const etcRef = O.useRef(null); const etcTimer = O.useRef(null);
     const [dragOverT, setDragOverT] = O.useState(null);
     const toggleFav = i => setFavs(prev => { let a; if (prev.includes(i)) { if (prev.length <= 2) return prev; a = prev.filter(x => x !== i); } else { if (prev.length >= 8) return prev; a = [...prev, i]; } try { localStorage.setItem("ddb_img_shapefavs", JSON.stringify(a)); } catch {} return a; });
     const [polyModal, setPolyModal] = O.useState(false);
@@ -553,6 +557,7 @@ function DDBImageEditor() {
         c.on("object:modified", () => pushHist());
         c.on("object:moving", opt => { const e = opt.e; const m = moveRef.current; if (e && e.shiftKey && m && opt.target === m.obj) { const dx = Math.abs(opt.target.left - m.left), dy = Math.abs(opt.target.top - m.top); if (dx > dy) opt.target.top = m.top; else opt.target.left = m.left; } });
         c.on("object:rotating", opt => { if (opt.e && opt.e.shiftKey && opt.target) { opt.target.rotate(Math.round((opt.target.angle || 0) / 15) * 15); } });
+        c.on("object:scaling", opt => { const e = opt.e, t = opt.target; if (e && e.ctrlKey && e.shiftKey && t) { const s = Math.abs(t.scaleX || 1); t.scaleX = s * (t.scaleX < 0 ? -1 : 1); t.scaleY = s * (t.scaleY < 0 ? -1 : 1); t.setCoords(); } });
         c.on("object:added", refreshTexts); c.on("object:removed", refreshTexts);
         c.on("text:changed", () => { refreshTexts(); });
         c.on("text:editing:exited", opt => { const o = opt.target; if (o && (o.text || "").trim() === "") { c.remove(o); } refreshTexts(); });
@@ -652,10 +657,12 @@ function DDBImageEditor() {
     const tbtn = (k, label) => o.jsx("button", { onClick: () => { setTool(k); setMenu(null); }, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + (tool === k ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/15 text-white/90 hover:bg-white/15"), children: labels ? label : label.split(" ")[0] });
     const shpTile = (sh, i, sz) => { sz = sz || 26; return o.jsxs("button", { title: sh.nm, onClick: () => { if (favEdit) { toggleFav(i); return; } setTool(sh.t); setGrpMenu(null); setEtcHover(false); setFavEdit(false); if (sh.t === "polygon" || sh.t === "star") setPolyModal(true); }, style: { position: "relative", width: sz, height: sz, padding: Math.max(2, Math.round(sz * 0.12)), background: tool === sh.t ? "rgba(59,130,246,0.4)" : "transparent", border: "1px solid " + (tool === sh.t ? "rgba(96,165,250,0.7)" : "rgba(255,255,255,0.1)"), borderRadius: 4, cursor: "pointer" }, children: [o.jsx("svg", { viewBox: "0 0 100 100", width: sz - 6, height: sz - 6, fill: "none", stroke: "#cbd5e1", strokeWidth: 6, strokeLinejoin: "round", dangerouslySetInnerHTML: { __html: '<path d="' + (shapeGen[sh.pid] ? shapeGen[sh.pid]({}) : "") + '"/>' } }), (favEdit && favs.includes(i)) ? o.jsx("span", { style: { position: "absolute", top: -4, right: -3, fontSize: 9 }, children: "⭐" }) : null] }, i); };
     const etcIdx = SHAPE_LIB.map((_, i) => i).filter(i => !favs.includes(i));
-    const etcBox = o.jsxs("div", { key: "etcgrp", style: { position: "relative", border: "1px solid rgba(148,163,184,0.4)", borderRadius: 10, padding: "3px 6px 6px", background: "rgba(148,163,184,0.08)" }, onMouseEnter: () => setEtcHover(true), onMouseLeave: () => setEtcHover(false), children: [
+    const etcOpen = () => { if (etcTimer.current) clearTimeout(etcTimer.current); if (etcRef.current) setEtcRect(etcRef.current.getBoundingClientRect()); setEtcHover(true); };
+    const etcClose = () => { if (etcTimer.current) clearTimeout(etcTimer.current); etcTimer.current = setTimeout(() => setEtcHover(false), 140); };
+    const etcBox = o.jsxs("div", { key: "etcgrp", ref: etcRef, style: { position: "relative", border: "1px solid rgba(148,163,184,0.4)", borderRadius: 10, padding: "3px 6px 6px", background: "rgba(148,163,184,0.08)" }, onMouseEnter: etcOpen, onMouseLeave: etcClose, children: [
         o.jsx("div", { style: { color: "#94a3b8", fontSize: 10, fontWeight: 700, textAlign: "center", marginBottom: 3, letterSpacing: 1 }, title: "커서 올리면 전체 펼침", children: "etc 도형" }),
         o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 15px)", gridAutoRows: "15px", gap: 2 }, children: etcIdx.slice(0, 20).map(i => shpTile(SHAPE_LIB[i], i, 15)) }),
-        etcHover ? o.jsx("div", { className: "thin-scroll", style: { position: "absolute", top: "100%", left: 0, marginTop: 4, zIndex: 90, background: "#111827", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 8, padding: 6, boxShadow: "0 10px 30px rgba(0,0,0,0.55)", maxHeight: 300, overflowY: "auto" }, children: o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(10, 24px)", gap: 3 }, children: etcIdx.slice(0, 50).map(i => shpTile(SHAPE_LIB[i], i, 24)) }) }) : null
+        (etcHover && etcRect) ? Rr.createPortal(o.jsx("div", { onMouseEnter: etcOpen, onMouseLeave: etcClose, className: "thin-scroll", style: { position: "fixed", left: Math.min(etcRect.left, window.innerWidth - 320), top: etcRect.bottom + 4, zIndex: 2147483600, background: "#111827", border: "1px solid rgba(255,255,255,0.22)", borderRadius: 8, padding: 6, boxShadow: "0 14px 40px rgba(0,0,0,0.6)", maxHeight: 380, overflowY: "auto" }, children: o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(10, 26px)", gap: 3 }, children: etcIdx.slice(0, 50).map(i => shpTile(SHAPE_LIB[i], i, 26)) }) }), document.body) : null
     ] });
     const abtn = (fn, label, dis) => o.jsx("button", { onClick: fn, disabled: dis, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: labels ? label : label.split(" ")[0] });
     const dropBtn = (id, label, active, opts, cur, onPick) => o.jsxs("div", { className: "relative", children: [o.jsxs("button", { title: label, onClick: () => setMenu(m => m === id ? null : id), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + (active ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/15 text-white/90 hover:bg-white/15"), children: [labels ? label : label.split(" ")[0], " ▾"] }), menu === id && o.jsx("div", { className: "absolute left-0 top-full mt-1 flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { zIndex: 60, minWidth: 150, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: opts.map(op => o.jsx("button", { onClick: () => { onPick(op[0]); setMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + (op[0] === cur ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) })] });
@@ -722,7 +729,7 @@ function DDBImageEditor() {
     const saveTileOrd = o2 => { setTileOrd(o2); try { localStorage.setItem("ddb_img_tileord", JSON.stringify(o2)); } catch {} };
     const reorderGrp = toKey => { const from = dragG.current; dragG.current = null; if (!from || from === toKey) return; const arr = grpOrdered.slice(); const fi = arr.indexOf(from); arr.splice(fi, 1); const ti = arr.indexOf(toKey); arr.splice(ti < 0 ? arr.length : ti, 0, from); saveGrp(arr); };
     const reorderTile = (gk, toId) => { const d = dragTi.current; dragTi.current = null; if (!d || d.grp !== gk || d.id === toId) return; const arr = idsFor(gmap[gk]).slice(); const fi = arr.indexOf(d.id); arr.splice(fi, 1); const ti = arr.indexOf(toId); arr.splice(ti < 0 ? arr.length : ti, 0, d.id); saveTileOrd({ ...tileOrd, [gk]: arr }); };
-    const cellW = small ? (smallLabel ? 44 : 24) : 60, cellH = small ? (smallLabel ? 36 : 24) : 52, svgSz = small ? 14 : 20;
+    const _isc = iconScale || 1; const cellW = Math.round((small ? (smallLabel ? 44 : 24) : 60) * _isc), cellH = Math.round((small ? (smallLabel ? 36 : 24) : 52) * _isc), svgSz = Math.round((small ? 14 : 20) * _isc);
     const openGrpMenu = (grp, e) => { const r = e.currentTarget.getBoundingClientRect(); setGrpMenu(g => (g && g.grp === grp) ? null : { grp, x: r.left, y: r.bottom + 2 }); };
     const grpActive = t => (t.grp === "pen" && penActive) || (t.grp === "shape" && (shapeActive || (tool || "").indexOf("s:") === 0)) || (t.grp === "line" && tool === "line");
     const tipEnter = (t, e) => { if (!small) return; const r = e.currentTarget.getBoundingClientRect(); clearTimeout(tipT.current); tipT.current = setTimeout(() => { setTip({ text: t.nm, x: r.left + r.width / 2, y: r.bottom + 6 }); setTimeout(() => setTipVis(true), 16); }, 500); };
@@ -822,6 +829,7 @@ function DDBImageEditor() {
         showCfg && o.jsx("div", { className: "absolute inset-0 flex items-center justify-center", style: { backgroundColor: "rgba(0,0,0,0.55)", zIndex: 72 }, onMouseDown: e => { e.stopPropagation(); if (e.target === e.currentTarget) setShowCfg(false); }, children: o.jsxs("div", { className: "bg-gray-900 border border-white/20 rounded-2xl p-4 w-[440px] max-w-[92vw] flex flex-col gap-3", children: [
             o.jsxs("div", { className: "flex items-center justify-between", children: [o.jsx("span", { className: "text-white font-bold", children: "⚙ 이미지 편집 단축키" }), o.jsx("button", { onClick: () => setShowCfg(false), className: "text-white/50 hover:text-white bg-transparent border-none cursor-pointer text-lg", children: "✕" })] }),
             o.jsxs("div", { className: "bg-white/5 rounded-lg p-2.5", children: [o.jsx("div", { className: "text-white/75 text-sm mb-1.5", children: "펜·도형 그룹 단축키 방식" }), o.jsx("div", { className: "grid grid-cols-2 gap-2", children: [["cycle", "순환 (다시 누르면 다음)"], ["menu", "메뉴 (누르면 목록 표시)"]].map(m => o.jsx("button", { onClick: () => setImgKey("grpMode", m[0]), className: "py-1.5 rounded-lg text-xs border cursor-pointer " + (((imgKeys.grpMode) || "cycle") === m[0] ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: m[1] }, m[0])) }), o.jsx("p", { className: "text-white/35 text-[10px] mt-1", children: "예: 순환이면 p=마지막 펜 → 또 p=다음 펜. 메뉴면 p=연필/볼펜/… 목록." })] }),
+            o.jsxs("div", { className: "bg-white/5 rounded-lg p-2.5 flex items-center justify-between", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["아이콘 크기", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "툴바 도구 아이콘 (×1 기본 ~ ×2.5)" })] }), o.jsxs("div", { className: "flex items-center gap-2", children: [o.jsx("button", { onClick: () => setIsc(iconScale - 0.25), className: "w-7 h-7 rounded bg-white/10 text-white border-none cursor-pointer text-base", children: "－" }), o.jsxs("span", { className: "text-white/85 text-sm w-12 text-center", children: ["×", iconScale.toFixed(2)] }), o.jsx("button", { onClick: () => setIsc(iconScale + 0.25), className: "w-7 h-7 rounded bg-white/10 text-white border-none cursor-pointer text-base", children: "＋" })] })] }),
             o.jsx("p", { className: "text-white/40 text-[11px]", children: "각 도구에 글자 1개 단축키를 지정하세요. (입력창 밖에서만 작동)" }),
             o.jsx("div", { className: "grid grid-cols-2 gap-2", children: KEYDEFS.map(kd => o.jsxs("label", { className: "flex items-center justify-between bg-white/5 rounded-lg px-3 py-1.5 cursor-pointer", children: [o.jsx("span", { className: "text-white/75 text-sm", children: kd[1] }), o.jsx("input", { maxLength: 1, value: (imgKeys[kd[0]] ?? kd[2]) || "", onChange: e => setImgKey(kd[0], (e.target.value || "").slice(-1).toLowerCase()), className: "w-10 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm text-center outline-none focus:border-blue-400" })] }, kd[0])) }),
             o.jsx("div", { className: "text-white/40 text-[11px] border-t border-white/10 pt-2", children: "고정: 되돌리기 Ctrl+Z · 다시 Ctrl+X · 삭제 Del · 취소 ESC" })
@@ -2252,7 +2260,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.68";
+const DDB_VERSION = "0.98.69";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3802,7 +3810,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v305"
+                children: "v306"
             }), (() => {
                 const S = [{
                     k: "cal",
