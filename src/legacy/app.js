@@ -2285,7 +2285,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.71";
+const DDB_VERSION = "0.98.72";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3835,7 +3835,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v308"
+                children: "v309"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8837,7 +8837,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     function ddbMeasW(txt, fs, ff) { const cv = document.createElement("canvas"); const ctx = cv.getContext("2d"); ctx.font = (fs || 11) + "px " + (ff && ff !== "inherit" ? ff : "sans-serif"); let mx = 0; String(txt == null ? "" : txt).split("\n").forEach(l => { const w = ctx.measureText(l).width; if (w > mx) mx = w; }); return mx; }
     function autoFitCol(bi, ci) { const b = blocks[bi]; if (!b || b.t !== "table") return; const hf = fmt[bi + ":-1," + ci] || {}; let mx = ddbMeasW(ddbCellDisp(b, -1, ci), hf.fs || 11, hf.ff); for (let R = 0; R < b.rows.length; R++) { const f = fmt[bi + ":" + R + "," + ci] || {}; const w = ddbMeasW(ddbCellDisp(b, R, ci), f.fs || 11, f.ff); if (w > mx) mx = w; } setColW(bi, ci, Math.max(40, Math.min(600, Math.ceil(mx) + 16))); }
     function autoFitAll(bi) { const b = blocks[bi]; if (!b || b.t !== "table") return; for (let c = 0; c < b.headers.length; c++) autoFitCol(bi, c); }
-    function copySel(bi, whole) { bi = bi != null ? bi : (sel ? sel.bi : blocks.findIndex(b => b && b.t === "table")); const b = blocks[bi]; if (!b || b.t !== "table") return false; let r0, r1, c0, c1; if (!whole && sel && sel.bi === bi) { r0 = Math.min(sel.r, sel.r2); r1 = Math.max(sel.r, sel.r2); c0 = Math.min(sel.c, sel.c2); c1 = Math.max(sel.c, sel.c2); } else { r0 = -1; r1 = b.rows.length - 1; c0 = 0; c1 = b.headers.length - 1; } const lines = []; for (let r = r0; r <= r1; r++) { const row = []; for (let c = c0; c <= c1; c++) { const v = ddbCellDisp(b, r, c); row.push(String(v == null ? "" : v).replace(/\t/g, " ").replace(/\r?\n/g, " ")); } lines.push(row.join("\t")); } try { navigator.clipboard.writeText(lines.join("\n")); } catch {} return true; }
+    function copySel(bi, whole) { bi = bi != null ? bi : (sel ? sel.bi : blocks.findIndex(b => b && b.t === "table")); const b = blocks[bi]; if (!b || b.t !== "table") return false; let r0, r1, c0, c1; if (!whole && sel && sel.bi === bi) { r0 = Math.min(sel.r, sel.r2); r1 = Math.max(sel.r, sel.r2); c0 = Math.min(sel.c, sel.c2); c1 = Math.max(sel.c, sel.c2); } else { r0 = -1; r1 = b.rows.length - 1; c0 = 0; c1 = b.headers.length - 1; } const esc = s => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); const tsvLines = [], htmlRows = []; for (let r = r0; r <= r1; r++) { const tv = [], hc = []; for (let c = c0; c <= c1; c++) { const v = ddbCellDisp(b, r, c); const sv = String(v == null ? "" : v); tv.push(sv.replace(/\t/g, " ").replace(/\r?\n/g, " ")); hc.push("<td>" + esc(sv).replace(/\r?\n/g, "<br>") + "</td>"); } tsvLines.push(tv.join("\t")); htmlRows.push("<tr>" + hc.join("") + "</tr>"); } const tsv = tsvLines.join("\n"); const html = '<table border="1"><tbody>' + htmlRows.join("") + "</tbody></table>"; try { navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([tsv], { type: "text/plain" }) })]).catch(() => { try { navigator.clipboard.writeText(tsv); } catch (e) {} }); } catch (e) { try { navigator.clipboard.writeText(tsv); } catch (e2) {} } return true; }
     O.useEffect(() => { const h = e => { if (!(e.ctrlKey || e.metaKey) || (e.key !== "c" && e.key !== "C")) return; if (!sel) return; const multi = (sel.r !== sel.r2) || (sel.c !== sel.c2); if (!multi) return; e.preventDefault(); copySel(sel.bi); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [sel, blocks, fmt]);
     function focusCell(bi, r, c) { const el = rootRef.current && rootRef.current.querySelector('[data-cell="' + bi + ':' + r + ':' + c + '"]'); if (el) { el.focus(); try { el.select(); } catch {} return true; } return false; }
     function focusBlockEl(bi, col, bottom) { if (bi < 0 || bi >= blocks.length || !rootRef.current) return false; const b = blocks[bi]; if (b.t === "text") { const el = rootRef.current.querySelector('[data-tb="' + bi + '"]'); if (el) { el.focus(); try { const p = bottom ? (el.value || "").length : 0; el.setSelectionRange(p, p); } catch {} return true; } return false; } const c = Math.max(0, Math.min(col || 0, b.headers.length - 1)); const r = (b.rows.length ? (bottom ? b.rows.length - 1 : 0) : -1); const el = rootRef.current.querySelector('[data-cell="' + bi + ':' + r + ':' + c + '"]'); if (el) { el.focus(); try { el.select(); } catch {} return true; } return false; }
