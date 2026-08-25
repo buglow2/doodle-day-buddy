@@ -1016,6 +1016,52 @@ function DDBFeedbackLog() {
         ] }, m.id); }) : o.jsx("div", { style: { padding: "30px 12px", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 12 }, children: "표시할 피드백이 없어요." }) })
     ] }), ddbRzHandle(rz)] });
 }
+function ddbLocalDay(d) { d = d || new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function ddbAiLines(txt) { return String(txt || "").split("\n").map(s => s.replace(/^\s*[*\-•·]\s*/, "").trim()).filter(Boolean); }
+function ddbAiFlush(tab, dispatch) {
+    if (!tab) return 0;
+    const today = ddbLocalDay();
+    if (!tab.aiDate) { dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiDate: today } }); return 0; }
+    if (tab.aiDate >= today) return 0;
+    const lines = ddbAiLines(tab.aiText);
+    lines.forEach((ln, ix) => dispatch({ type: "ADD_EVENT", event: { id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: ln.slice(0, 200), date: tab.aiDate, color: tab.aiColorName || "green", customColor: (!tab.aiColorName && tab.aiCustom) ? tab.aiCustom : void 0, isAllDay: true } }));
+    dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "* ", aiDate: today } });
+    return lines.length;
+}
+function DDBAiFlusher() {
+    const { state, dispatch } = vt();
+    const [msg, setMsg] = O.useState("");
+    O.useEffect(() => {
+        if (!(state.memoTabs || []).some(x => x.id === "aimemo")) {
+            dispatch({ type: "ADD_MEMO_TAB", atFront: true, tab: { id: "aimemo", title: "AI메모", color: "#22c55e", items: [], aiText: "* ", aiDate: ddbLocalDay(), aiColorName: "green", aiCustom: "" } });
+            return;
+        }
+        const run = () => { const tab = (state.memoTabs || []).find(x => x.id === "aimemo"); const dstr = tab && tab.aiDate; const n = ddbAiFlush(tab, dispatch); if (n) { setMsg("AI메모 " + n + "건을 " + dstr + " 일정으로 자동 정리했어요"); setTimeout(() => setMsg(""), 6000); } };
+        run();
+        const id = setInterval(run, 60000);
+        return () => clearInterval(id);
+    }, [state.memoTabs]);
+    if (!msg) return null;
+    return Rr.createPortal(o.jsx("div", { style: { position: "fixed", left: "50%", bottom: 60, transform: "translateX(-50%)", zIndex: 2147483600, background: "rgba(16,185,129,0.96)", color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13, boxShadow: "0 8px 24px rgba(0,0,0,0.45)" }, children: "🤖 " + msg }), document.body);
+}
+function DDBAiMemoCard({ tab }) {
+    const { dispatch } = vt();
+    const [txt, setTxt] = O.useState(tab.aiText != null ? tab.aiText : "* ");
+    O.useEffect(() => { setTxt(tab.aiText != null ? tab.aiText : "* "); }, [tab.id, tab.aiText]);
+    const today = ddbLocalDay();
+    const colorName = tab.aiColorName || "green";
+    const save = v => { setTxt(v); dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: v, aiDate: tab.aiDate || today } }); };
+    const setColor = nm => dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiColorName: nm, color: qt[nm] || tab.color } });
+    const cnt = ddbAiLines(txt).length;
+    const fileNow = () => { const ls = ddbAiLines(txt); if (!ls.length) return; ls.forEach((ln, ix) => dispatch({ type: "ADD_EVENT", event: { id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: ln.slice(0, 200), date: today, color: colorName, isAllDay: true } })); dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "* ", aiDate: today } }); setTxt("* "); };
+    const chipHex = qt[colorName] || tab.color || "#22c55e";
+    return o.jsxs("div", { className: "flex flex-col h-full", style: { minHeight: 0 }, children: [
+        o.jsx("div", { className: "px-2.5 py-1.5 text-white/60 text-[11px] leading-relaxed border-b border-white/10 flex-shrink-0", children: "🤖 한 줄에 하나씩 적으면, 자정(또는 다음 실행)에 그날 날짜 일정으로 자동 정리돼요. 줄바꿈 = 일정 1개." }),
+        o.jsxs("div", { className: "flex items-center gap-1 px-2.5 py-1.5 flex-wrap flex-shrink-0", children: [o.jsx("span", { className: "text-white/50 text-[11px] mr-0.5", children: "일정 색" }), ...Object.keys(qt).map(nm => o.jsx("button", { onClick: () => setColor(nm), title: nm, className: "w-4 h-4 rounded-full flex-shrink-0 border " + (colorName === nm ? "border-white" : "border-white/20"), style: { background: qt[nm] } }, nm))] }),
+        o.jsx("textarea", { value: txt, onChange: e => save(e.target.value), placeholder: "* 오늘 할 일을 한 줄에 하나씩\n* 예: 3시 거래처 미팅\n* 예: 보고서 제출", spellCheck: false, className: "flex-1 w-full bg-transparent text-white/90 placeholder-white/25 text-sm resize-none outline-none px-3 py-2 min-h-0", style: { borderLeft: "3px solid " + chipHex, lineHeight: 1.7 } }),
+        o.jsxs("div", { className: "flex items-center gap-2 px-2.5 py-1.5 border-t border-white/10 flex-shrink-0", children: [o.jsxs("span", { className: "text-white/45 text-[11px] flex-1", children: [cnt, "줄 → 일정 ", cnt, "개 · 오늘 ", today] }), o.jsx("button", { onClick: fileNow, disabled: !cnt, title: "지금 바로 오늘 날짜 일정으로 정리", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer disabled:opacity-40 " + (cnt ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100 hover:bg-emerald-500/40" : "bg-white/5 border-white/15 text-white/40"), children: "지금 정리" })] })
+    ] });
+}
 function DDBGantt() {
     const [open, setOpen] = O.useState(false);
     const { state, dispatch } = vt();
@@ -1863,7 +1909,7 @@ function Gk(e, t) {
             };
         case "ADD_MEMO_TAB":
             return {
-                ...e, memoTabs: [...e.memoTabs, t.tab]
+                ...e, memoTabs: t.atFront ? [e.memoTabs[0], t.tab, ...e.memoTabs.slice(1)] : [...e.memoTabs, t.tab]
             };
         case "UPDATE_MEMO_TAB":
             return {
@@ -2167,7 +2213,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.63";
+const DDB_VERSION = "0.98.64";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3717,7 +3763,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v300"
+                children: "v301"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8474,6 +8520,7 @@ function jw({
             }
             window.addEventListener("mousemove", K), window.addEventListener("mouseup", se)
         }, [w]);
+    if (i && i.id === "aimemo") return o.jsx(DDBAiMemoCard, { tab: i });
     if (!i || a === "calendar") return o.jsxs("div", {
         className: "flex items-center justify-center text-white/20 text-xs p-4 text-center",
         style: {
@@ -16895,7 +16942,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {})]
         })
     })
 }
