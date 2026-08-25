@@ -1109,6 +1109,22 @@ function DDBLicensePanel() {
         msg && o.jsx("p", { className: "text-white/80 text-xs mt-2", children: msg })
     ] });
 }
+function DDBBackupPanel() {
+    const { dispatch } = vt();
+    const [list, setList] = O.useState([]);
+    const [msg, setMsg] = O.useState("");
+    const native = typeof window !== "undefined" && window.ddbNative && window.ddbNative.backupList;
+    const load = async () => { try { const l = native ? await window.ddbNative.backupList() : []; setList(Array.isArray(l) ? l : []); } catch { setList([]); } };
+    O.useEffect(() => { load(); }, []);
+    const fmtName = f => { const m = String(f).match(/^bk-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})/); return m ? (m[1] + " " + m[2] + ":" + m[3]) : f; };
+    const restore = async f => { if (!window.confirm("이 시점(" + fmtName(f) + ")으로 되돌릴까요?\n현재 내용이 이 백업 시점 내용으로 바뀝니다.")) return; try { const j = await window.ddbNative.backupRead(f); if (!j) { setMsg("백업을 읽지 못했어요."); return; } const data = JSON.parse(j); dispatch({ type: "RESTORE_STATE", state: data }); setMsg("✅ 복구 완료! 화면이 백업 시점으로 돌아갔어요."); } catch (e) { setMsg("복구 실패: " + ((e && e.message) || "")); } };
+    if (!native) return o.jsx("p", { className: "text-white/40 text-[11px]", children: "설치형(Windows/Mac) 앱에서만 지원돼요. 브라우저에선 클라우드 동기화로 보호됩니다." });
+    return o.jsxs("div", { children: [
+        o.jsxs("div", { className: "flex items-center justify-between mb-1", children: [o.jsx("p", { className: "text-white/45 text-[11px]", children: "8초마다 자동 저장 (최근 10개 보관). 필요하면 되돌리기." }), o.jsx("button", { onClick: load, className: "text-[10px] text-white/40 hover:text-white/70 underline bg-transparent border-none cursor-pointer", children: "새로고침" })] }),
+        list.length === 0 ? o.jsx("p", { className: "text-white/30 text-xs py-2", children: "아직 백업이 없어요 (조금 사용하면 생겨요)." }) : o.jsx("div", { className: "flex flex-col gap-1 max-h-52 overflow-y-auto thin-scroll", children: list.map((b, i) => o.jsxs("div", { className: "flex items-center gap-2 bg-white/5 rounded-lg px-3 py-1.5", children: [o.jsxs("span", { className: "text-white/80 text-xs flex-1", children: [i === 0 ? "🟢 " : "", fmtName(b.file), o.jsxs("span", { className: "text-white/30 ml-1", children: ["(", Math.round((b.size || 0) / 1024), "KB)"] })] }), o.jsx("button", { onClick: () => restore(b.file), className: "px-2.5 py-1 rounded border border-blue-400/50 text-blue-100 bg-blue-500/20 hover:bg-blue-500/35 text-[11px] cursor-pointer", children: "되돌리기" })] }, b.file)) }),
+        msg && o.jsx("p", { className: "text-emerald-300 text-xs mt-2", children: msg })
+    ] });
+}
 function DDBGantt() {
     const [open, setOpen] = O.useState(false);
     const { state, dispatch } = vt();
@@ -2200,15 +2216,17 @@ function Gk(e, t) {
         case "RESET":
             return zv();
         case "LOAD_FROM_CLOUD": {
-            const {
-                currentYear: r,
-                currentMonth: n
-            } = e;
-            return {
-                ...t.state,
-                currentYear: r,
-                currentMonth: n
-            }
+            const { currentYear: r, currentMonth: n } = e;
+            const cloud = t.state || {};
+            const _cnt = s => { let z = 0; (s.memoTabs || []).forEach(tb => z += ((tb.items || []).length)); z += (s.events || []).length + (s.ddays || []).length + (s.todos || []).length + (s.feedbackMemos || []).length + (((s.settings || {}).quickActions) || []).length; return z; };
+            const lc = _cnt(e), cc = _cnt(cloud);
+            // 안전 가드: 클라우드가 로컬보다 내용이 적으면(=삭제/유실 위험) 덮어쓰지 않고 로컬 유지
+            if (lc > 0 && cc < lc) { try { console.warn("[DDB] 클라우드 동기화 건너뜀: 클라우드(" + cc + ") < 로컬(" + lc + ") — 로컬 데이터 보호"); } catch (e2) {} return e; }
+            return { ...cloud, currentYear: r, currentMonth: n };
+        }
+        case "RESTORE_STATE": {
+            const { currentYear: r, currentMonth: n } = e;
+            return { ...(t.state || {}), currentYear: r, currentMonth: n };
         }
         default:
             return e
@@ -2222,6 +2240,13 @@ function Kk({
     const [t, r] = O.useReducer(Gk, void 0, zv);
     O.useEffect(() => {
         Hv(t)
+    }, [t]);
+    const _bkT = O.useRef(null);
+    O.useEffect(() => {
+        if (!(typeof window !== "undefined" && window.ddbNative && window.ddbNative.backupSave)) return;
+        if (_bkT.current) clearTimeout(_bkT.current);
+        _bkT.current = setTimeout(() => { try { window.ddbNative.backupSave(JSON.stringify(t)); } catch (e) {} }, 8000);
+        return () => { if (_bkT.current) clearTimeout(_bkT.current); };
     }, [t]);
     const n = O.useCallback((i, l) => r({
             type: "SET_MONTH",
@@ -2260,7 +2285,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.69";
+const DDB_VERSION = "0.98.70";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3810,7 +3835,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v306"
+                children: "v307"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -10832,6 +10857,7 @@ function c4({
                         o.jsx("p", { className: "text-white/30 text-[10px] mt-1", children: "※ 디자인 탭 UI 스킨(모던/미니멀)을 고르면 상단 기능버튼에도 같은 모양이 적용돼요." })
                     ] }),
                     o.jsx(DDBAccordion, { title: "라이선스 인증 (정품 등록)", icon: "🔑", children: o.jsx(DDBLicensePanel, {}) }),
+                    o.jsx(DDBAccordion, { title: "백업·복구 (데이터 보호)", icon: "💾", children: o.jsx(DDBBackupPanel, {}) }),
                     o.jsxs(DDBAccordion, { title: "팀 (회사용)", icon: "👥", children: [
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["팀 달력만 사용", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "개인 달력 없이 팀 달력으로 시작 (회사용)" })] }), o.jsx("input", { type: "checkbox", checked: !!c.teamOnly, onChange: k => y("teamOnly", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] }),
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["팀 보기 시 팀 선택 창 표시", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "여러 팀을 자주 바꿀 때 켜세요" })] }), o.jsx("input", { type: "checkbox", checked: !!c.teamAlwaysPick, onChange: k => y("teamAlwaysPick", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] }),

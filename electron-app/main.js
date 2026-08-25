@@ -63,6 +63,30 @@ async function createWindow() {
   // 렌더러가 직접 요청하는 외부 링크 열기 (window.open 우회 — 주소 유실 방지)
   ipcMain.handle('ddb-open-external', (_e, url) => { try { if (url && /^(https?:|mailto:)/i.test(url)) { shell.openExternal(url); return true; } } catch (e) {} return false; });
 
+  // ── 자동 로컬 백업 (데이터 유실 방지) ──────────────────────
+  const BKDIR = path.join(app.getPath('userData'), 'ddb-backups');
+  ipcMain.handle('ddb-backup-save', (_e, json) => {
+    try {
+      if (!json || json.length < 20) return false;
+      if (!fs.existsSync(BKDIR)) fs.mkdirSync(BKDIR, { recursive: true });
+      const files = fs.readdirSync(BKDIR).filter(f => f.startsWith('bk-') && f.endsWith('.json')).sort();
+      // 직전 백업과 내용 같으면 저장 안 함(중복 방지)
+      if (files.length) { try { const last = fs.readFileSync(path.join(BKDIR, files[files.length - 1]), 'utf8'); if (last === json) return true; } catch (e) {} }
+      const name = 'bk-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+      fs.writeFileSync(path.join(BKDIR, name), json, 'utf8');
+      // 최근 10개만 유지
+      const all = fs.readdirSync(BKDIR).filter(f => f.startsWith('bk-') && f.endsWith('.json')).sort();
+      while (all.length > 10) { try { fs.unlinkSync(path.join(BKDIR, all.shift())); } catch (e) {} }
+      return true;
+    } catch (e) { return false; }
+  });
+  ipcMain.handle('ddb-backup-list', () => {
+    try { if (!fs.existsSync(BKDIR)) return []; return fs.readdirSync(BKDIR).filter(f => f.startsWith('bk-') && f.endsWith('.json')).sort().reverse().map(f => { let sz = 0; try { sz = fs.statSync(path.join(BKDIR, f)).size; } catch (e) {} return { file: f, size: sz }; }); } catch (e) { return []; }
+  });
+  ipcMain.handle('ddb-backup-read', (_e, file) => {
+    try { if (!/^bk-[\w.\-]+\.json$/.test(String(file))) return null; const p = path.join(BKDIR, file); if (!p.startsWith(BKDIR) || !fs.existsSync(p)) return null; return fs.readFileSync(p, 'utf8'); } catch (e) { return null; }
+  });
+
   // 창을 닫기 전에 클라우드 동기화를 한 번 실행하고 종료 (최대 5초 대기)
   let _closing = false;
   win.on('close', (e) => {
