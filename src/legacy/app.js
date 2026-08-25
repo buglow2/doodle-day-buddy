@@ -1062,6 +1062,25 @@ function DDBAiMemoCard({ tab }) {
         o.jsxs("div", { className: "flex items-center gap-2 px-2.5 py-1.5 border-t border-white/10 flex-shrink-0", children: [o.jsxs("span", { className: "text-white/45 text-[11px] flex-1", children: [cnt, "줄 → 일정 ", cnt, "개 · 오늘 ", today] }), o.jsx("button", { onClick: fileNow, disabled: !cnt, title: "지금 바로 오늘 날짜 일정으로 정리", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer disabled:opacity-40 " + (cnt ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100 hover:bg-emerald-500/40" : "bg-white/5 border-white/15 text-white/40"), children: "지금 정리" })] })
     ] });
 }
+function DDBLicensePanel() {
+    const [busy, setBusy] = O.useState(false);
+    const [key, setKey] = O.useState("");
+    const [msg, setMsg] = O.useState("");
+    const [ok, setOk] = O.useState(false);
+    const [status, setStatus] = O.useState("확인 중…");
+    const check = async () => { try { const c = $a(); if (!c) { setStatus("클라우드 미설정"); return; } const { data: u } = await c.auth.getUser(); if (!u || !u.user) { setStatus("클라우드 로그인 필요"); setOk(false); return; } const { data } = await c.from("licenses").select("license_key,status").eq("user_id", u.user.id).limit(1); if (data && data.length) { setOk(true); setStatus("정품 인증됨 (" + (data[0].license_key || "") + ")"); } else { setOk(false); setStatus("미인증"); } } catch { setStatus("확인 실패"); } };
+    O.useEffect(() => { check(); }, []);
+    const activate = async () => { const k = key.trim(); if (!k) return; setBusy(true); setMsg(""); try { const c = $a(); if (!c) { setMsg("클라우드가 설정되지 않았습니다."); setBusy(false); return; } const { data: u } = await c.auth.getUser(); if (!u || !u.user) { setMsg("먼저 클라우드 로그인을 해주세요."); setBusy(false); return; } const { data, error } = await c.rpc("activate_license", { p_key: k }); if (error) { setMsg("오류: " + error.message); setBusy(false); return; } const map = { OK: "✅ 정품 인증 완료!", ALREADY_ACTIVE: "✅ 이미 인증된 키입니다.", INVALID_KEY: "❌ 존재하지 않는 키입니다.", ALREADY_USED: "❌ 이미 다른 계정에서 사용 중인 키입니다.", NOT_LOGGED_IN: "먼저 로그인하세요." }; setMsg(map[data] || ("결과: " + data)); if (data === "OK" || data === "ALREADY_ACTIVE") { setKey(""); await check(); } } catch (e) { setMsg("실패: " + ((e && e.message) || "")); } setBusy(false); };
+    return o.jsxs("div", { children: [
+        o.jsxs("div", { className: "flex items-center gap-2 mb-2", children: [o.jsx("span", { className: "text-xs " + (ok ? "text-emerald-300" : "text-white/50"), children: (ok ? "● " : "○ ") + "상태: " + status }), o.jsx("button", { onClick: check, className: "text-[10px] text-white/40 hover:text-white/70 underline bg-transparent border-none cursor-pointer", children: "새로고침" })] }),
+        o.jsx("p", { className: "text-white/40 text-[11px] mb-1.5", children: "구매 시 받은 라이선스 키를 입력하세요. (클라우드 로그인 후 · 키 1개 = 계정 1개)" }),
+        o.jsxs("div", { className: "flex items-center gap-1.5", children: [
+            o.jsx("input", { value: key, onChange: e => setKey(e.target.value), placeholder: "DDB-XXXX-XXXX-XXXX", onKeyDown: e => { if (e.key === "Enter") activate(); }, className: "flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-blue-400 placeholder-white/25" }),
+            o.jsx("button", { onClick: activate, disabled: busy || !key.trim(), className: "px-3 py-1.5 rounded-lg text-sm border cursor-pointer disabled:opacity-40 bg-blue-500/30 border-blue-400/50 text-blue-100 hover:bg-blue-500/45", children: busy ? "확인중…" : "인증하기" })
+        ] }),
+        msg && o.jsx("p", { className: "text-white/80 text-xs mt-2", children: msg })
+    ] });
+}
 function DDBGantt() {
     const [open, setOpen] = O.useState(false);
     const { state, dispatch } = vt();
@@ -2213,7 +2232,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.64";
+const DDB_VERSION = "0.98.65";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3763,7 +3782,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v301"
+                children: "v302"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -10784,6 +10803,7 @@ function c4({
                         o.jsxs("div", { className: "flex items-center justify-between gap-2 py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["달력 안 기능버튼 배율", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "달력 셀 안 기능버튼 크기 ×1~5" })] }), o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("button", { onClick: () => y("calBtnScale", Math.max(1, Math.round(((c.calBtnScale || 1) - 0.25) * 4) / 4)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "－" }), o.jsxs("span", { className: "text-white/85 text-sm w-9 text-center", children: ["×", (c.calBtnScale || 1)] }), o.jsx("button", { onClick: () => y("calBtnScale", Math.min(5, Math.round(((c.calBtnScale || 1) + 0.25) * 4) / 4)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "＋" })] })] }),
                         o.jsx("p", { className: "text-white/30 text-[10px] mt-1", children: "※ 디자인 탭 UI 스킨(모던/미니멀)을 고르면 상단 기능버튼에도 같은 모양이 적용돼요." })
                     ] }),
+                    o.jsx(DDBAccordion, { title: "라이선스 인증 (정품 등록)", icon: "🔑", children: o.jsx(DDBLicensePanel, {}) }),
                     o.jsxs(DDBAccordion, { title: "팀 (회사용)", icon: "👥", children: [
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["팀 달력만 사용", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "개인 달력 없이 팀 달력으로 시작 (회사용)" })] }), o.jsx("input", { type: "checkbox", checked: !!c.teamOnly, onChange: k => y("teamOnly", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] }),
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["팀 보기 시 팀 선택 창 표시", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "여러 팀을 자주 바꿀 때 켜세요" })] }), o.jsx("input", { type: "checkbox", checked: !!c.teamAlwaysPick, onChange: k => y("teamAlwaysPick", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] }),
