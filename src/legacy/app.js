@@ -518,6 +518,7 @@ function DDBImageEditor() {
     const imgKeys = (St.settings && St.settings.imgKeys) || {};
     const openRef = O.useRef(false); openRef.current = open;
     const hasImgRef = O.useRef(false); hasImgRef.current = hasImg;
+    const nudgeRef = O.useRef(null);
     const KEYDEFS = [["select", "선택·이동", "v"], ["pen", "펜(그룹)", "p"], ["shape", "도형(그룹)", "s"], ["line", "선", "l"], ["arrow", "화살표", "a"], ["text", "텍스트", "t"], ["crop", "자르기", "c"], ["front", "맨 앞", ""], ["back", "맨 뒤", ""], ["del", "삭제", ""]];
     function setImgKey(k, v) { Dp({ type: "UPDATE_SETTINGS", settings: { imgKeys: { ...((St.settings && St.settings.imgKeys) || {}), [k]: v } } }); }
 
@@ -586,7 +587,7 @@ function DDBImageEditor() {
             if (d.t.indexOf("s:") === 0 && d.obj && d.obj.getScaledWidth() < 4 && d.obj.getScaledHeight() < 4) { c.remove(d.obj); drawRef.current = null; return; }
             if (d.t === "arrow") { addArrowHead(c, d.obj); }
             const ob = d.obj; if (ob && ((ob.width != null && ob.width < 2 && ob.height < 2 && d.t !== "line" && d.t !== "arrow"))) { c.remove(ob); }
-            else { c.setActiveObject(d.t === "arrow" ? c.getActiveObject() : d.obj); if (d.obj && d.obj.ddbKind) { attachSmartControls(d.obj); c.requestRenderAll(); } }
+            else { c.discardActiveObject(); c.requestRenderAll(); }
             pushHist(); setTool("select");
         });
         if (pendingRef.current) { const u = pendingRef.current; pendingRef.current = null; setTimeout(() => loadImage(u), 0); } else { setTimeout(() => newBlank(), 0); }
@@ -608,6 +609,7 @@ function DDBImageEditor() {
             const ae = document.activeElement; const typing = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || (fcRef.current && fcRef.current.getActiveObject() && fcRef.current.getActiveObject().isEditing));
             if (e.key === "Escape") { e.preventDefault(); const c = fcRef.current; if (fmt) { setFmt(null); return; } if (ctxMenu) { setCtxMenu(null); return; } if (showImgSet) { setShowImgSet(false); return; } if (polyModal) { setPolyModal(false); return; } if (grpMenu) { setGrpMenu(null); return; } if (showCfg) { setShowCfg(false); return; } if (menu) { setMenu(null); return; } if (cropReady) { cancelCrop(); return; } if (drawRef.current) { if (c && drawRef.current.obj) { try { c.remove(drawRef.current.obj); } catch {} } drawRef.current = null; if (c) { c.selection = true; c.renderAll(); } return; } if (c) { const a = c.getActiveObject(); if (a && a.isEditing) { try { a.exitEditing(); } catch {} return; } if (c._currentTransform && xformRef.current && xformRef.current.obj) { const o2 = xformRef.current.obj, pr = xformRef.current.props; o2.set(pr); o2.setCoords(); c._currentTransform = null; c.renderAll(); return; } if (a) { c.discardActiveObject(); c.renderAll(); return; } } return; }
             if (typing) return;
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (!a || a.isEditing) return; e.preventDefault(); const step = e.shiftKey ? 10 : 1; if (e.key === "ArrowLeft") a.left -= step; else if (e.key === "ArrowRight") a.left += step; else if (e.key === "ArrowUp") a.top -= step; else a.top += step; a.setCoords(); c.requestRenderAll(); if (nudgeRef.current) clearTimeout(nudgeRef.current); nudgeRef.current = setTimeout(() => pushHist(), 400); return; }
             if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key || "").length === 1) { const k1 = e.key.toLowerCase(); const match = KEYDEFS.find(kd => { const kk = (imgKeys[kd[0]] ?? kd[2]); return kk && kk.toLowerCase() === k1; }); if (match) { e.preventDefault(); const id = match[0]; if (id === "pen" || id === "shape") pickGroupKey(id); else if (id === "front") zOp("front"); else if (id === "back") zOp("back"); else if (id === "del") delSel(); else setTool(id); return; } }
             if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
             if ((e.ctrlKey || e.metaKey) && (e.key === "x" || e.key === "X")) { e.preventDefault(); redo(); return; }
@@ -2232,7 +2234,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.65";
+const DDB_VERSION = "0.98.66";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3782,7 +3784,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v302"
+                children: "v303"
             }), (() => {
                 const S = [{
                     k: "cal",
