@@ -1334,6 +1334,7 @@ function DDBMemoOverview() {
     const [con, setCon] = O.useState(!1);
     const [carousel, setCarousel] = O.useState(!1);
     const [digDay, setDigDay] = O.useState(() => ddbLocalDay());
+    O.useEffect(() => { if (typeof document === "undefined" || document.getElementById("ddb-dig-kf")) return; const st = document.createElement("style"); st.id = "ddb-dig-kf"; st.textContent = "@keyframes ddbCenterIn{from{transform:scale(.955);opacity:.4}to{transform:scale(1);opacity:1}}"; document.head.appendChild(st); }, []);
     const [cadx, setCadx] = O.useState(0);
     const [evSort, setEvSort] = O.useState("date-asc");
     const [itemIdx, setItemIdx] = O.useState(0);
@@ -1386,6 +1387,7 @@ function DDBMemoOverview() {
             if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (editing) { ae.blur(); setEdit(null); } else if (edit) setEdit(null); else if (sel) setSel(null); else setOpen(!1); return; }
             if (editing) return;
             if (sel && !edit) {
+                if (sel === "aimemo") { if (e.key === "ArrowLeft") { e.preventDefault(); setDigDay(dd => ddbShiftDay(dd, -1)); } else if (e.key === "ArrowRight") { e.preventDefault(); setDigDay(dd => ddbShiftDay(dd, 1)); } return; }
                 const cur = allTabs.find(z => z.id === sel);
                 const its = cur ? (_q ? (cur.items || []).filter(_mi) : (cur.items || [])) : [];
                 const m = its.length;
@@ -1457,10 +1459,10 @@ function DDBMemoOverview() {
                     const evChip = (ev, i2, big) => o.jsx("span", { className: "text-white rounded px-2 py-0.5", style: { fontSize: big ? 12 : 11, background: (qt[ev.color] || ev.customColor || "#3b82f6") + "33", border: "1px solid " + (qt[ev.color] || ev.customColor || "#3b82f6") + "88" }, children: ev.title }, ev.id || i2);
                     return o.jsxs("div", { className: "flex flex-col w-full min-h-0", style: { height: "82vh" }, children: [
                         o.jsx("div", { className: "flex gap-1.5 mb-2 flex-wrap flex-shrink-0", children: tabs.map(tb => o.jsxs("button", { onClick: () => { setKbIdx(tabs.indexOf(tb)); setSel(tb.id); setEdit(null); }, className: "px-3 py-1 rounded-full text-xs cursor-pointer border " + (tb.id === "aimemo" ? "bg-emerald-500/30 border-emerald-400/60 text-white" : "bg-white/5 border-white/15 text-white/55 hover:bg-white/10"), children: [o.jsx("span", { className: "inline-block w-2 h-2 rounded-full mr-1 align-middle", style: { background: tb.color || "#8899aa" } }), ddbTT(tb.title)] }, tb.id)) }),
-                        o.jsx("div", { className: "flex-1 flex items-stretch justify-center gap-2 min-h-0 overflow-x-auto", children: strip.map((dd, idx) => {
+                        o.jsx("div", { className: "flex-1 flex items-center justify-center gap-2 min-h-0 overflow-x-auto", children: strip.map((dd, idx) => {
                             const isC = idx === 2; const evs = dEvs(dd); const rec = dRec(dd); const tbls = rec.tables || [], imgs = rec.images || [];
-                            if (!isC) return o.jsxs("div", { onClick: () => setDigDay(dd), className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0 cursor-pointer", style: { width: 180, border: "1px solid rgba(34,197,94,0.35)", background: "rgba(34,197,94,0.05)" }, children: [o.jsx("div", { className: "px-2 py-1.5 text-center text-emerald-200 text-xs font-bold flex-shrink-0", style: { background: "rgba(34,197,94,0.16)" }, children: dLbl(dd) }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2 flex flex-col gap-1", children: evs.length ? evs.map((ev, i2) => o.jsx("div", { className: "text-white/85 text-[11px] rounded px-2 py-0.5", style: { background: (qt[ev.color] || ev.customColor || "#3b82f6") + "22" }, children: ev.title }, ev.id || i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "—" }) })] }, dd);
-                            return o.jsxs("div", { className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0", style: { width: "min(620px, 48vw)", border: "2px solid #22c55e", background: "rgba(34,197,94,0.06)" }, children: [
+                            if (!isC) return o.jsxs("div", { onClick: () => setDigDay(dd), title: "이 날로 이동", className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0 cursor-pointer", style: { width: 176, height: "84%", opacity: 0.9, transition: "height 0.25s ease", border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.04)" }, children: [o.jsx("div", { className: "px-2 py-1.5 text-center text-emerald-200 text-xs font-bold flex-shrink-0", style: { background: "rgba(34,197,94,0.16)" }, children: dLbl(dd) }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2 flex flex-col gap-1", children: evs.length ? evs.map((ev, i2) => o.jsx("div", { className: "text-white/85 text-[11px] rounded px-2 py-0.5", style: { background: (qt[ev.color] || ev.customColor || "#3b82f6") + "22" }, children: ev.title }, ev.id || i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "—" }) })] }, dd);
+                            return o.jsxs("div", { className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0", style: { width: "min(620px, 48vw)", height: "100%", animation: "ddbCenterIn 0.26s ease", border: "2px solid #22c55e", background: "rgba(34,197,94,0.06)" }, children: [
                                 o.jsxs("div", { className: "px-3 py-2 flex items-center gap-2 flex-shrink-0", style: { background: "rgba(34,197,94,0.22)" }, children: [o.jsx("button", { onClick: () => setDigDay(d => ddbShiftDay(d, -1)), className: "text-white/70 bg-transparent border-none cursor-pointer text-sm", children: "◀" }), o.jsx("span", { className: "flex-1 text-center text-emerald-100 font-bold text-sm", children: dLbl(dd) }), o.jsx("button", { onClick: () => setDigDay(d => ddbShiftDay(d, 1)), className: "text-white/70 bg-transparent border-none cursor-pointer text-sm", children: "▶" })] }),
                                 o.jsxs("div", { style: { flex: "1 1 50%", minHeight: 0, display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(255,255,255,0.12)" }, children: [o.jsxs("div", { className: "px-3 py-1 text-blue-300 text-[11px] font-bold flex-shrink-0", children: ["📌 일정 (", evs.length, ")"] }), o.jsx("div", { className: "flex-1 overflow-y-auto px-3 pb-2 flex flex-wrap gap-1 content-start", children: evs.length ? evs.map((ev, i2) => evChip(ev, i2, true)) : o.jsx("span", { className: "text-white/25 text-[12px]", children: "이 날 일정 없음" }) })] }),
                                 o.jsxs("div", { style: { flex: "1 1 50%", minHeight: 0, display: "flex" }, children: [
@@ -2354,7 +2356,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.76";
+const DDB_VERSION = "0.98.77";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3904,7 +3906,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v313"
+                children: "v314"
             }), (() => {
                 const S = [{
                     k: "cal",
