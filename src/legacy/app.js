@@ -641,7 +641,7 @@ function DDBImageEditor() {
     function flatten() { const c = fcRef.current; if (!c) return null; const f = fitRef.current || 1; const pct = Math.max(5, Math.min(400, outPct || 100)); const mult = (1 / f) * (pct / 100); return c.toDataURL({ format: outFmt === "jpg" ? "jpeg" : outFmt, quality: 0.95, multiplier: mult, backgroundColor: outFmt === "png" ? undefined : "#ffffff" }); }
     function dataUrlToBlob(u) { const b = atob(u.split(",")[1]); const mime = u.slice(u.indexOf(":") + 1, u.indexOf(";")); const ar = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) ar[i] = b.charCodeAt(i); return new Blob([ar], { type: mime }); }
     async function pickDir() { try { if (!window.showDirectoryPicker) { flash("이 버전에선 폴더 지정을 지원하지 않아요"); return; } const h = await window.showDirectoryPicker(); dirH.current = h; flash("폴더 지정: " + (h.name || "")); } catch {} }
-    async function doSave() { const c = fcRef.current; if (!c) return; c.discardActiveObject(); c.renderAll(); const u = flatten(); if (!u) return; const b = dataUrlToBlob(u); const ext = outFmt === "jpg" ? "jpg" : outFmt; const base = ((sv.nameOn && sv.fname) ? sv.fname : "MomentPlan").replace(/[\\/:*?"<>|]+/g, "_"); const nm = base + "-" + saveN + "." + ext; if (sv.pathOn && window.showDirectoryPicker) { try { if (!dirH.current) await pickDir(); if (!dirH.current) return; const fh = await dirH.current.getFileHandle(nm, { create: true }); const w = await fh.createWritable(); await w.write(b); await w.close(); setSaveN(n => n + 1); flash("저장: " + nm); } catch { flash("저장 실패 — 권한을 확인하세요"); } } else { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = nm; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); setSaveN(n => n + 1); flash("저장: " + nm); } }
+    async function doSave() { const c = fcRef.current; if (!c) return; c.discardActiveObject(); c.renderAll(); const u = flatten(); if (!u) return; try { const im0 = new Image(); im0.onload = () => { try { let tw = 140, th = Math.max(1, Math.round(im0.height * (tw / im0.width))); th = Math.min(th, 170); const cv = document.createElement("canvas"); cv.width = tw; cv.height = th; cv.getContext("2d").drawImage(im0, 0, 0, tw, th); Dp({ type: "AI_DAILY_ADD", day: ddbLocalDay(), kind: "images", item: cv.toDataURL("image/jpeg", 0.5) }); } catch (e2) {} }; im0.src = u; } catch (e1) {} const b = dataUrlToBlob(u); const ext = outFmt === "jpg" ? "jpg" : outFmt; const base = ((sv.nameOn && sv.fname) ? sv.fname : "MomentPlan").replace(/[\\/:*?"<>|]+/g, "_"); const nm = base + "-" + saveN + "." + ext; if (sv.pathOn && window.showDirectoryPicker) { try { if (!dirH.current) await pickDir(); if (!dirH.current) return; const fh = await dirH.current.getFileHandle(nm, { create: true }); const w = await fh.createWritable(); await w.write(b); await w.close(); setSaveN(n => n + 1); flash("저장: " + nm); } catch { flash("저장 실패 — 권한을 확인하세요"); } } else { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = nm; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); setSaveN(n => n + 1); flash("저장: " + nm); } }
     async function doCopy() { const c = fcRef.current; if (!c) return; c.discardActiveObject(); c.renderAll(); const prevFmt = outFmt; const u = c.toDataURL({ format: "png", multiplier: (1 / (fitRef.current || 1)) }); try { const b = dataUrlToBlob(u); await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]); flash("복사됨! 붙여넣기(Ctrl+V)"); } catch { flash("복사 실패"); } }
     function savePal() { setPal(p => { const np = [color, ...p.filter(x => x.toLowerCase() !== color.toLowerCase())].slice(0, 6); try { localStorage.setItem("ddb_img_pal", JSON.stringify(np)); } catch {} return np; }); flash("색상 저장됨", 1400); }
 
@@ -1046,6 +1046,33 @@ function DDBFeedbackLog() {
 }
 function ddbLocalDay(d) { d = d || new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function ddbAiLines(txt) { return String(txt || "").split("\n").map(s => s.replace(/^\s*[*\-•·]\s*/, "").trim()).filter(Boolean); }
+function ddbShiftDay(s, d) { const p = String(s).split("-").map(Number); const dt = new Date(p[0] || 2000, (p[1] || 1) - 1, p[2] || 1); dt.setDate(dt.getDate() + d); return ddbLocalDay(dt); }
+function DDBAiDigest() {
+    const { state, dispatch } = vt();
+    const [open, setOpen] = O.useState(false);
+    const [day, setDay] = O.useState(ddbLocalDay());
+    O.useEffect(() => { const h = e => { setDay((e && e.detail && e.detail.day) || ddbLocalDay()); setOpen(true); }; window.addEventListener("ddb-ai-digest", h); return () => window.removeEventListener("ddb-ai-digest", h); }, []);
+    O.useEffect(() => { if (!open) return; const k = e => { if (e.key === "Escape") { e.preventDefault(); setOpen(false); } else if (e.key === "ArrowLeft") { e.preventDefault(); setDay(d => ddbShiftDay(d, -1)); } else if (e.key === "ArrowRight") { e.preventDefault(); setDay(d => ddbShiftDay(d, 1)); } }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [open]);
+    if (!open) return null;
+    const today = ddbLocalDay();
+    const days = []; for (let i = 15; i >= 0; i--) days.push(ddbShiftDay(today, -i));
+    const evs = (state.events || []).filter(x => x && x.date === day && x.amount === void 0);
+    const rec = (state.aiDaily || {})[day] || {};
+    const tables = rec.tables || [], images = rec.images || [];
+    const wd = "일월화수목금토"[(new Date(day.split("-")[0], day.split("-")[1] - 1, day.split("-")[2])).getDay()] || "";
+    const smallTable = (md, i) => { let g = null; try { g = GT(md); } catch (e) {} if (!g || !g.headers) return o.jsx("pre", { style: { fontSize: 10, color: "rgba(255,255,255,0.7)", whiteSpace: "pre-wrap" }, children: md }, i); return o.jsxs("div", { style: { border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, overflow: "hidden", marginBottom: 6 }, children: [o.jsx("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 }, children: o.jsxs("tbody", { children: [o.jsx("tr", { children: g.headers.map((h, c) => o.jsx("td", { style: { border: "1px solid rgba(255,255,255,0.15)", padding: "2px 5px", background: "rgba(255,255,255,0.08)", color: "#fff", fontWeight: 600 }, children: h }, c)) }), ...g.rows.slice(0, 12).map((row, r) => o.jsx("tr", { children: g.headers.map((_, c) => o.jsx("td", { style: { border: "1px solid rgba(255,255,255,0.1)", padding: "2px 5px", color: "rgba(255,255,255,0.85)" }, children: (row[c] || "") }, c)) }, r))] }) }), g.rows.length > 12 ? o.jsxs("div", { style: { fontSize: 9, color: "rgba(255,255,255,0.35)", padding: "1px 4px" }, children: ["…외 ", g.rows.length - 12, "행"] }) : null] }, i); };
+    return Rr.createPortal(o.jsxs("div", { style: { position: "fixed", inset: 0, zIndex: 2147483550, background: "rgba(6,9,16,0.96)", display: "flex", flexDirection: "column" }, children: [
+        o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }, children: [o.jsx("span", { style: { color: "#86efac", fontWeight: 700, fontSize: 15 }, children: "🗓 AI 하루 요약" }), o.jsxs("span", { style: { color: "#fff", fontSize: 14, fontWeight: 600 }, children: [day, " (", wd, ")"] }), o.jsx("span", { style: { color: "rgba(255,255,255,0.4)", fontSize: 11 }, children: "← → 날짜 이동 · ESC 닫기" }), o.jsx("span", { style: { flex: 1 } }), o.jsx("button", { onClick: () => setOpen(false), style: { background: "transparent", border: "none", color: "rgba(255,255,255,0.6)", fontSize: 20, cursor: "pointer" }, children: "✕" })] }),
+        o.jsx("div", { style: { display: "flex", gap: 4, padding: "8px 12px", overflowX: "auto", flexShrink: 0, borderBottom: "1px solid rgba(255,255,255,0.08)" }, children: days.map(dd => { const r = (state.aiDaily || {})[dd] || {}; const has = (state.events || []).some(x => x && x.date === dd) || (r.tables || []).length || (r.images || []).length; return o.jsxs("button", { onClick: () => setDay(dd), style: { flexShrink: 0, minWidth: 62, padding: "5px 8px", borderRadius: 8, cursor: "pointer", border: "2px solid " + (dd === day ? "#22c55e" : "rgba(255,255,255,0.12)"), background: dd === day ? "rgba(34,197,94,0.18)" : "rgba(255,255,255,0.04)", color: dd === day ? "#bbf7d0" : "rgba(255,255,255,0.6)", fontSize: 11, textAlign: "center", position: "relative" }, children: [o.jsx("div", { style: { fontWeight: 600 }, children: dd.slice(5) }), o.jsx("div", { style: { fontSize: 9, opacity: 0.7 }, children: dd === today ? "오늘" : ("일월화수목금토"[(new Date(dd.split("-")[0], dd.split("-")[1] - 1, dd.split("-")[2])).getDay()]) }), has ? o.jsx("span", { style: { position: "absolute", top: 2, right: 4, width: 5, height: 5, borderRadius: 3, background: "#38bdf8" } }) : null] }, dd); }) }),
+        o.jsxs("div", { style: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0, padding: 12, gap: 10 }, children: [
+            o.jsxs("div", { style: { flex: "0 0 30%", minHeight: 0, display: "flex", flexDirection: "column", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "8px 12px" }, children: [o.jsxs("div", { style: { color: "#93c5fd", fontSize: 12, fontWeight: 700, marginBottom: 5 }, children: ["📌 그날 일정 (", evs.length, ")"] }), o.jsx("div", { style: { overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 5, alignContent: "flex-start" }, children: evs.length ? evs.map((ev, i) => o.jsx("span", { style: { fontSize: 12, color: "#fff", background: (qt[ev.color] || ev.customColor || "#3b82f6") + "33", border: "1px solid " + (qt[ev.color] || ev.customColor || "#3b82f6") + "88", borderRadius: 6, padding: "2px 8px" }, children: ev.title }, ev.id || i)) : o.jsx("span", { style: { color: "rgba(255,255,255,0.3)", fontSize: 12 }, children: "이 날 정리된 일정이 없어요." }) })] }),
+            o.jsxs("div", { style: { flex: 1, minHeight: 0, display: "flex", gap: 10 }, children: [
+                o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "8px 12px" }, children: [o.jsxs("div", { style: { color: "#7dd3fc", fontSize: 12, fontWeight: 700, marginBottom: 5 }, children: ["📊 표 (", tables.length, ")"] }), o.jsx("div", { style: { flex: 1, overflowY: "auto" }, children: tables.length ? tables.map((md, i) => o.jsxs("div", { style: { position: "relative", marginBottom: 4 }, children: [smallTable(md, i), o.jsx("button", { onClick: () => dispatch({ type: "AI_DAILY_DEL", day: day, kind: "tables", idx: i }), title: "삭제", style: { position: "absolute", top: 0, right: 0, background: "rgba(0,0,0,0.5)", color: "#fff", border: "none", borderRadius: 4, fontSize: 10, cursor: "pointer", padding: "0 4px" }, children: "✕" })] }, i)) : o.jsx("span", { style: { color: "rgba(255,255,255,0.3)", fontSize: 12 }, children: "AI메모에 표를 붙여넣으면 여기 모여요." }) })] }),
+                o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "8px 12px" }, children: [o.jsxs("div", { style: { color: "#c4b5fd", fontSize: 12, fontWeight: 700, marginBottom: 5 }, children: ["🖼 이미지 (", images.length, ")"] }), o.jsx("div", { style: { flex: 1, overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 6, alignContent: "flex-start" }, children: images.length ? images.map((src, i) => o.jsxs("div", { style: { position: "relative" }, children: [o.jsx("img", { src: src, style: { maxWidth: 120, maxHeight: 120, borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "#000" } }), o.jsx("button", { onClick: () => dispatch({ type: "AI_DAILY_DEL", day: day, kind: "images", idx: i }), title: "삭제", style: { position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.55)", color: "#fff", border: "none", borderRadius: 4, fontSize: 10, cursor: "pointer", padding: "0 4px" }, children: "✕" })] }, i)) : o.jsx("span", { style: { color: "rgba(255,255,255,0.3)", fontSize: 12 }, children: "이미지 편집기에서 저장하면 여기 모여요." }) })] })
+            ] })
+        ] })
+    ] }), document.body);
+}
 function ddbAiFlush(tab, dispatch) {
     if (!tab) return 0;
     const today = ddbLocalDay();
@@ -1073,7 +1100,7 @@ function DDBAiFlusher() {
     return Rr.createPortal(o.jsx("div", { style: { position: "fixed", left: "50%", bottom: 60, transform: "translateX(-50%)", zIndex: 2147483600, background: "rgba(16,185,129,0.96)", color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13, boxShadow: "0 8px 24px rgba(0,0,0,0.45)" }, children: "🤖 " + msg }), document.body);
 }
 function DDBAiMemoCard({ tab }) {
-    const { dispatch } = vt();
+    const { state, dispatch } = vt();
     const [txt, setTxt] = O.useState(tab.aiText != null ? tab.aiText : "* ");
     O.useEffect(() => { setTxt(tab.aiText != null ? tab.aiText : "* "); }, [tab.id, tab.aiText]);
     const today = ddbLocalDay();
@@ -1083,11 +1110,15 @@ function DDBAiMemoCard({ tab }) {
     const cnt = ddbAiLines(txt).length;
     const fileNow = () => { const ls = ddbAiLines(txt); if (!ls.length) return; ls.forEach((ln, ix) => dispatch({ type: "ADD_EVENT", event: { id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: ln.slice(0, 200), date: today, color: colorName, isAllDay: true } })); dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "* ", aiDate: today } }); setTxt("* "); };
     const chipHex = qt[colorName] || tab.color || "#22c55e";
+    const rec = (state.aiDaily || {})[today] || {};
+    const tCnt = (rec.tables || []).length, iCnt = (rec.images || []).length;
+    const onPasteTbl = e => { try { const html = e.clipboardData.getData("text/html"); const plain = e.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (md) { e.preventDefault(); dispatch({ type: "AI_DAILY_ADD", day: today, kind: "tables", item: String(md).trim() }); } } catch (er) {} };
     return o.jsxs("div", { className: "flex flex-col h-full", style: { minHeight: 0 }, children: [
-        o.jsx("div", { className: "px-2.5 py-1.5 text-white/60 text-[11px] leading-relaxed border-b border-white/10 flex-shrink-0", children: "🤖 한 줄에 하나씩 적으면, 자정(또는 다음 실행)에 그날 날짜 일정으로 자동 정리돼요. 줄바꿈 = 일정 1개." }),
+        o.jsx("div", { className: "px-2.5 py-1.5 text-white/60 text-[11px] leading-relaxed border-b border-white/10 flex-shrink-0", children: "🤖 한 줄=일정(자정에 그날 날짜로 자동 정리) · 표를 붙여넣으면 그날 표 기록으로 · 이미지 저장 시 자동 보관" }),
+        (tCnt || iCnt) ? o.jsxs("div", { className: "px-2.5 py-1 text-[11px] flex items-center gap-2 flex-shrink-0 border-b border-white/5", children: [o.jsxs("span", { className: "text-sky-300", children: ["📊 오늘 표 ", tCnt] }), o.jsxs("span", { className: "text-purple-300", children: ["🖼 이미지 ", iCnt] }), o.jsx("span", { className: "text-white/30", children: "(메모 상세 → AI메모에서 날짜별로 보기)" })] }) : null,
         o.jsxs("div", { className: "flex items-center gap-1 px-2.5 py-1.5 flex-wrap flex-shrink-0", children: [o.jsx("span", { className: "text-white/50 text-[11px] mr-0.5", children: "일정 색" }), ...Object.keys(qt).map(nm => o.jsx("button", { onClick: () => setColor(nm), title: nm, className: "w-4 h-4 rounded-full flex-shrink-0 border " + (colorName === nm ? "border-white" : "border-white/20"), style: { background: qt[nm] } }, nm))] }),
-        o.jsx("textarea", { value: txt, onChange: e => save(e.target.value), placeholder: "* 오늘 할 일을 한 줄에 하나씩\n* 예: 3시 거래처 미팅\n* 예: 보고서 제출", spellCheck: false, className: "flex-1 w-full bg-transparent text-white/90 placeholder-white/25 text-sm resize-none outline-none px-3 py-2 min-h-0", style: { borderLeft: "3px solid " + chipHex, lineHeight: 1.7 } }),
-        o.jsxs("div", { className: "flex items-center gap-2 px-2.5 py-1.5 border-t border-white/10 flex-shrink-0", children: [o.jsxs("span", { className: "text-white/45 text-[11px] flex-1", children: [cnt, "줄 → 일정 ", cnt, "개 · 오늘 ", today] }), o.jsx("button", { onClick: fileNow, disabled: !cnt, title: "지금 바로 오늘 날짜 일정으로 정리", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer disabled:opacity-40 " + (cnt ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100 hover:bg-emerald-500/40" : "bg-white/5 border-white/15 text-white/40"), children: "지금 정리" })] })
+        o.jsx("textarea", { value: txt, onChange: e => save(e.target.value), onPaste: onPasteTbl, placeholder: "* 오늘 할 일을 한 줄에 하나씩\n* 예: 3시 거래처 미팅\n* 표를 복사해서 붙여넣으면 자동으로 그날 표 기록으로", spellCheck: false, className: "flex-1 w-full bg-transparent text-white/90 placeholder-white/25 text-sm resize-none outline-none px-3 py-2 min-h-0", style: { borderLeft: "3px solid " + chipHex, lineHeight: 1.7 } }),
+        o.jsxs("div", { className: "flex items-center gap-2 px-2.5 py-1.5 border-t border-white/10 flex-shrink-0", children: [o.jsxs("span", { className: "text-white/45 text-[11px] flex-1", children: [cnt, "줄 → 일정 ", cnt, "개 · 오늘 ", today] }), o.jsx("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-ai-digest")), title: "날짜별 하루 요약 보기 (일정·표·이미지)", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer bg-white/8 border-white/20 text-white/70 hover:bg-white/15", children: "🗓 요약" }), o.jsx("button", { onClick: fileNow, disabled: !cnt, title: "지금 바로 오늘 날짜 일정으로 정리", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer disabled:opacity-40 " + (cnt ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100 hover:bg-emerald-500/40" : "bg-white/5 border-white/15 text-white/40"), children: "지금 정리" })] })
     ] });
 }
 function DDBLicensePanel() {
@@ -1974,6 +2005,20 @@ function Gk(e, t) {
             return {
                 ...e, memoTabs: t.atFront ? [e.memoTabs[0], t.tab, ...e.memoTabs.slice(1)] : [...e.memoTabs, t.tab]
             };
+        case "AI_DAILY_ADD": {
+            const ad = { ...(e.aiDaily || {}) };
+            const rec = { tables: [], images: [], ...(ad[t.day] || {}) };
+            rec[t.kind] = [...(rec[t.kind] || []), t.item].slice(-30);
+            ad[t.day] = rec;
+            return { ...e, aiDaily: ad };
+        }
+        case "AI_DAILY_DEL": {
+            const ad = { ...(e.aiDaily || {}) };
+            const rec = { tables: [], images: [], ...(ad[t.day] || {}) };
+            rec[t.kind] = (rec[t.kind] || []).filter((_, i) => i !== t.idx);
+            ad[t.day] = rec;
+            return { ...e, aiDaily: ad };
+        }
         case "UPDATE_MEMO_TAB":
             return {
                 ...e, memoTabs: e.memoTabs.map(r => r.id === t.tab.id ? t.tab : r)
@@ -2285,7 +2330,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.73";
+const DDB_VERSION = "0.98.74";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3835,7 +3880,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v310"
+                children: "v311"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -17018,7 +17063,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {})]
         })
     })
 }
