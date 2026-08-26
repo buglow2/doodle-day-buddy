@@ -1448,6 +1448,29 @@ function DDBMemoOverview() {
                         : null
                     ] }, k);
                 };
+                if (sel === "aimemo") {
+                    const center = digDay; const strip = [-2, -1, 0, 1, 2].map(o2 => ddbShiftDay(center, o2));
+                    const dEvs = dd => (t.events || []).filter(x => x && x.date === dd && x.amount === void 0);
+                    const dRec = dd => (t.aiDaily || {})[dd] || {};
+                    const dLbl = dd => { const p = dd.split("-"); return (+p[1]) + "월 " + (+p[2]) + "일 (" + "일월화수목금토"[new Date(+p[0], +p[1] - 1, +p[2]).getDay()] + ")"; };
+                    const stbl = (md, i2) => { let g = null; try { g = GT(md); } catch (e) {} if (!g || !g.headers) return o.jsx("pre", { className: "text-white/70 text-[10px] whitespace-pre-wrap", children: md }, i2); return o.jsx("div", { className: "mb-1.5", style: { border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, overflow: "hidden" }, children: o.jsx("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10.5 }, children: o.jsxs("tbody", { children: [o.jsx("tr", { children: g.headers.map((h, c) => o.jsx("td", { style: { border: "1px solid rgba(255,255,255,0.15)", padding: "1px 4px", background: "rgba(255,255,255,0.08)", color: "#fff", fontWeight: 600 }, children: h }, c)) }), ...g.rows.slice(0, 8).map((row, r) => o.jsx("tr", { children: g.headers.map((_, c) => o.jsx("td", { style: { border: "1px solid rgba(255,255,255,0.1)", padding: "1px 4px", color: "rgba(255,255,255,0.85)" }, children: row[c] || "" }, c)) }, r))] }) }) }, i2); };
+                    const evChip = (ev, i2, big) => o.jsx("span", { className: "text-white rounded px-2 py-0.5", style: { fontSize: big ? 12 : 11, background: (qt[ev.color] || ev.customColor || "#3b82f6") + "33", border: "1px solid " + (qt[ev.color] || ev.customColor || "#3b82f6") + "88" }, children: ev.title }, ev.id || i2);
+                    return o.jsxs("div", { className: "flex flex-col w-full min-h-0", style: { height: "82vh" }, children: [
+                        o.jsx("div", { className: "flex gap-1.5 mb-2 flex-wrap flex-shrink-0", children: tabs.map(tb => o.jsxs("button", { onClick: () => { setKbIdx(tabs.indexOf(tb)); setSel(tb.id); setEdit(null); }, className: "px-3 py-1 rounded-full text-xs cursor-pointer border " + (tb.id === "aimemo" ? "bg-emerald-500/30 border-emerald-400/60 text-white" : "bg-white/5 border-white/15 text-white/55 hover:bg-white/10"), children: [o.jsx("span", { className: "inline-block w-2 h-2 rounded-full mr-1 align-middle", style: { background: tb.color || "#8899aa" } }), ddbTT(tb.title)] }, tb.id)) }),
+                        o.jsx("div", { className: "flex-1 flex items-stretch justify-center gap-2 min-h-0 overflow-x-auto", children: strip.map((dd, idx) => {
+                            const isC = idx === 2; const evs = dEvs(dd); const rec = dRec(dd); const tbls = rec.tables || [], imgs = rec.images || [];
+                            if (!isC) return o.jsxs("div", { onClick: () => setDigDay(dd), className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0 cursor-pointer", style: { width: 180, border: "1px solid rgba(34,197,94,0.35)", background: "rgba(34,197,94,0.05)" }, children: [o.jsx("div", { className: "px-2 py-1.5 text-center text-emerald-200 text-xs font-bold flex-shrink-0", style: { background: "rgba(34,197,94,0.16)" }, children: dLbl(dd) }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2 flex flex-col gap-1", children: evs.length ? evs.map((ev, i2) => o.jsx("div", { className: "text-white/85 text-[11px] rounded px-2 py-0.5", style: { background: (qt[ev.color] || ev.customColor || "#3b82f6") + "22" }, children: ev.title }, ev.id || i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "—" }) })] }, dd);
+                            return o.jsxs("div", { className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0", style: { width: "min(620px, 48vw)", border: "2px solid #22c55e", background: "rgba(34,197,94,0.06)" }, children: [
+                                o.jsxs("div", { className: "px-3 py-2 flex items-center gap-2 flex-shrink-0", style: { background: "rgba(34,197,94,0.22)" }, children: [o.jsx("button", { onClick: () => setDigDay(d => ddbShiftDay(d, -1)), className: "text-white/70 bg-transparent border-none cursor-pointer text-sm", children: "◀" }), o.jsx("span", { className: "flex-1 text-center text-emerald-100 font-bold text-sm", children: dLbl(dd) }), o.jsx("button", { onClick: () => setDigDay(d => ddbShiftDay(d, 1)), className: "text-white/70 bg-transparent border-none cursor-pointer text-sm", children: "▶" })] }),
+                                o.jsxs("div", { style: { flex: "1 1 50%", minHeight: 0, display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(255,255,255,0.12)" }, children: [o.jsxs("div", { className: "px-3 py-1 text-blue-300 text-[11px] font-bold flex-shrink-0", children: ["📌 일정 (", evs.length, ")"] }), o.jsx("div", { className: "flex-1 overflow-y-auto px-3 pb-2 flex flex-wrap gap-1 content-start", children: evs.length ? evs.map((ev, i2) => evChip(ev, i2, true)) : o.jsx("span", { className: "text-white/25 text-[12px]", children: "이 날 일정 없음" }) })] }),
+                                o.jsxs("div", { style: { flex: "1 1 50%", minHeight: 0, display: "flex" }, children: [
+                                    o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,0.12)" }, children: [o.jsx("div", { className: "px-2 py-1 text-sky-300 text-[11px] font-bold flex-shrink-0", children: "📊 Table" }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2", children: tbls.length ? tbls.map((md, i2) => o.jsxs("div", { className: "relative", children: [stbl(md, i2), o.jsx("button", { onClick: () => dsp({ type: "AI_DAILY_DEL", day: dd, kind: "tables", idx: i2 }), className: "absolute top-0 right-0 text-white/60 bg-black/50 rounded text-[10px] px-1 cursor-pointer border-none", children: "✕" })] }, i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "AI메모에 표 붙여넣으면 여기" }) })] }),
+                                    o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }, children: [o.jsx("div", { className: "px-2 py-1 text-purple-300 text-[11px] font-bold flex-shrink-0", children: "🖼 Image" }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2 flex flex-wrap gap-1.5 content-start", children: imgs.length ? imgs.map((src, i2) => o.jsxs("div", { className: "relative", children: [o.jsx("img", { src: src, style: { maxWidth: 88, maxHeight: 88, borderRadius: 5, border: "1px solid rgba(255,255,255,0.15)", background: "#000" } }), o.jsx("button", { onClick: () => dsp({ type: "AI_DAILY_DEL", day: dd, kind: "images", idx: i2 }), className: "absolute top-0.5 right-0.5 text-white/70 bg-black/55 rounded text-[10px] px-1 cursor-pointer border-none", children: "✕" })] }, i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "이미지 저장 시 여기" }) })] })
+                                ] })
+                            ] }, dd);
+                        }) })
+                    ] });
+                }
                 const ak = ((kbIdx % n + n) % n);
                 if (carActive) {
                     const COPIES = n <= 12 ? 5 : 3;
@@ -2331,7 +2354,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.75";
+const DDB_VERSION = "0.98.76";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3881,7 +3904,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v312"
+                children: "v313"
             }), (() => {
                 const S = [{
                     k: "cal",
