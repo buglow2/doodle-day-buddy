@@ -466,6 +466,7 @@ function DDBImageEditor() {
     const moveRef = O.useRef(null);
     const xformRef = O.useRef(null);
     const matchRef = O.useRef(null);
+    const tileMapRef = O.useRef({});
     const toolRef = O.useRef("select");
     const styRef = O.useRef({});
     toolRef.current = tool;
@@ -536,7 +537,7 @@ function DDBImageEditor() {
     const openRef = O.useRef(false); openRef.current = open;
     const hasImgRef = O.useRef(false); hasImgRef.current = hasImg;
     const nudgeRef = O.useRef(null);
-    const KEYDEFS = [["select", "선택·이동", "v"], ["pen", "펜(그룹)", "p"], ["shape", "도형(그룹)", "s"], ["line", "선", "l"], ["arrow", "화살표", "a"], ["text", "텍스트", "t"], ["crop", "자르기", "c"], ["front", "맨 앞", ""], ["back", "맨 뒤", ""], ["del", "삭제", ""]];
+    const KEYDEFS = [["select", "선택·이동", "v"], ["pen", "펜(그룹)", "p"], ["shape", "도형(그룹)", "s"], ["line", "선", "l"], ["arrow", "화살표", "a"], ["text", "텍스트", "t"], ["crop", "자르기", "c"], ["matchprop", "특성일치", ""], ["blank", "새 캔버스", ""], ["imgbg", "이미지 열기", ""], ["imgobj", "이미지 삽입", ""], ["imgset", "이미지 설정", ""], ["rotL", "왼쪽 회전", ""], ["rotR", "오른쪽 회전", ""], ["flipH", "좌우 반전", ""], ["flipV", "상하 반전", ""], ["front", "맨 앞", ""], ["fwd", "앞으로", ""], ["back", "맨 뒤", ""], ["bwd", "뒤로", ""], ["alL", "왼쪽 정렬", ""], ["alC", "가로 중앙", ""], ["alR", "오른쪽 정렬", ""], ["alT", "위 정렬", ""], ["alM", "세로 중앙", ""], ["alB", "아래 정렬", ""], ["distH", "가로 균등", ""], ["distV", "세로 균등", ""], ["undo", "되돌리기", ""], ["redo", "다시", ""], ["ocr", "글자 추출", ""], ["copy", "복사", ""], ["save", "저장", ""], ["del", "삭제", ""]];
     function setImgKey(k, v) { Dp({ type: "UPDATE_SETTINGS", settings: { imgKeys: { ...((St.settings && St.settings.imgKeys) || {}), [k]: v } } }); }
 
     O.useEffect(() => {
@@ -606,7 +607,7 @@ function DDBImageEditor() {
             if (d.t === "arrow") { addArrowHead(c, d.obj); }
             const ob = d.obj; if (ob && ((ob.width != null && ob.width < 2 && ob.height < 2 && d.t !== "line" && d.t !== "arrow"))) { c.remove(ob); }
             else { c.discardActiveObject(); c.requestRenderAll(); }
-            pushHist(); setTool("select");
+            pushHist();
         });
         if (pendingRef.current) { const u = pendingRef.current; pendingRef.current = null; setTimeout(() => loadImage(u), 0); } else { setTimeout(() => newBlank(), 0); }
         return () => { try { c.dispose(); } catch {} fcRef.current = null; };
@@ -628,7 +629,7 @@ function DDBImageEditor() {
             if (e.key === "Escape") { e.preventDefault(); const c = fcRef.current; if (toolRef.current === "matchprop") { setTool("select"); matchRef.current = null; return; } if (fmt) { setFmt(null); return; } if (ctxMenu) { setCtxMenu(null); return; } if (showImgSet) { setShowImgSet(false); return; } if (polyModal) { setPolyModal(false); return; } if (grpMenu) { setGrpMenu(null); return; } if (showCfg) { setShowCfg(false); return; } if (menu) { setMenu(null); return; } if (cropReady) { cancelCrop(); return; } if (drawRef.current) { if (c && drawRef.current.obj) { try { c.remove(drawRef.current.obj); } catch {} } drawRef.current = null; if (c) { c.selection = true; c.renderAll(); } return; } if (c) { const a = c.getActiveObject(); if (a && a.isEditing) { try { a.exitEditing(); } catch {} return; } if (c._currentTransform && xformRef.current && xformRef.current.obj) { const o2 = xformRef.current.obj, pr = xformRef.current.props; o2.set(pr); o2.setCoords(); c._currentTransform = null; c.renderAll(); return; } if (a) { c.discardActiveObject(); c.renderAll(); return; } } return; }
             if (typing) return;
             if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (!a || a.isEditing) return; e.preventDefault(); const step = e.shiftKey ? 10 : 1; if (e.key === "ArrowLeft") a.left -= step; else if (e.key === "ArrowRight") a.left += step; else if (e.key === "ArrowUp") a.top -= step; else a.top += step; a.setCoords(); c.requestRenderAll(); if (nudgeRef.current) clearTimeout(nudgeRef.current); nudgeRef.current = setTimeout(() => pushHist(), 400); return; }
-            if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key || "").length === 1) { const k1 = e.key.toLowerCase(); const match = KEYDEFS.find(kd => { const kk = (imgKeys[kd[0]] ?? kd[2]); return kk && kk.toLowerCase() === k1; }); if (match) { e.preventDefault(); const id = match[0]; if (id === "pen" || id === "shape") pickGroupKey(id); else if (id === "front") zOp("front"); else if (id === "back") zOp("back"); else if (id === "del") delSel(); else setTool(id); return; } }
+            if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key || "").length === 1) { const k1 = e.key.toLowerCase(); const match = KEYDEFS.find(kd => { const kk = (imgKeys[kd[0]] ?? kd[2]); return kk && kk.toLowerCase() === k1; }); if (match) { e.preventDefault(); const id = match[0]; if (id === "del") { delSel(); return; } const _t = tileMapRef.current[id]; if (!_t) { setTool(id); } else if (_t.k === "grp") { pickGroupKey(_t.grp); } else if (_t.k === "act") { _t.run && _t.run(); } else { setTool(id); } return; } }
             if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
             if ((e.ctrlKey || e.metaKey) && (e.key === "x" || e.key === "X")) { e.preventDefault(); redo(); return; }
             if (e.key === "Delete" || e.key === "Backspace") { const c = fcRef.current; if (c) { const a = c.getActiveObject(); if (a) { if (a.type === "activeSelection") a.forEachObject(o2 => c.remove(o2)); else c.remove(a); c.discardActiveObject(); c.renderAll(); pushHist(); } } return; }
@@ -719,7 +720,7 @@ function DDBImageEditor() {
         { id: "alL", nm: "왼쪽정렬", k: "act", run: () => alignObjs("left"), sel: 1 }, { id: "alC", nm: "가로중앙", k: "act", run: () => alignObjs("centerH"), sel: 1 }, { id: "alR", nm: "오른쪽정렬", k: "act", run: () => alignObjs("right"), sel: 1 }, { id: "alT", nm: "위정렬", k: "act", run: () => alignObjs("top"), sel: 1 }, { id: "alM", nm: "세로중앙", k: "act", run: () => alignObjs("middleV"), sel: 1 }, { id: "alB", nm: "아래정렬", k: "act", run: () => alignObjs("bottom"), sel: 1 }, { id: "distH", nm: "가로균등", k: "act", run: () => distribute("h"), sel: 1 }, { id: "distV", nm: "세로균등", k: "act", run: () => distribute("v"), sel: 1 },
         { id: "undo", nm: "되돌리기", k: "act", run: undo }, { id: "redo", nm: "다시", k: "act", run: redo }, { id: "ocr", nm: "글자추출", k: "act", run: runOcr, img: 1 }, { id: "copy", nm: "복사", k: "act", run: doCopy, img: 1 }, { id: "save", nm: "저장", k: "act", run: doSave, img: 1 }
     ];
-    const tileMap = {}; TILES.forEach(t => tileMap[t.id] = t);
+    const tileMap = {}; TILES.forEach(t => tileMap[t.id] = t); tileMapRef.current = tileMap;
     const GROUPS = [
         { key: "sketch", label: "스케치", color: "#60a5fa", ids: ["select", "pen", "line", "arrow", "shape", "text", "crop", "matchprop"] },
         { key: "image", label: "이미지", color: "#34d399", ids: ["blank", "imgbg", "imgobj", "imgset", "rotL", "rotR", "flipH", "flipV"] },
@@ -838,7 +839,7 @@ function DDBImageEditor() {
             o.jsxs("div", { className: "bg-white/5 rounded-lg p-2.5", children: [o.jsx("div", { className: "text-white/75 text-sm mb-1.5", children: "펜·도형 그룹 단축키 방식" }), o.jsx("div", { className: "grid grid-cols-2 gap-2", children: [["cycle", "순환 (다시 누르면 다음)"], ["menu", "메뉴 (누르면 목록 표시)"]].map(m => o.jsx("button", { onClick: () => setImgKey("grpMode", m[0]), className: "py-1.5 rounded-lg text-xs border cursor-pointer " + (((imgKeys.grpMode) || "cycle") === m[0] ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: m[1] }, m[0])) }), o.jsx("p", { className: "text-white/35 text-[10px] mt-1", children: "예: 순환이면 p=마지막 펜 → 또 p=다음 펜. 메뉴면 p=연필/볼펜/… 목록." })] }),
             o.jsxs("div", { className: "bg-white/5 rounded-lg p-2.5 flex items-center justify-between", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["아이콘 크기", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "툴바 도구 아이콘 (×1 기본 ~ ×2.5)" })] }), o.jsxs("div", { className: "flex items-center gap-2", children: [o.jsx("button", { onClick: () => setIsc(iconScale - 0.25), className: "w-7 h-7 rounded bg-white/10 text-white border-none cursor-pointer text-base", children: "－" }), o.jsxs("span", { className: "text-white/85 text-sm w-12 text-center", children: ["×", iconScale.toFixed(2)] }), o.jsx("button", { onClick: () => setIsc(iconScale + 0.25), className: "w-7 h-7 rounded bg-white/10 text-white border-none cursor-pointer text-base", children: "＋" })] })] }),
             o.jsx("p", { className: "text-white/40 text-[11px]", children: "각 도구에 글자 1개 단축키를 지정하세요. (입력창 밖에서만 작동)" }),
-            o.jsx("div", { className: "grid grid-cols-2 gap-2", children: KEYDEFS.map(kd => o.jsxs("label", { className: "flex items-center justify-between bg-white/5 rounded-lg px-3 py-1.5 cursor-pointer", children: [o.jsx("span", { className: "text-white/75 text-sm", children: kd[1] }), o.jsx("input", { maxLength: 1, value: (imgKeys[kd[0]] ?? kd[2]) || "", onChange: e => setImgKey(kd[0], (e.target.value || "").slice(-1).toLowerCase()), className: "w-10 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm text-center outline-none focus:border-blue-400" })] }, kd[0])) }),
+            o.jsx("div", { className: "grid grid-cols-2 gap-2 overflow-y-auto pr-1", style: { maxHeight: "46vh" }, children: KEYDEFS.map(kd => o.jsxs("label", { className: "flex items-center justify-between bg-white/5 rounded-lg px-3 py-1.5 cursor-pointer", children: [o.jsx("span", { className: "text-white/75 text-sm", children: kd[1] }), o.jsx("input", { maxLength: 1, value: (imgKeys[kd[0]] ?? kd[2]) || "", onChange: e => setImgKey(kd[0], (e.target.value || "").slice(-1).toLowerCase()), className: "w-10 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm text-center outline-none focus:border-blue-400" })] }, kd[0])) }),
             o.jsx("div", { className: "text-white/40 text-[11px] border-t border-white/10 pt-2", children: "고정: 되돌리기 Ctrl+Z · 다시 Ctrl+X · 삭제 Del · 취소 ESC" })
         ] }) }),
         texts.length > 0 && o.jsxs("div", { style: { position: "fixed", right: 8, top: 112, width: 150, maxHeight: "44vh", overflowY: "auto", zIndex: 75, background: "rgba(12,16,26,0.96)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: 6, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }, onMouseDown: e => e.stopPropagation(), children: [
@@ -2404,7 +2405,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.82";
+const DDB_VERSION = "0.98.83";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3954,7 +3955,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v319"
+                children: "v320"
             }), (() => {
                 const S = [{
                     k: "cal",
