@@ -907,7 +907,6 @@ function DDBPaintBanner() {
 function DDBTileBar() {
     const { state, dispatch } = vt();
     const settings = state.settings || {};
-    const layout = settings.tileLayout || {};
     const anns = (state.ddays || []).filter(d => d && d.pinTop && d.type !== "repeat").map(d => { const info = ddbPinInfo(d); return info ? { id: "ann-" + d.id, kind: "ann", d: d, info: info } : null; }).filter(Boolean);
     const acts = (settings.quickActions || []).map(a => ({ id: "act-" + a.id, kind: a.type, a: a }));
     const tiles = anns.concat(acts);
@@ -926,18 +925,19 @@ function DDBTileBar() {
     const ROWS = Math.max(1, Math.min(6, settings.tileRows || 3)), CW = 156, CH = 24, GAP = 3;
     const cols = Math.max(1, Math.floor((w + GAP) / (CW + GAP)));
     const cells = ROWS * cols;
-    const used = {}, pos = {};
-    tiles.forEach(t => { const ci = layout[t.id]; if (typeof ci === "number" && ci >= 0 && ci < cells && !used[ci]) { pos[t.id] = ci; used[ci] = 1; } });
-    let fp = 0; tiles.forEach(t => { if (pos[t.id] == null) { while (fp < cells && used[fp]) fp++; pos[t.id] = fp < cells ? fp : -1; if (fp < cells) used[fp] = 1; } });
+    const ord = settings.tileOrder || (settings.tileLayout ? Object.keys(settings.tileLayout).sort((a, b) => (settings.tileLayout[a] || 0) - (settings.tileLayout[b] || 0)) : []);
+    const orderedTiles = tiles.slice().sort((a, b) => { const ia = ord.indexOf(a.id), ib = ord.indexOf(b.id); const oa = ia < 0 ? 1e6 + tiles.indexOf(a) : ia; const ob = ib < 0 ? 1e6 + tiles.indexOf(b) : ib; return oa - ob; });
+    const orderedIds = orderedTiles.map(t => t.id);
+    const pos = {}; orderedTiles.forEach((t, i) => pos[t.id] = i >= cells ? -1 : i);
     const saveActs = arr => dispatch({ type: "UPDATE_SETTINGS", settings: { quickActions: arr } });
-    const saveLayout = nl => dispatch({ type: "UPDATE_SETTINGS", settings: { tileLayout: nl } });
+    const saveOrder = arr => dispatch({ type: "UPDATE_SETTINGS", settings: { tileOrder: arr } });
     function mailUrl(a) { const _to = (a.emails && a.emails.length ? a.emails : [a.email]).filter(x => x && String(x).trim()).join(","); const to = encodeURIComponent(_to), su = encodeURIComponent(a.subject || ""), bo = encodeURIComponent(a.body || ""), p = a.provider || "mailto"; if (p === "gmail") return "https://mail.google.com/mail/?view=cm&fs=1&to=" + to + "&su=" + su + "&body=" + bo; if (p === "outlook") return "https://outlook.live.com/mail/0/deeplink/compose?to=" + to + "&subject=" + su + "&body=" + bo; if (p === "naver") return "https://mail.naver.com/write/popup?srvid=note&to=" + to + "&subject=" + su + "&body=" + bo; return "mailto:" + _to + "?subject=" + su + "&body=" + bo; }
     function doTile(t) { if (!t) return; if (t.kind === "pomo") { if (t.a.alarm && t.a.alarmTime) { const _p = String(t.a.alarmTime).split(":"); const _hh = +_p[0] || 0, _mm = +_p[1] || 0; const _now = new Date(); const _tgt = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate(), _hh, _mm, 0, 0); if (_tgt <= _now) _tgt.setDate(_tgt.getDate() + 1); const _sec = Math.max(1, Math.round((_tgt - _now) / 1000)); window.dispatchEvent(new CustomEvent("ddb-pomo-start", { detail: { sec: _sec, steps: [{ sec: _sec, memo: (t.a.label || "알람") + " · " + t.a.alarmTime }], loop: false, sound: t.a.sound, alarm: true, alarmTime: t.a.alarmTime } })); } else window.dispatchEvent(new CustomEvent("ddb-pomo-start", { detail: { sec: t.a.sec, steps: t.a.steps, loop: t.a.loop, sound: t.a.sound } })); } else if (t.kind === "mail") { try { if ((t.a.provider || "mailto") === "naver" && t.a.body) { try { navigator.clipboard && navigator.clipboard.writeText(t.a.body); setToast("본문을 복사했어요 — 네이버 편지쓰기 본문칸에 Ctrl+V 하세요"); } catch (e) {} } var _u = mailUrl(t.a); if (window.ddbNative && window.ddbNative.openExternal) window.ddbNative.openExternal(_u); else window.open(_u, "_blank"); } catch (e) {} } else if (t.kind === "memo") { try { const tabId = t.a.tabId, itemId = t.a.itemId || ""; if (itemId) { window.dispatchEvent(new CustomEvent("ddb-open-memo-popup", { detail: { tabId: tabId, itemId: itemId } })); } else { window.__ddbPendingMemo = { tabId: tabId, itemId: itemId }; const pn = state.panels || []; const ex = pn.find(p => p.type === "memo" && p.memoTabId === tabId); if (ex) dispatch({ type: "SET_PANEL_SLOT", id: ex.id, slot: "left", order: pn.filter(p => p.slot === "left" && p.id !== ex.id).length }); else dispatch({ type: "ADD_PANEL", panel: { id: "panel-memo-" + Ft(), type: "memo", memoTabId: tabId, slot: "left", order: pn.filter(p => p.slot === "left").length, floatX: 40, floatY: 90, floatW: 320, floatH: 460, minimized: false, zIndex: (state.topZIndex || 0) + 1 } }); window.dispatchEvent(new CustomEvent("ddb-open-memo", { detail: { tabId: tabId, itemId: itemId } })); } } catch (e) {} } else if (t.kind === "calc") { const pn = state.panels || []; const ex = pn.find(p => p.type === "calculator"); if (ex) { if (ex.minimized) dispatch({ type: "MINIMIZE_PANEL", id: ex.id, minimized: false }); dispatch({ type: "BRING_FRONT", id: ex.id }); } else dispatch({ type: "ADD_PANEL", panel: { id: "panel-calc-" + Ft(), type: "calculator", slot: "float", order: 0, floatX: 140, floatY: 100, floatW: 240, floatH: 420, minimized: false, zIndex: (state.topZIndex || 0) + 1 } }); } else if (t.kind === "paint") { const _hx = t.a.color || "#3b82f6"; ddbSetPaint(DDB_PAINT === _hx ? null : _hx); } else if (t.kind === "ann") { const p = String(t.d.date || "").split("-").map(Number); if (p[0] && p[1]) dispatch({ type: "SET_MONTH", year: p[0], month: p[1] }); } }
     function pomoLabel(sec) { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; let t = ""; if (h) t += h + "시간"; if (m) t += m + "분"; if (s) t += s + "초"; return "▶ " + (t || "0초"); }
     function cellAt(cx, cy) { const el = wrapRef.current; if (!el) return 0; const r = el.getBoundingClientRect(); const c = Math.max(0, Math.min(cols - 1, Math.floor((cx - r.left) / (CW + GAP)))); const rw = Math.max(0, Math.min(ROWS - 1, Math.floor((cy - r.top) / (CH + GAP)))); return rw * cols + c; }
     function onDown(t, e) { if (e.button !== 0) return; const sx = e.clientX, sy = e.clientY; if (lp.current) clearTimeout(lp.current); lp.current = setTimeout(() => { lp.current = null; setDrag({ id: t.id, cell: cellAt(sx, sy) }); }, 700); }
     function onUp(t) { if (lp.current) { clearTimeout(lp.current); lp.current = null; doTile(t); } }
-    O.useEffect(() => { if (!drag) return; const mv = e => { const c = cellAt(e.clientX, e.clientY); setDrag(d => d && d.cell !== c ? { id: d.id, cell: c } : d); }; const up = () => { setDrag(d => { if (d) { const nl = {}; Object.keys(layout).forEach(k => nl[k] = layout[k]); const occ = tiles.find(t => t.id !== d.id && pos[t.id] === d.cell); const old = pos[d.id]; nl[d.id] = d.cell; if (occ && old != null && old >= 0) nl[occ.id] = old; saveLayout(nl); } return null; }); }; window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up); return () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); }; }, [drag]);
+    O.useEffect(() => { if (!drag) return; const mv = e => { const c = cellAt(e.clientX, e.clientY); setDrag(d => d && d.cell !== c ? { id: d.id, cell: c } : d); }; const up = () => { setDrag(d => { if (d) { const arr = orderedIds.filter(id => id !== d.id); const insertAt = Math.max(0, Math.min(d.cell, arr.length)); arr.splice(insertAt, 0, d.id); saveOrder(arr); } return null; }); }; window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up); return () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); }; }, [drag]);
     const openAdd = ev => { ev.stopPropagation(); const rc = ev.currentTarget.getBoundingClientRect(); setForm(null); setMenu({ x: Math.min(rc.left, window.innerWidth - 260), y: rc.bottom + 4 }); };
     const palette = Object.keys(qt).map(k => qt[k]);
     const upsert = obj => { const arr = (settings.quickActions || []); if (form && form.editId) saveActs(arr.map(a => a.id === form.editId ? { ...a, ...obj } : a)); else saveActs(arr.concat([{ id: Ft(), ...obj }])); setMenu(null); setForm(null); };
@@ -2404,7 +2404,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.98.81";
+const DDB_VERSION = "0.98.82";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3954,7 +3954,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v318"
+                children: "v319"
             }), (() => {
                 const S = [{
                     k: "cal",
