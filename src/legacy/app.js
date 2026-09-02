@@ -481,6 +481,7 @@ function DDBImageEditor() {
     const fcRef = O.useRef(null);
     const dirH = O.useRef(null);
     const fitRef = O.useRef(1);
+    const thumbTimer = O.useRef(null);
     const natRef = O.useRef({ w: 0, h: 0 });
     const drawRef = O.useRef(null);
     const hist = O.useRef({ st: [], i: -1, lock: false });
@@ -528,7 +529,8 @@ function DDBImageEditor() {
     const persistSv = v => { try { localStorage.setItem("ddb_img_save", JSON.stringify(v)); } catch {} };
     const dashArr = d => DASHES[d] || null;
 
-    function pushHist() { const c = fcRef.current; if (!c || hist.current.lock) return; const json = JSON.stringify(c.toDatalessJSON(["ddbKind", "ddbP", "ddbArrow", "arrowSize", "ddbFree", "ddbLabel", "ddbDashKey"])); const h = hist.current; const arr = h.st.slice(0, h.i + 1); arr.push(json); while (arr.length > 40) arr.shift(); h.st = arr; h.i = arr.length - 1; }
+    function refreshThumb() { const pi = pageIdxRef.current; const pgs = pagesRef.current; if (!pgs || !pgs[pi]) return; let th = ""; try { th = pgThumb(); } catch (e) {} if (!th) return; const na = pgs.slice(); na[pi] = { ...na[pi], thumb: th }; pagesRef.current = na; setPages(na); }
+    function pushHist() { const c = fcRef.current; if (!c || hist.current.lock) return; const json = JSON.stringify(c.toDatalessJSON(["ddbKind", "ddbP", "ddbArrow", "arrowSize", "ddbFree", "ddbLabel", "ddbDashKey"])); const h = hist.current; const arr = h.st.slice(0, h.i + 1); arr.push(json); while (arr.length > 40) arr.shift(); h.st = arr; h.i = arr.length - 1; if (thumbTimer.current) clearTimeout(thumbTimer.current); thumbTimer.current = setTimeout(refreshThumb, 250); }
     function loadHist(step) { const c = fcRef.current; if (!c) return; const h = hist.current; const ni = h.i + step; if (ni < 0 || ni >= h.st.length) return; h.i = ni; h.lock = true; c.loadFromJSON(h.st[ni], () => { try { c.forEachObject(o2 => { if (o2.ddbArrow) applyArrowRender(o2); }); } catch (e) {} c.renderAll(); h.lock = false; setHasSel(false); }); }
     const undo = () => loadHist(-1);
     const redo = () => loadHist(1);
@@ -617,7 +619,7 @@ function DDBImageEditor() {
         c.on("mouse:dblclick", opt => { const t = opt.target; if (t && !(t.type === "i-text" || t.type === "text")) { const cen = t.getCenterPoint(); const it = new window.fabric.IText("", { left: cen.x, top: cen.y, originX: "center", originY: "center", fill: styRef.current.color || "#111827", fontSize: styRef.current.fsz || 24, fontFamily: "sans-serif", textAlign: "center" }); it.ddbMemoOf = t; c.add(it); c.setActiveObject(it); it.enterEditing(); c.requestRenderAll(); } });
         c.on("path:created", opt => { try { if (opt && opt.path) opt.path.ddbFree = true; } catch (e) {} pushHist(); });
         c.on("mouse:down", opt => {
-            const t = toolRef.current; setGrpMenu(null); if (t === "pan") { panRef.current = { x: opt.e.clientX, y: opt.e.clientY }; try { c.setCursor("grabbing"); } catch (e) {} return; } if (t === "matchprop") { const tg = opt.target; if (!tg) return; if (!matchRef.current) { matchRef.current = { stroke: tg.stroke, strokeWidth: tg.strokeWidth, fill: tg.fill, strokeDashArray: tg.strokeDashArray ? tg.strokeDashArray.slice() : tg.strokeDashArray, opacity: tg.opacity, fontFamily: tg.fontFamily, fontSize: tg.fontSize }; flash("특성 복사됨 — 적용할 개체를 클릭하세요 (Esc 종료)"); } else { const m = matchRef.current; const ap = {}; if (m.stroke != null) ap.stroke = m.stroke; if (m.strokeWidth != null) ap.strokeWidth = m.strokeWidth; if (m.fill != null && tg.fill != null && tg.type !== "image") ap.fill = m.fill; if (m.strokeDashArray !== void 0) ap.strokeDashArray = m.strokeDashArray; if (m.opacity != null) ap.opacity = m.opacity; if (tg.type === "i-text" || tg.type === "text") { if (m.fontFamily) ap.fontFamily = m.fontFamily; if (m.fontSize) ap.fontSize = m.fontSize; } tg.set(ap); tg.setCoords(); c.renderAll(); pushHist(); } return; } if (t === "select") { const tg = opt.target; if (tg && (opt.e.ctrlKey || opt.e.metaKey) && !tg.__corner) { try { c._currentTransform = null; } catch (e2) {} const p0 = c.getPointer(opt.e); tg.clone(cl => { cl.set({ left: tg.left, top: tg.top, evented: true, selectable: true }); c.add(cl); c.setActiveObject(cl); ctrlDragRef.current = { obj: cl, offX: p0.x - (cl.left || 0), offY: p0.y - (cl.top || 0) }; c.renderAll(); }); moveRef.current = null; xformRef.current = null; return; } if (!tg) { selStartRef.current = c.getPointer(opt.e); } moveRef.current = tg ? { obj: tg, left: tg.left, top: tg.top } : null; xformRef.current = tg ? { obj: tg, props: { left: tg.left, top: tg.top, scaleX: tg.scaleX, scaleY: tg.scaleY, angle: tg.angle } } : null; return; } if (t === "erase-obj") { const tg = opt.target; if (tg) { c.remove(tg); c.discardActiveObject(); c.renderAll(); pushHist(); } return; } if (t === "brush" || t === "fountain" || t === "pencil") { const p2 = c.getPointer(opt.e); vbrushRef.current = { pts: [{ x: p2.x, y: p2.y, t: Date.now() }], tool: t }; c.selection = false; return; } if (t === "ballpen" || t === "highlighter" || t === "erase-area") return;
+            const t = toolRef.current; setGrpMenu(null); if (t === "pan") { panRef.current = { x: opt.e.clientX, y: opt.e.clientY }; try { c.setCursor("grabbing"); } catch (e) {} return; } if (t === "matchprop") { const tg = opt.target; if (!tg) return; if (!matchRef.current) { matchRef.current = { stroke: tg.stroke, strokeWidth: tg.strokeWidth, fill: tg.fill, strokeDashArray: tg.strokeDashArray ? tg.strokeDashArray.slice() : tg.strokeDashArray, opacity: tg.opacity, fontFamily: tg.fontFamily, fontSize: tg.fontSize }; flash("특성 복사됨 — 적용할 개체를 클릭하세요 (Esc 종료)"); } else { const m = matchRef.current; const ap = {}; if (m.stroke != null) ap.stroke = m.stroke; if (m.strokeWidth != null) ap.strokeWidth = m.strokeWidth; if (m.fill != null && tg.fill != null && tg.type !== "image") ap.fill = m.fill; if (m.strokeDashArray !== void 0) ap.strokeDashArray = m.strokeDashArray; if (m.opacity != null) ap.opacity = m.opacity; if (tg.type === "i-text" || tg.type === "text") { if (m.fontFamily) ap.fontFamily = m.fontFamily; if (m.fontSize) ap.fontSize = m.fontSize; } tg.set(ap); tg.setCoords(); c.renderAll(); pushHist(); } return; } if (t === "select") { const tg = opt.target; if (tg && (opt.e.ctrlKey || opt.e.metaKey) && !tg.__corner && tg.type !== "activeSelection") { try { c._currentTransform = null; } catch (e2) {} const p0 = c.getPointer(opt.e); try { tg.clone(cl => { try { cl.set({ left: tg.left, top: tg.top, evented: true, selectable: true }); c.add(cl); c.setActiveObject(cl); ctrlDragRef.current = { obj: cl, offX: p0.x - (cl.left || 0), offY: p0.y - (cl.top || 0) }; c.renderAll(); } catch (e5) {} }, ["ddbKind", "ddbP", "ddbArrow", "arrowSize", "ddbFree", "ddbLabel", "ddbDashKey", "ddbPoly"]); } catch (e6) {} moveRef.current = null; xformRef.current = null; return; } if (!tg) { selStartRef.current = c.getPointer(opt.e); } moveRef.current = tg ? { obj: tg, left: tg.left, top: tg.top } : null; xformRef.current = tg ? { obj: tg, props: { left: tg.left, top: tg.top, scaleX: tg.scaleX, scaleY: tg.scaleY, angle: tg.angle } } : null; return; } if (t === "erase-obj") { const tg = opt.target; if (tg) { c.remove(tg); c.discardActiveObject(); c.renderAll(); pushHist(); } return; } if (t === "brush" || t === "fountain" || t === "pencil") { const p2 = c.getPointer(opt.e); vbrushRef.current = { pts: [{ x: p2.x, y: p2.y, t: Date.now() }], tool: t }; c.selection = false; return; } if (t === "ballpen" || t === "highlighter" || t === "erase-area") return;
             let p = c.getPointer(opt.e); if (t === "line" || t === "arrow" || SHAPES.some(x => x[0] === t) || t.indexOf("s:") === 0) p = snapPoint(p); const s = styRef.current; const dz = dashArr(s.dash);
             let ob = null;
             const base = { left: p.x, top: p.y, stroke: s.color, strokeWidth: s.lw, fill: s.fillColor || "transparent", strokeDashArray: dz, strokeUniform: true, originX: "left", originY: "top" };
@@ -638,7 +640,7 @@ function DDBImageEditor() {
             if (panRef.current) { const dx = opt.e.clientX - panRef.current.x, dy = opt.e.clientY - panRef.current.y; panRef.current = { x: opt.e.clientX, y: opt.e.clientY }; try { c.relativePan(new window.fabric.Point(dx, dy)); } catch (e) {} return; }
             if (selStartRef.current && !drawRef.current && !panRef.current) { const ik = imgKeysRef.current || {}; try { const pp = c.getPointer(opt.e); c.selectionFullyContained = ik.selDir === false ? false : (pp.x >= selStartRef.current.x); } catch (e) {} }
             const cd = ctrlDragRef.current; if (cd) { const pp = c.getPointer(opt.e); cd.obj.set({ left: pp.x - cd.offX, top: pp.y - cd.offY }); cd.obj.setCoords(); c.renderAll(); return; }
-            const vb = vbrushRef.current; if (vb) { const pv = c.getPointer(opt.e); vb.pts.push({ x: pv.x, y: pv.y, t: Date.now() }); drawVBrushPreview(c, vb, styRef.current.color, styRef.current.lw); return; }
+            const vb = vbrushRef.current; if (vb) { const pv = c.getPointer(opt.e); const lp = vb.pts[vb.pts.length - 1]; if (!lp || Math.hypot(pv.x - lp.x, pv.y - lp.y) >= 1.5) { vb.pts.push({ x: pv.x, y: pv.y, t: Date.now() }); if (vb.pts.length > 1200) vb.pts.splice(0, vb.pts.length - 1200); drawVBrushPreview(c, vb, styRef.current.color, styRef.current.lw); } return; }
             if (toolRef.current === "erase-obj" && (opt.e.buttons & 1)) { const tg = opt.target; if (tg) { c.remove(tg); c.renderAll(); } return; }
             const d = drawRef.current; if (!d) return; const p = c.getPointer(opt.e); const e = opt.e; const sh = e.shiftKey, ct = e.ctrlKey || e.metaKey;
             let dx = p.x - d.sx, dy = p.y - d.sy;
@@ -669,7 +671,7 @@ function DDBImageEditor() {
             pushHist();
             if (!removed) { setTool("select"); if (ob) { try { if (!c.contains || c.contains(ob)) { ob.set({ selectable: true, evented: true }); c.setActiveObject(ob); } } catch (e) {} } c.requestRenderAll(); }
         });
-        if (pendingRef.current) { const u = pendingRef.current; pendingRef.current = null; setTimeout(() => loadImage(u), 0); } else { setTimeout(() => newBlank(), 0); }
+        if (pendingRef.current) { const u = pendingRef.current; pendingRef.current = null; pagesRef.current = [{ id: "pg" + Date.now(), url: u, json: null, thumb: u, nat: null, fit: null }]; setPages(pagesRef.current); pageIdxRef.current = 0; setPageIdx(0); setTimeout(() => loadImage(u), 0); } else { pagesRef.current = [{ id: "pg" + Date.now(), url: null, json: null, thumb: "", nat: null, fit: null }]; setPages(pagesRef.current); pageIdxRef.current = 0; setPageIdx(0); setTimeout(() => newBlank(), 0); }
         return () => { try { c.dispose(); } catch {} fcRef.current = null; };
     }, [open, ready]);
 
@@ -841,7 +843,7 @@ function DDBImageEditor() {
     const groupActivateLast = grp => { const list = grpIds(grp); if (grp === "line") { const last = lastLineRef.current || styRef.current.dash || list[0]; setDash(last); setTool("line"); lastLineRef.current = last; } else { const last = grp === "pen" ? lastPenRef.current : grp === "eraser" ? lastEraserRef.current : lastShapeRef.current; setTool(list.includes(last) ? last : list[0]); } };
     const groupCycle = (grp, dir) => { const list = grpIds(grp); if (grp === "line") { const cur = styRef.current.dash; let idx = list.indexOf(cur); if (idx < 0) idx = 0; const nx = list[(idx + dir + list.length) % list.length]; setDash(nx); setTool("line"); lastLineRef.current = nx; return; } const cur = toolRef.current; let idx = list.indexOf(cur); if (idx < 0) idx = 0; const nx = list[(idx + dir + list.length) % list.length]; setTool(nx); if (grp === "pen") lastPenRef.current = nx; else if (grp === "eraser") lastEraserRef.current = nx; else lastShapeRef.current = nx; };
     const showGrpMenu = grp => { const el = grpBtnRef.current[grp]; const r = (el && el.getBoundingClientRect) ? el.getBoundingClientRect() : { left: 120, bottom: 150 }; setGrpMenu({ grp, x: r.left, y: r.bottom + 2 }); };
-    const pickGroupKey = grp => { if (!onCurGroup(grp)) { groupActivateLast(grp); showGrpMenu(grp); } else { groupCycle(grp, 1); setGrpMenu(null); } };
+    const pickGroupKey = grp => { if (!onCurGroup(grp)) { groupActivateLast(grp); showGrpMenu(grp); } else { setGrpMenu(g => (g && g.grp === grp) ? null : { grp: grp }); } };
     const activateSub = (kind, sub) => { setGrpMenu(null); if (kind === "line") { setDash(sub); setTool("line"); lastLineRef.current = sub; } else if (kind === "single") { setTool(sub); } else { setTool(sub); if (kind === "pen") lastPenRef.current = sub; else if (kind === "eraser") lastEraserRef.current = sub; else if (kind === "shape") lastShapeRef.current = sub; } };
     const setDimsPrompt = k => { const cur = grpDimOf(k, idsFor(gmap[k]).length); setDimsModal({ grp: k, w: String(cur.c), h: String(cur.r) }); };
     const applyDims = () => { if (!dimsModal) return; const c = Math.max(1, Math.min(12, parseInt(dimsModal.w, 10) || 1)), r = Math.max(1, Math.min(8, parseInt(dimsModal.h, 10) || 1)); saveGrpDims({ ...grpDims, [dimsModal.grp]: { r, c } }); setDimsModal(null); };
@@ -2545,7 +2547,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.04";
+const DDB_VERSION = "0.99.05";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4095,7 +4097,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v341"
+                children: "v342"
             }), (() => {
                 const S = [{
                     k: "cal",
