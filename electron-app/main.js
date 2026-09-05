@@ -56,7 +56,7 @@ async function createWindow() {
     width: 1280, height: 800, minWidth: 900, minHeight: 600,
     autoHideMenuBar: true, title: 'MomentPlan',
     icon: path.join(__dirname, process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
-    webPreferences: { contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
+    webPreferences: { contextIsolation: true, webviewTag: true, preload: path.join(__dirname, 'preload.js') }
   });
   win.loadURL(`http://127.0.0.1:${port}/`);
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
