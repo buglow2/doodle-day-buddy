@@ -2548,7 +2548,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.08";
+const DDB_VERSION = "0.99.09";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4098,7 +4098,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v345"
+                children: "v346"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8155,6 +8155,7 @@ function fd({
                                         window.__ddbMoved = !1;
                                         return
                                     }
+                                    if (DDB_PAINT && _e.amount === void 0 && !teamOn) { n({ type: "UPDATE_EVENT", event: { ..._e, customColor: DDB_PAINT, color: ddbHexToName(DDB_PAINT) || _e.color } }); ue(null); return }
                                     v(_e), p(J), y(""), _(!0)
                                 },
                                 onMouseEnter: Et => {
@@ -8192,7 +8193,7 @@ function fd({
                                         onMouseDown: gr => gr.stopPropagation(),
                                         onMouseUp: gr => gr.stopPropagation(),
                                         onClick: gr => {
-                                            gr.stopPropagation(), teamOn ? ddbTeamDelEvent(_e.id) : n({
+                                            gr.stopPropagation(), ue(null), teamOn ? ddbTeamDelEvent(_e.id) : n({
                                                 type: "DELETE_EVENT",
                                                 id: _e.id
                                             })
