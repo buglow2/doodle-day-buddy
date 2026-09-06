@@ -1538,7 +1538,7 @@ function DDBMemoOverview() {
     const prevDigRef = O.useRef(digDay);
     const digDirRef = O.useRef(-1);
     if (prevDigRef.current !== digDay) { digDirRef.current = digDay > prevDigRef.current ? 1 : -1; prevDigRef.current = digDay; }
-    O.useEffect(() => { if (typeof document === "undefined" || document.getElementById("ddb-dig-kf")) return; const st = document.createElement("style"); st.id = "ddb-dig-kf"; st.textContent = "@keyframes ddbCenterInL{0%{transform:scale(.34);opacity:.35}100%{transform:scale(1);opacity:1}}@keyframes ddbCenterInR{0%{transform:scale(.34);opacity:.35}100%{transform:scale(1);opacity:1}}"; document.head.appendChild(st); }, []);
+    O.useEffect(() => { if (typeof document === "undefined" || document.getElementById("ddb-dig-kf")) return; const st = document.createElement("style"); st.id = "ddb-dig-kf"; st.textContent = "@keyframes ddbCenterInL{0%{transform:scale(.28);opacity:.25}100%{transform:scale(1);opacity:1}}@keyframes ddbCenterInR{0%{transform:scale(.28);opacity:.25}100%{transform:scale(1);opacity:1}}"; document.head.appendChild(st); }, []);
     const [cadx, setCadx] = O.useState(0);
     const [evSort, setEvSort] = O.useState("date-asc");
     const [itemIdx, setItemIdx] = O.useState(0);
@@ -1673,7 +1673,7 @@ function DDBMemoOverview() {
                             const aTime = t2 => { const x = new Date(t2); return String(x.getHours()).padStart(2, "0") + ":" + String(x.getMinutes()).padStart(2, "0"); };
                             const aMeta = a => a.kind === "search" ? { c: a.ai ? "#7dd3fc" : "#86efac", txt: (a.ai ? "🔎" : "🌐") + " " + (a.engine || "") + " · \"" + (a.q || "") + "\"" } : a.kind === "tododone" ? { c: "#34d399", txt: "✅ 완료 · " + (a.title || "") } : a.kind === "todo" ? { c: "#38bdf8", txt: "☑ 할일 · " + (a.title || "") } : { c: "#fbbf24", txt: a.label || "기능" };
                             const cell = (children) => o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }, children: children });
-                            return o.jsxs("div", { className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0", style: { width: "min(620px, 48vw)", height: "100%", animation: (digDirRef.current < 0 ? "ddbCenterInL" : "ddbCenterInR") + " 0.4s cubic-bezier(0.22,1,0.36,1)", transformOrigin: (digDirRef.current < 0 ? "left center" : "right center"), border: "2px solid #22c55e", background: "rgba(34,197,94,0.06)" }, children: [
+                            return o.jsxs("div", { className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0", style: { width: "min(620px, 48vw)", height: "100%", animation: (digDirRef.current < 0 ? "ddbCenterInL" : "ddbCenterInR") + " 0.45s cubic-bezier(0.22,1,0.36,1)", transformOrigin: (digDirRef.current < 0 ? "-200px 50%" : "calc(100% + 200px) 50%"), border: "2px solid #22c55e", background: "rgba(34,197,94,0.06)" }, children: [
                                 o.jsxs("div", { className: "px-3 py-2 flex items-center gap-2 flex-shrink-0", style: { background: "rgba(34,197,94,0.22)" }, children: [o.jsx("button", { onClick: () => setDigDay(d => ddbShiftDay(d, -1)), className: "text-white/70 bg-transparent border-none cursor-pointer text-sm", children: "◀" }), o.jsx("span", { className: "flex-1 text-center text-emerald-100 font-bold text-sm", children: dLbl(dd) }), o.jsx("button", { onClick: () => setDigDay(d => ddbShiftDay(d, 1)), className: "text-white/70 bg-transparent border-none cursor-pointer text-sm", children: "▶" })] }),
                                 o.jsxs("div", { style: { flex: "1 1 50%", minHeight: 0, display: "flex", borderBottom: "1px solid rgba(255,255,255,0.12)" }, children: [
                                     o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,0.12)" }, children: [o.jsxs("div", { className: "px-3 py-1 text-blue-300 text-[11px] font-bold flex-shrink-0", children: ["📌 일정 (", evs.length + pend.length, ")"] }), o.jsx("div", { className: "flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-1 items-stretch", children: (evs.length || pend.length) ? [...evs.map((ev, i2) => evChip(ev, i2, false)), ...pend.map((ln, i2) => pChip(ln, i2))] : o.jsx("span", { className: "text-white/25 text-[11px] px-1", children: "이 날 일정 없음" }) })] }),
@@ -2576,7 +2576,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.24";
+const DDB_VERSION = "0.99.25";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4126,7 +4126,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v361"
+                children: "v362"
             }), (() => {
                 const S = [{
                     k: "cal",
