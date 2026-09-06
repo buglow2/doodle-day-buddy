@@ -50,6 +50,7 @@ function serve() {
 }
 
 let win;
+let wvNewWindow = false;
 async function createWindow() {
   const port = await serve();
   win = new BrowserWindow({
@@ -62,6 +63,18 @@ async function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
   // 렌더러가 직접 요청하는 외부 링크 열기 (window.open 우회 — 주소 유실 방지)
   ipcMain.handle('ddb-open-external', (_e, url) => { try { if (url && /^(https?:|mailto:)/i.test(url)) { shell.openExternal(url); return true; } } catch (e) {} return false; });
+  // ── 검색/AI 웹뷰 팝업 처리: 같은 탭 이동(기본) 또는 새 창(외부 브라우저) 선택 ──
+  ipcMain.handle('ddb-wv-newwindow', (_e, v) => { wvNewWindow = !!v; return true; });
+  win.webContents.on('did-attach-webview', (_e, wc) => {
+    try {
+      wc.setWindowOpenHandler(({ url }) => {
+        if (!/^https?:/i.test(url)) return { action: 'deny' };
+        if (wvNewWindow) { try { shell.openExternal(url); } catch (e) {} }
+        else { try { wc.loadURL(url); } catch (e) {} }
+        return { action: 'deny' };
+      });
+    } catch (e) {}
+  });
 
   // ── 자동 로컬 백업 (데이터 유실 방지) ──────────────────────
   const BKDIR = path.join(app.getPath('userData'), 'ddb-backups');

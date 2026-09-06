@@ -2,6 +2,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('ddbNative', {
   openExternal: (url) => { try { return ipcRenderer.invoke('ddb-open-external', String(url || '')); } catch (e) { return Promise.resolve(false); } },
+  setWvNewWindow: (v) => { try { return ipcRenderer.invoke('ddb-wv-newwindow', !!v); } catch (e) { return Promise.resolve(false); } },
   backupSave: (json) => { try { return ipcRenderer.invoke('ddb-backup-save', String(json || '')); } catch (e) { return Promise.resolve(false); } },
   backupList: () => { try { return ipcRenderer.invoke('ddb-backup-list'); } catch (e) { return Promise.resolve([]); } },
   backupRead: (file) => { try { return ipcRenderer.invoke('ddb-backup-read', String(file || '')); } catch (e) { return Promise.resolve(null); } }

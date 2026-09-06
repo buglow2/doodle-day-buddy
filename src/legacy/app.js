@@ -2552,7 +2552,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.15";
+const DDB_VERSION = "0.99.16";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4102,7 +4102,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v352"
+                children: "v353"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -16726,7 +16726,9 @@ function DDBAiPanel({ panel }) {
     const [url, setUrl] = O.useState(PROV[panel.aiProv && PROV[panel.aiProv] ? panel.aiProv : DEF].url(""));
     const [zoom, setZoom] = O.useState(() => { try { const z = Number(localStorage.getItem("ddb_ai_zoom")); return z >= 0.4 && z <= 1.5 ? z : 0.8; } catch { return 0.8; } });
     const [showProv, setShowProv] = O.useState(false);
+    const [newWin, setNewWin] = O.useState(() => { try { return localStorage.getItem("ddb_wv_newwin") === "1"; } catch { return false; } });
     const hasWV = typeof window !== "undefined" && window.ddbNative;
+    O.useEffect(() => { try { localStorage.setItem("ddb_wv_newwin", newWin ? "1" : "0"); if (window.ddbNative && window.ddbNative.setWvNewWindow) window.ddbNative.setWvNewWindow(newWin); } catch (e) {} }, [newWin]);
     const wvRef = O.useRef(null);
     const applyZoom = z => { try { const el = wvRef.current; if (el && el.setZoomFactor) el.setZoomFactor(z); } catch (e) {} };
     O.useEffect(() => { const el = wvRef.current; if (!el || !el.addEventListener) return; const h = () => applyZoom(zoom); el.addEventListener("dom-ready", h); return () => { try { el.removeEventListener("dom-ready", h); } catch (e) {} }; }, []);
@@ -16740,6 +16742,7 @@ function DDBAiPanel({ panel }) {
             showProv && o.jsx("div", { style: { position: "absolute", top: 32, left: 6, zIndex: 30, background: "#1e2230", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, overflow: "hidden", boxShadow: "0 6px 20px rgba(0,0,0,0.5)", minWidth: 110 }, children: Object.keys(PROV).map(p => o.jsx("button", { onClick: () => { setProv(p); setShowProv(false); go(p, q); }, className: "block w-full text-left px-3 py-1.5 text-[12px] cursor-pointer border-none " + (prov === p ? "bg-blue-500/40 text-white" : "bg-transparent text-white/80 hover:bg-white/10"), children: PROV[p].nm }, p)) }),
             o.jsx("input", { value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === "Enter") submit(); }, placeholder: "검색어 입력 후 Enter", className: "flex-1 min-w-[60px] bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs outline-none" }),
             o.jsx("button", { onClick: submit, className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#2563eb" }, children: "검색" }),
+            hasWV && o.jsx("button", { onClick: () => setNewWin(v => !v), title: newWin ? "링크: 새 창(외부 브라우저)으로 열림 — 눌러서 같은 탭으로" : "링크: 같은 탭에서 열림 — 눌러서 새 창으로", className: "px-1.5 py-1 rounded text-[11px] cursor-pointer border flex-shrink-0 " + (newWin ? "bg-white/8 border-white/15 text-white/70" : "bg-blue-500/40 border-blue-400/60 text-white"), children: newWin ? "새창" : "같은탭" }),
             hasWV && o.jsxs("div", { className: "flex items-center gap-0.5 flex-shrink-0", title: "글씨 크기(배율)", children: [o.jsx("button", { onClick: () => bumpZ(-0.1), className: "w-5 h-5 rounded bg-white/10 border border-white/20 text-white cursor-pointer leading-none flex items-center justify-center", children: "−" }), o.jsx("button", { onClick: () => setZoom(0.8), className: "px-1 h-5 rounded bg-white/10 border border-white/20 text-white/80 text-[10px] cursor-pointer", children: Math.round(zoom * 100) + "%" }), o.jsx("button", { onClick: () => bumpZ(0.1), className: "w-5 h-5 rounded bg-white/10 border border-white/20 text-white cursor-pointer leading-none flex items-center justify-center", children: "+" })] })
         ] }),
         hasWV ? o.jsx("webview", { ref: el => { wvRef.current = el; }, src: url, allowpopups: "true", partition: "persist:ddbai", style: { flex: 1, width: "100%", minHeight: 0, border: "none", background: "#fff" } }) : o.jsxs("div", { style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 16, color: "rgba(255,255,255,0.6)", fontSize: 12 }, children: ["앱(설치형)에서만 내장 검색이 열립니다.", o.jsx("br", {}), o.jsx("button", { onClick: () => window.open(url, "_blank"), className: "mt-2 px-3 py-1.5 rounded text-white cursor-pointer border-none", style: { background: "#2563eb" }, children: "브라우저로 열기" })] })
