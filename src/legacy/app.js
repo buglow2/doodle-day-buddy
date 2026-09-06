@@ -1540,7 +1540,7 @@ function DDBMemoOverview() {
     if (prevDigRef.current !== digDay) { digDirRef.current = digDay > prevDigRef.current ? 1 : -1; prevDigRef.current = digDay; }
     const colEls = O.useRef({});
     const prevRectsAll = O.useRef({});
-    O.useLayoutEffect(() => { const el = colEls.current[digDay]; const prev = prevRectsAll.current[digDay]; if (el && el.isConnected && prev) { try { const now = el.getBoundingClientRect(); if (now.width && prev.width) { const dx = prev.left - now.left, dy = prev.top - now.top, sx = prev.width / now.width, sy = prev.height / now.height; if (Math.abs(dx) > 2 || Math.abs(sx - 1) > 0.02) { el.animate([{ transformOrigin: "top left", transform: "translate(" + dx + "px," + dy + "px) scale(" + sx + "," + sy + ")", opacity: 0.6 }, { transformOrigin: "top left", transform: "none", opacity: 1 }], { duration: 430, easing: "cubic-bezier(0.22,1,0.36,1)" }); } } } catch (e) {} } });
+    O.useLayoutEffect(() => { const el = colEls.current[digDay]; const prev = prevRectsAll.current[digDay]; if (el && el.isConnected && prev) { try { const now = el.getBoundingClientRect(); if (now.width && prev.width) { const dx = prev.left - now.left, dy = prev.top - now.top, sx = prev.width / now.width, sy = prev.height / now.height; if (Math.abs(dx) > 2 || Math.abs(sx - 1) > 0.02) { el.animate([{ transformOrigin: "top left", transform: "translate(" + dx + "px," + dy + "px) scale(" + sx + "," + sy + ")", opacity: 0.6 }, { transformOrigin: "top left", transform: "none", opacity: 1 }], { duration: 645, easing: "cubic-bezier(0.22,1,0.36,1)" }); } } } catch (e) {} } });
     O.useLayoutEffect(() => { const m = {}; for (const k in colEls.current) { const el = colEls.current[k]; if (el && el.isConnected) { const r = el.getBoundingClientRect(); m[k] = { left: r.left, top: r.top, width: r.width, height: r.height }; } } prevRectsAll.current = m; });
     O.useEffect(() => { if (typeof document === "undefined" || document.getElementById("ddb-dig-kf")) return; const st = document.createElement("style"); st.id = "ddb-dig-kf"; st.textContent = "@keyframes ddbCenterInL{0%{transform:scale(.28);opacity:.25}100%{transform:scale(1);opacity:1}}@keyframes ddbCenterInR{0%{transform:scale(.28);opacity:.25}100%{transform:scale(1);opacity:1}}"; document.head.appendChild(st); }, []);
     const [cadx, setCadx] = O.useState(0);
@@ -2580,7 +2580,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.26";
+const DDB_VERSION = "0.99.27";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4130,7 +4130,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v363"
+                children: "v364"
             }), (() => {
                 const S = [{
                     k: "cal",
