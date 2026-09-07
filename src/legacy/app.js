@@ -2583,7 +2583,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.35";
+const DDB_VERSION = "0.99.36";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4133,7 +4133,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v372"
+                children: "v373"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -14750,7 +14750,7 @@ function TO() {
         } catch {
             return []
         }
-    }), c = O.useRef(null), [sci, setSci] = O.useState(false);
+    }), c = O.useRef(null), [sci, setSci] = O.useState(false), [shift, setShift] = O.useState(false), memRef = O.useRef(0), ansRef = O.useRef(0);
 
     function u(b) {
         l(b), localStorage.setItem("calc-history", JSON.stringify(b.slice(0, 50)))
@@ -14780,9 +14780,10 @@ function TO() {
 
     function f() {
         if (r) try {
-            const b = r.replace(/×/g, "*").replace(/÷/g, "/").replace(/√/g, "sqrt").replace(/π/g, "pi").replace(/\^/g, "**"),
-                T = Function('"use strict"; var sin=x=>Math.sin(x*Math.PI/180),cos=x=>Math.cos(x*Math.PI/180),tan=x=>Math.tan(x*Math.PI/180),asin=x=>Math.asin(x)*180/Math.PI,acos=x=>Math.acos(x)*180/Math.PI,atan=x=>Math.atan(x)*180/Math.PI,log=x=>Math.log10(x),ln=x=>Math.log(x),sqrt=x=>Math.sqrt(x),abs=x=>Math.abs(x),exp=x=>Math.exp(x),pi=Math.PI,e=Math.E; return (' + b + ")")(),
+            const b = r.replace(/Ans/g, "(" + (ansRef.current || 0) + ")").replace(/×/g, "*").replace(/÷/g, "/").replace(/√/g, "sqrt").replace(/π/g, "pi").replace(/\^/g, "**"),
+                T = Function('"use strict"; var fact=function(n){n=Math.round(n);if(n<0||n>170)return NaN;var r=1;for(var k=2;k<=n;k++)r*=k;return r},sin=x=>Math.sin(x*Math.PI/180),cos=x=>Math.cos(x*Math.PI/180),tan=x=>Math.tan(x*Math.PI/180),asin=x=>Math.asin(x)*180/Math.PI,acos=x=>Math.acos(x)*180/Math.PI,atan=x=>Math.atan(x)*180/Math.PI,log=x=>Math.log10(x),ln=x=>Math.log(x),sqrt=x=>Math.sqrt(x),cbrt=x=>Math.cbrt(x),abs=x=>Math.abs(x),exp=x=>Math.exp(x),nPr=(n,r)=>fact(n)/fact(n-r),nCr=(n,r)=>fact(n)/(fact(r)*fact(n-r)),pi=Math.PI,e=Math.E; return (' + b + ")")(),
                 A = Number.isFinite(T) ? String(parseFloat(T.toFixed(10))) : "오류";
+            if (Number.isFinite(T)) ansRef.current = T;
             u([{
                 expr: r,
                 result: A
@@ -14882,14 +14883,23 @@ function TO() {
                 className: "text-white text-2xl font-light text-right truncate leading-tight mt-1",
                 children: e
             })]
-        }), sci ? o.jsx("div", {
-            className: "px-2 pt-2 flex-shrink-0",
-            style: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 },
-            children: [["sin", "sin("], ["cos", "cos("], ["tan", "tan("], ["xʸ", "^"], ["√", "√("], ["sin⁻¹", "asin("], ["cos⁻¹", "acos("], ["tan⁻¹", "atan("], ["log", "log("], ["ln", "ln("], ["(", "("], [")", ")"], ["π", "π"], ["e", "e"], ["|x|", "abs("]].map(([lb, tok]) => o.jsx("button", {
-                onClick: () => ins(tok),
-                className: "flex items-center justify-center rounded-lg h-9 text-[12px] font-medium cursor-pointer active:scale-95 select-none bg-purple-500/25 text-purple-100 hover:bg-purple-500/40",
-                children: lb
-            }, lb))
+        }), sci ? o.jsxs("div", {
+            className: "px-2 pt-2 flex-shrink-0 flex flex-col gap-1",
+            children: [
+                o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }, children: [
+                    o.jsx("button", { onClick: () => setShift(v => !v), className: "flex items-center justify-center rounded-lg h-8 text-[11px] font-bold cursor-pointer active:scale-95 select-none border " + (shift ? "bg-amber-500/80 border-amber-300 text-white" : "bg-amber-500/20 border-amber-400/40 text-amber-200"), children: "SHIFT" }, "shift"),
+                    o.jsx("button", { onClick: () => ins(String(memRef.current)), title: "메모리 값 불러오기", className: "flex items-center justify-center rounded-lg h-8 text-[11px] font-medium cursor-pointer active:scale-95 select-none bg-white/10 text-white/80 hover:bg-white/20", children: "RCL" }, "rcl"),
+                    o.jsx("button", { onClick: () => { memRef.current = (parseFloat(e) || 0) + memRef.current; }, title: "현재 값을 메모리에 더하기", className: "flex items-center justify-center rounded-lg h-8 text-[11px] font-medium cursor-pointer active:scale-95 select-none bg-white/10 text-white/80 hover:bg-white/20", children: "M+" }, "mplus"),
+                    o.jsx("button", { onClick: () => { memRef.current = memRef.current - (parseFloat(e) || 0); }, title: "메모리에서 빼기", className: "flex items-center justify-center rounded-lg h-8 text-[11px] font-medium cursor-pointer active:scale-95 select-none bg-white/10 text-white/80 hover:bg-white/20", children: "M−" }, "mminus"),
+                    o.jsx("button", { onClick: () => { memRef.current = 0; }, title: "메모리 지우기", className: "flex items-center justify-center rounded-lg h-8 text-[11px] font-medium cursor-pointer active:scale-95 select-none bg-white/10 text-white/60 hover:bg-white/20", children: "MC" }, "mc")
+                ] }),
+                o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }, children: [
+                    { l: "x²", t: "^2", sl: "x³", st: "^3" }, { l: "xʸ", t: "^", sl: "ˣ√", st: "^(1/" }, { l: "√", t: "√(", sl: "³√", st: "cbrt(" }, { l: "1/x", t: "1/(", sl: "x!", st: "fact(" }, { l: "π", t: "π", sl: "e", st: "e" },
+                    { l: "sin", t: "sin(", sl: "sin⁻¹", st: "asin(" }, { l: "cos", t: "cos(", sl: "cos⁻¹", st: "acos(" }, { l: "tan", t: "tan(", sl: "tan⁻¹", st: "atan(" }, { l: "log", t: "log(", sl: "10ˣ", st: "10^(" }, { l: "ln", t: "ln(", sl: "eˣ", st: "exp(" },
+                    { l: "(", t: "(" }, { l: ")", t: ")" }, { l: "nPr", t: "nPr(", sl: "nCr", st: "nCr(" }, { l: "abs", t: "abs(", sl: "mod", st: "%" }, { l: "Ans", t: "Ans", sl: "×10ˣ", st: "*10^(" }
+                ].map((bt, bi) => { const useS = shift && bt.st; const lab = useS ? bt.sl : bt.l; const tk = useS ? bt.st : bt.t; return o.jsx("button", { onClick: () => { ins(tk); if (shift) setShift(false); }, className: "flex items-center justify-center rounded-lg h-9 text-[12px] font-medium cursor-pointer active:scale-95 select-none " + (useS ? "bg-amber-500/30 text-amber-100 hover:bg-amber-500/45" : "bg-purple-500/25 text-purple-100 hover:bg-purple-500/40"), children: lab }, bi); })
+                ] })
+            ]
         }) : null, o.jsx("div", {
             className: "p-2 flex-shrink-0",
             style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 },
