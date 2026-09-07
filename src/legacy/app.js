@@ -889,7 +889,7 @@ function DDBImageEditor() {
             o.jsx("div", { className: "flex-1" }),
             o.jsxs("div", { className: "flex items-center gap-1 mr-1", children: [o.jsx("button", { onClick: () => setMode("large"), title: "큰 아이콘 + 이름", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (iconMode === "large" ? "bg-emerald-500/40 border-emerald-400/70 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "🔲 큰" }), o.jsx("button", { onClick: () => setMode("small"), title: "작은 아이콘 (커서 올리면 이름 표시)", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (iconMode === "small" ? "bg-amber-500/40 border-amber-400/70 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "▪ 작은" }), small && o.jsx("button", { onClick: toggleSmallLabel, title: "작은 아이콘 밑에 이름 표시", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (smallLabel ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: smallLabel ? "이름 ✓" : "이름" }), o.jsx("button", { onClick: toggleNoLabel, title: "버튼 글씨 표시/숨김", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (noLabel ? "bg-rose-500/40 border-rose-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: noLabel ? "글씨 ✕" : "글씨" })] }),
             o.jsx("button", { onClick: () => setShowCfg(true), title: "설정", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "⚙" }),
-            o.jsx("button", { onClick: () => { try { const c = fcRef.current; if (hasImg && c && c.getObjects().length > 0) { const u = flatten(); if (u) { const im0 = new Image(); im0.onload = () => { try { let tw = 120, th = Math.max(1, Math.round(im0.height * (tw / im0.width))); th = Math.min(th, 160); const cv = document.createElement("canvas"); cv.width = tw; cv.height = th; cv.getContext("2d").drawImage(im0, 0, 0, tw, th); Dp({ type: "AI_DAILY_ADD", day: ddbLocalDay(), kind: "images", item: cv.toDataURL("image/jpeg", 0.45) }); } catch (e2) {} }; im0.src = u; } } } catch (e) {} setOpen(false); }, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "✕ 닫기" : "✕" }),
+            o.jsx("button", { onClick: () => { try { const c = fcRef.current; if (hasImg && c) { try { savePageState(pageIdxRef.current); } catch (e0) {} const day = ddbLocalDay(); const pgs = pagesRef.current || []; let saved = 0; pgs.forEach(pg => { if (pg && pg.thumb && (pg.json || pg.url)) { Dp({ type: "AI_DAILY_ADD", day: day, kind: "images", item: pg.thumb }); saved++; } }); if (!saved && c.getObjects().length > 0) { const u = flatten(); if (u) { const im0 = new Image(); im0.onload = () => { try { let tw = 120, th = Math.max(1, Math.round(im0.height * (tw / im0.width))); th = Math.min(th, 160); const cv = document.createElement("canvas"); cv.width = tw; cv.height = th; cv.getContext("2d").drawImage(im0, 0, 0, tw, th); Dp({ type: "AI_DAILY_ADD", day: day, kind: "images", item: cv.toDataURL("image/jpeg", 0.45) }); } catch (e2) {} }; im0.src = u; } } } } catch (e) {} setOpen(false); }, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "✕ 닫기" : "✕" }),
             o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", multiple: true, onChange: onFile, style: { display: "none" } })
         ] }),
         o.jsx("div", { className: "px-3 py-2 border-b border-white/10 flex-shrink-0 overflow-x-auto", style: { backgroundColor: "rgba(12,16,26,0.95)" }, onMouseDown: e => e.stopPropagation(), children: o.jsxs("div", { style: { display: "flex", gap: flatBar ? 3 : 10, alignItems: "flex-start", flexWrap: "wrap" }, children: [...grpOrdered.map(k => { const g = gmap[k]; if (!g) return null; return grpBox(g, flatBar); }), etcBox] }) }),
@@ -2583,7 +2583,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.36";
+const DDB_VERSION = "0.99.37";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4133,7 +4133,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v373"
+                children: "v374"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -14897,8 +14897,7 @@ function TO() {
                     { l: "x²", t: "^2", sl: "x³", st: "^3" }, { l: "xʸ", t: "^", sl: "ˣ√", st: "^(1/" }, { l: "√", t: "√(", sl: "³√", st: "cbrt(" }, { l: "1/x", t: "1/(", sl: "x!", st: "fact(" }, { l: "π", t: "π", sl: "e", st: "e" },
                     { l: "sin", t: "sin(", sl: "sin⁻¹", st: "asin(" }, { l: "cos", t: "cos(", sl: "cos⁻¹", st: "acos(" }, { l: "tan", t: "tan(", sl: "tan⁻¹", st: "atan(" }, { l: "log", t: "log(", sl: "10ˣ", st: "10^(" }, { l: "ln", t: "ln(", sl: "eˣ", st: "exp(" },
                     { l: "(", t: "(" }, { l: ")", t: ")" }, { l: "nPr", t: "nPr(", sl: "nCr", st: "nCr(" }, { l: "abs", t: "abs(", sl: "mod", st: "%" }, { l: "Ans", t: "Ans", sl: "×10ˣ", st: "*10^(" }
-                ].map((bt, bi) => { const useS = shift && bt.st; const lab = useS ? bt.sl : bt.l; const tk = useS ? bt.st : bt.t; return o.jsx("button", { onClick: () => { ins(tk); if (shift) setShift(false); }, className: "flex items-center justify-center rounded-lg h-9 text-[12px] font-medium cursor-pointer active:scale-95 select-none " + (useS ? "bg-amber-500/30 text-amber-100 hover:bg-amber-500/45" : "bg-purple-500/25 text-purple-100 hover:bg-purple-500/40"), children: lab }, bi); })
-                ] })
+                ].map((bt, bi) => { const useS = shift && bt.st; const lab = useS ? bt.sl : bt.l; const tk = useS ? bt.st : bt.t; return o.jsx("button", { onClick: () => { ins(tk); if (shift) setShift(false); }, className: "flex items-center justify-center rounded-lg h-9 text-[12px] font-medium cursor-pointer active:scale-95 select-none " + (useS ? "bg-amber-500/30 text-amber-100 hover:bg-amber-500/45" : "bg-purple-500/25 text-purple-100 hover:bg-purple-500/40"), children: lab }, bi); }) })
             ]
         }) : null, o.jsx("div", {
             className: "p-2 flex-shrink-0",
