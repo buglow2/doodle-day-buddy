@@ -2583,7 +2583,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.34";
+const DDB_VERSION = "0.99.35";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4133,7 +4133,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v371"
+                children: "v372"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -14781,7 +14781,7 @@ function TO() {
     function f() {
         if (r) try {
             const b = r.replace(/×/g, "*").replace(/÷/g, "/").replace(/√/g, "sqrt").replace(/π/g, "pi").replace(/\^/g, "**"),
-                T = Function('"use strict"; var sin=x=>Math.sin(x*Math.PI/180),cos=x=>Math.cos(x*Math.PI/180),tan=x=>Math.tan(x*Math.PI/180),log=x=>Math.log10(x),ln=x=>Math.log(x),sqrt=x=>Math.sqrt(x),pi=Math.PI; return (' + b + ")")(),
+                T = Function('"use strict"; var sin=x=>Math.sin(x*Math.PI/180),cos=x=>Math.cos(x*Math.PI/180),tan=x=>Math.tan(x*Math.PI/180),asin=x=>Math.asin(x)*180/Math.PI,acos=x=>Math.acos(x)*180/Math.PI,atan=x=>Math.atan(x)*180/Math.PI,log=x=>Math.log10(x),ln=x=>Math.log(x),sqrt=x=>Math.sqrt(x),abs=x=>Math.abs(x),exp=x=>Math.exp(x),pi=Math.PI,e=Math.E; return (' + b + ")")(),
                 A = Number.isFinite(T) ? String(parseFloat(T.toFixed(10))) : "오류";
             u([{
                 expr: r,
@@ -14883,16 +14883,19 @@ function TO() {
                 children: e
             })]
         }), sci ? o.jsx("div", {
-            className: "grid grid-cols-5 gap-1 px-2 pt-2 flex-shrink-0",
-            children: [["sin", "sin("], ["cos", "cos("], ["tan", "tan("], ["√", "√("], ["^", "^"], ["log", "log("], ["ln", "ln("], ["π", "π"], ["(", "("], [")", ")"]].map(([lb, tok]) => o.jsx("button", {
+            className: "px-2 pt-2 flex-shrink-0",
+            style: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 },
+            children: [["sin", "sin("], ["cos", "cos("], ["tan", "tan("], ["xʸ", "^"], ["√", "√("], ["sin⁻¹", "asin("], ["cos⁻¹", "acos("], ["tan⁻¹", "atan("], ["log", "log("], ["ln", "ln("], ["(", "("], [")", ")"], ["π", "π"], ["e", "e"], ["|x|", "abs("]].map(([lb, tok]) => o.jsx("button", {
                 onClick: () => ins(tok),
-                className: w + " bg-purple-500/25 text-purple-100 hover:bg-purple-500/40 text-xs",
+                className: "flex items-center justify-center rounded-lg h-9 text-[12px] font-medium cursor-pointer active:scale-95 select-none bg-purple-500/25 text-purple-100 hover:bg-purple-500/40",
                 children: lb
             }, lb))
         }) : null, o.jsx("div", {
-            className: "grid grid-cols-4 gap-1 p-2 flex-shrink-0",
+            className: "p-2 flex-shrink-0",
+            style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 },
             children: E.map(([b, T, A]) => o.jsx("button", {
                 className: T,
+                style: b === "0" ? { gridColumn: "span 2" } : void 0,
                 onClick: A,
                 children: b
             }, b + T))
