@@ -1,5 +1,5 @@
 // MomentPlan — Electron 실행기
-const { app, BrowserWindow, shell, ipcMain, desktopCapturer, screen, globalShortcut, clipboard, nativeImage } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, desktopCapturer, screen, globalShortcut, clipboard, nativeImage, dialog } = require('electron');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -90,7 +90,8 @@ async function createWindow() {
   }
   ipcMain.handle('ddb-capture', async () => await captureScreenDataUrl());
   ipcMain.handle('ddb-clipboard-image', (_e, dataUrl) => { try { const img = nativeImage.createFromDataURL(String(dataUrl || '')); if (!img.isEmpty()) clipboard.writeImage(img); return true; } catch (e) { return false; } });
-  ipcMain.handle('ddb-save-capture', (_e, dataUrl) => { try { const dir = path.join(app.getPath('pictures'), 'MomentPlan'); try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {} const b = Buffer.from(String(dataUrl || '').split(',')[1] || '', 'base64'); const fn = 'capture-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.png'; const fp = path.join(dir, fn); fs.writeFileSync(fp, b); return fp; } catch (e) { return null; } });
+  ipcMain.handle('ddb-save-capture', (_e, arg) => { try { const dataUrl = (arg && arg.u) || arg || ''; let dir = (arg && arg.dir) || ''; if (!dir) dir = path.join(app.getPath('pictures'), 'MomentPlan'); try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {} const b = Buffer.from(String(dataUrl).split(',')[1] || '', 'base64'); const fn = 'capture-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.png'; const fp = path.join(dir, fn); fs.writeFileSync(fp, b); return fp; } catch (e) { return null; } });
+  ipcMain.handle('ddb-pick-capture-dir', async () => { try { const r = await dialog.showOpenDialog(win, { title: '캡처 저장 폴더 선택', properties: ['openDirectory', 'createDirectory'] }); return (r.canceled || !r.filePaths || !r.filePaths[0]) ? null : r.filePaths[0]; } catch (e) { return null; } });
   let capHotkey = '';
   ipcMain.handle('ddb-set-capture-hotkey', (_e, accel) => {
     try {
