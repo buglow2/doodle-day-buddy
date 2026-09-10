@@ -597,7 +597,9 @@ function DDBImageEditor() {
         window.addEventListener("dragover", over);
         window.addEventListener("drop", drop);
         window.addEventListener("paste", gPaste);
-        return () => { window.removeEventListener("ddb-image-edit", openH); window.removeEventListener("dragover", over); window.removeEventListener("drop", drop); window.removeEventListener("paste", gPaste); };
+        const shotH = e => { const u = e && e.detail && e.detail.url; if (!u) return; if (openRef.current && hasImgRef.current) addPageWithUrl(u); else loadUrl(u); };
+        window.addEventListener("ddb-add-shot", shotH);
+        return () => { window.removeEventListener("ddb-image-edit", openH); window.removeEventListener("dragover", over); window.removeEventListener("drop", drop); window.removeEventListener("paste", gPaste); window.removeEventListener("ddb-add-shot", shotH); };
     }, []);
 
     O.useEffect(() => {
@@ -1072,6 +1074,8 @@ function DDBTileBar() {
     O.useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 4000); return () => clearTimeout(id); }, [toast]);
     O.useEffect(() => { const mv = e => { if (!mdrag.current) return; setMenu(m => m ? { x: mdrag.current.bx + (e.clientX - mdrag.current.sx), y: Math.max(0, mdrag.current.by + (e.clientY - mdrag.current.sy)) } : m); }; const up = () => { mdrag.current = null; }; window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up); return () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); }; }, []);
     O.useEffect(() => { const el = wrapRef.current; if (!el) return; const upd = () => setW(el.clientWidth || 800); upd(); let ro; try { ro = new ResizeObserver(upd); ro.observe(el); } catch (e) {} window.addEventListener("resize", upd); return () => { try { ro && ro.disconnect(); } catch (e) {} window.removeEventListener("resize", upd); }; }, []);
+    O.useEffect(() => { const cs = settings.capture || {}; if (window.ddbNative && window.ddbNative.setCaptureHotkey) window.ddbNative.setCaptureHotkey(cs.on ? (cs.hotkey || "PrintScreen") : ""); }, [settings.capture && settings.capture.on, settings.capture && settings.capture.hotkey]);
+    O.useEffect(() => { const proc = url => { if (!url) return; try { window.dispatchEvent(new CustomEvent("ddb-add-shot", { detail: { url: url } })); } catch (e) {} const cs = (stRef.current.settings && stRef.current.settings.capture) || {}; try { if (cs.autoCopy && window.ddbNative && window.ddbNative.clipboardImage) window.ddbNative.clipboardImage(url); } catch (e) {} try { if (cs.autoSave && window.ddbNative && window.ddbNative.saveCapture) window.ddbNative.saveCapture(url); } catch (e) {} }; const h = e => proc(e && e.detail && e.detail.url); const man = async () => { try { if (window.ddbNative && window.ddbNative.capture) { const u = await window.ddbNative.capture(); proc(u); } } catch (e) {} }; window.addEventListener("ddb-capture-result", h); window.addEventListener("ddb-capture-manual", man); return () => { window.removeEventListener("ddb-capture-result", h); window.removeEventListener("ddb-capture-manual", man); }; }, []);
     O.useEffect(() => { const DOCX = ["xlsx", "xls", "xlsm", "csv", "pdf", "docx", "hwp"]; const over = e => { try { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") >= 0) e.preventDefault(); } catch (er) {} }; const drop = e => { try { if (e.defaultPrevented) return; const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (!f) return; const ext = (f.name.split(".").pop() || "").toLowerCase(); if (DOCX.indexOf(ext) < 0) return; e.preventDefault(); const st = stRef.current || {}; const pn = st.panels || []; const ex = pn.find(p => p.type === "docview"); if (ex) { dispatch({ type: "MINIMIZE_PANEL", id: ex.id, minimized: false }); dispatch({ type: "BRING_FRONT", id: ex.id }); } else dispatch({ type: "ADD_PANEL", panel: { id: "panel-doc-" + Ft(), type: "docview", slot: "float", order: 0, floatX: 140, floatY: 80, floatW: 720, floatH: 640, minimized: false, zIndex: (st.topZIndex || 0) + 1 } }); const file = f; setTimeout(() => { try { window.dispatchEvent(new CustomEvent("ddb-open-doc", { detail: { file: file } })); } catch (er) {} }, ex ? 0 : 160); } catch (er) {} }; window.addEventListener("dragover", over); window.addEventListener("drop", drop); return () => { window.removeEventListener("dragover", over); window.removeEventListener("drop", drop); }; }, []);
     const ROWS = Math.max(1, Math.min(6, settings.tileRows || 3)), CW = 156, CH = 24, GAP = 3;
     const cols = Math.max(1, Math.floor((w + GAP) / (CW + GAP)));
@@ -2583,7 +2587,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.37";
+const DDB_VERSION = "0.99.38";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4133,7 +4137,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v374"
+                children: "v375"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -11183,6 +11187,16 @@ function c4({
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["삭제한 일정 2주 보관", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "끄면 삭제 즉시 사라집니다" })] }), o.jsx("input", { type: "checkbox", checked: !!c.trashKeep, onChange: k => y("trashKeep", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] }),
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["일정 옆 휴지통 버튼", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "일정에 커서를 올리면 빠른 삭제 버튼 표시" })] }), o.jsx("input", { type: "checkbox", checked: !!c.quickDelete, onChange: k => y("quickDelete", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] }),
                         c.trashKeep && o.jsx("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-open-trash")), className: "w-full mt-1 flex items-center justify-center gap-2 bg-white/8 hover:bg-white/15 rounded-xl px-4 py-2 text-white/80 text-sm cursor-pointer border-none", children: "🗑 삭제한 일정 보기" })
+                    ] }),
+                    o.jsxs(DDBAccordion, { title: "화면 캡처 (스크린샷)", icon: "📷", children: [
+                        o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["화면 캡처 사용", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "단축키로 화면을 찍어 이미지 편집창 슬라이드에 쌓기 (설치형 앱 전용)" })] }), o.jsx("input", { type: "checkbox", checked: !!(c.capture && c.capture.on), onChange: k => y("capture", { ...(c.capture || {}), on: k.target.checked }), className: "w-4 h-4 flex-shrink-0" })] }),
+                        (c.capture && c.capture.on) ? o.jsxs("div", { className: "mt-1 flex flex-col gap-1.5", children: [
+                            o.jsxs("label", { className: "flex items-center justify-between gap-2", children: [o.jsx("span", { className: "text-white/70 text-xs flex-shrink-0", children: "단축키" }), o.jsx("input", { type: "text", value: (c.capture && c.capture.hotkey) || "PrintScreen", onChange: k => y("capture", { ...(c.capture || {}), hotkey: k.target.value }), placeholder: "PrintScreen", className: "flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs outline-none" })] }),
+                            o.jsx("p", { className: "text-white/35 text-[10px] leading-relaxed", children: "예: PrintScreen · CommandOrControl+Shift+S · Alt+A  (Electron 단축키 형식)" }),
+                            o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer", children: [o.jsx("span", { className: "text-white/70 text-xs", children: "찍은 후 클립보드에 자동 복사" }), o.jsx("input", { type: "checkbox", checked: !!(c.capture && c.capture.autoCopy), onChange: k => y("capture", { ...(c.capture || {}), autoCopy: k.target.checked }), className: "w-4 h-4 flex-shrink-0" })] }),
+                            o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer", children: [o.jsxs("span", { className: "text-white/70 text-xs", children: ["폴더에 자동 저장", o.jsx("span", { className: "block text-white/30 text-[10px]", children: "사진\\MomentPlan 폴더" })] }), o.jsx("input", { type: "checkbox", checked: !!(c.capture && c.capture.autoSave), onChange: k => y("capture", { ...(c.capture || {}), autoSave: k.target.checked }), className: "w-4 h-4 flex-shrink-0" })] }),
+                            o.jsx("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-capture-manual")), className: "w-full mt-0.5 flex items-center justify-center gap-2 bg-white/8 hover:bg-white/15 rounded-xl px-4 py-2 text-white/80 text-sm cursor-pointer border-none", children: "📷 지금 캡처 (테스트)" })
+                        ] }) : null
                     ] }),
                     o.jsxs(DDBAccordion, { title: "영수증 정리 (AI)", icon: "🧾", children: [
                         o.jsx("p", { className: "text-white/50 text-[11px] mb-1.5 leading-relaxed", children: "영수증 사진을 여러 장 올리면 AI가 날짜·금액·항목을 뽑아 엑셀로 정리합니다. (Gemini API 키 필요 — 창 안에서 설정)" }),

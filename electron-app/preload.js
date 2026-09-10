@@ -5,5 +5,10 @@ contextBridge.exposeInMainWorld('ddbNative', {
   setWvNewWindow: (v) => { try { return ipcRenderer.invoke('ddb-wv-newwindow', !!v); } catch (e) { return Promise.resolve(false); } },
   backupSave: (json) => { try { return ipcRenderer.invoke('ddb-backup-save', String(json || '')); } catch (e) { return Promise.resolve(false); } },
   backupList: () => { try { return ipcRenderer.invoke('ddb-backup-list'); } catch (e) { return Promise.resolve([]); } },
-  backupRead: (file) => { try { return ipcRenderer.invoke('ddb-backup-read', String(file || '')); } catch (e) { return Promise.resolve(null); } }
+  backupRead: (file) => { try { return ipcRenderer.invoke('ddb-backup-read', String(file || '')); } catch (e) { return Promise.resolve(null); } },
+  capture: () => { try { return ipcRenderer.invoke('ddb-capture'); } catch (e) { return Promise.resolve(null); } },
+  clipboardImage: (u) => { try { return ipcRenderer.invoke('ddb-clipboard-image', String(u || '')); } catch (e) { return Promise.resolve(false); } },
+  saveCapture: (u) => { try { return ipcRenderer.invoke('ddb-save-capture', String(u || '')); } catch (e) { return Promise.resolve(null); } },
+  setCaptureHotkey: (a) => { try { return ipcRenderer.invoke('ddb-set-capture-hotkey', String(a || '')); } catch (e) { return Promise.resolve(false); } }
 });
+try { ipcRenderer.on('ddb-screenshot', (_e, url) => { try { window.dispatchEvent(new CustomEvent('ddb-capture-result', { detail: { url: url } })); } catch (e) {} }); } catch (e) {}

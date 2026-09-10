@@ -1,5 +1,5 @@
 // MomentPlan — Electron 실행기
-const { app, BrowserWindow, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, desktopCapturer, screen, globalShortcut, clipboard, nativeImage } = require('electron');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -76,6 +76,37 @@ async function createWindow() {
     } catch (e) {}
   });
 
+  // ── 화면 캡처 (알캡처식) ──────────────────────
+  async function captureScreenDataUrl() {
+    try {
+      const d = screen.getPrimaryDisplay();
+      const sf = d.scaleFactor || 1;
+      const w = Math.round(d.size.width * sf), h = Math.round(d.size.height * sf);
+      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: w, height: h } });
+      const src = (sources || [])[0];
+      if (!src || !src.thumbnail) return null;
+      return src.thumbnail.toDataURL();
+    } catch (e) { return null; }
+  }
+  ipcMain.handle('ddb-capture', async () => await captureScreenDataUrl());
+  ipcMain.handle('ddb-clipboard-image', (_e, dataUrl) => { try { const img = nativeImage.createFromDataURL(String(dataUrl || '')); if (!img.isEmpty()) clipboard.writeImage(img); return true; } catch (e) { return false; } });
+  ipcMain.handle('ddb-save-capture', (_e, dataUrl) => { try { const dir = path.join(app.getPath('pictures'), 'MomentPlan'); try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {} const b = Buffer.from(String(dataUrl || '').split(',')[1] || '', 'base64'); const fn = 'capture-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.png'; const fp = path.join(dir, fn); fs.writeFileSync(fp, b); return fp; } catch (e) { return null; } });
+  let capHotkey = '';
+  ipcMain.handle('ddb-set-capture-hotkey', (_e, accel) => {
+    try {
+      if (capHotkey) { try { globalShortcut.unregister(capHotkey); } catch (e) {} capHotkey = ''; }
+      accel = String(accel || '').trim();
+      if (!accel) return true;
+      const ok = globalShortcut.register(accel, async () => {
+        const url = await captureScreenDataUrl();
+        try { win && win.webContents.send('ddb-screenshot', url); } catch (e) {}
+        try { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } } catch (e) {}
+      });
+      if (ok) capHotkey = accel;
+      return ok;
+    } catch (e) { return false; }
+  });
+
   // ── 자동 로컬 백업 (데이터 유실 방지) ──────────────────────
   const BKDIR = path.join(app.getPath('userData'), 'ddb-backups');
   ipcMain.handle('ddb-backup-save', (_e, json) => {
@@ -123,4 +154,5 @@ else {
   app.on('second-instance', () => { if (win) { win.isMinimized() && win.restore(); win.focus(); } });
   app.whenReady().then(createWindow);
   app.on('window-all-closed', () => app.quit());
+  app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch (e) {} });
 }
