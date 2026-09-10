@@ -2587,7 +2587,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.38";
+const DDB_VERSION = "0.99.39";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4137,7 +4137,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v375"
+                children: "v376"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -5198,7 +5198,7 @@ function If({
     const ue = "w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-400 placeholder-white/30";
     return o.jsxs("div", {
         ref: s,
-        className: "bg-gray-950 border border-white/20 rounded-2xl w-[420px] shadow-2xl max-h-[90vh] flex flex-col",
+        className: "bg-gray-950 border border-white/20 rounded-2xl w-[420px] shadow-2xl max-h-[86vh] flex flex-col",
         style: n,
         children: [RZ, o.jsxs("div", {
             className: "flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0 cursor-grab active:cursor-grabbing select-none",
@@ -5726,7 +5726,7 @@ function Pf({
     const Y = "w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-400 placeholder-white/30";
     return o.jsxs("div", {
         ref: s,
-        className: "bg-gray-950 border border-white/20 rounded-2xl w-[420px] shadow-2xl max-h-[90vh] flex flex-col",
+        className: "bg-gray-950 border border-white/20 rounded-2xl w-[420px] shadow-2xl max-h-[86vh] flex flex-col",
         style: n,
         children: [RZ, o.jsxs("div", {
             className: "flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0 cursor-grab active:cursor-grabbing select-none",
@@ -10941,7 +10941,7 @@ function c4({
         _ = "flex items-center justify-between py-2 border-b border-white/5";
     return o.jsxs("div", {
         ref: i,
-        className: "bg-gray-950 border border-white/20 rounded-2xl w-[420px] shadow-2xl max-h-[90vh] flex flex-col",
+        className: "bg-gray-950 border border-white/20 rounded-2xl w-[420px] shadow-2xl max-h-[86vh] flex flex-col",
         style: a,
         children: [RZ, o.jsxs("div", {
             className: "flex items-start gap-1 px-3 py-2 border-b border-white/10 flex-shrink-0 cursor-grab active:cursor-grabbing select-none",
@@ -10963,7 +10963,7 @@ function c4({
                 })
             })]
         }), o.jsxs("div", {
-            className: "flex-1 overflow-y-auto thin-scroll px-4 py-4 flex flex-col gap-4",
+            className: "flex-1 min-h-0 overflow-y-auto thin-scroll px-4 py-4 flex flex-col gap-4",
             children: [x === "calendar" && o.jsxs(o.Fragment, {
                 children: [o.jsxs("section", { className: "mb-5", children: [o.jsx("h4", { className: "text-white/40 text-xs mb-3 uppercase tracking-wide", children: "🎨 요일 색상 (토·일 · 기본 일=빨강 토=파랑)" }), o.jsxs("div", { className: "flex items-center gap-4 bg-white/5 rounded-xl px-4 py-3", children: [o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer", children: [o.jsx("span", { className: "text-white/85 text-sm", children: "일요일" }), o.jsx("input", { type: "color", value: c.sunColor || "#fca5a5", onChange: k => y("sunColor", k.target.value), className: "w-8 h-8 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] }), o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer", children: [o.jsx("span", { className: "text-white/85 text-sm", children: "토요일" }), o.jsx("input", { type: "color", value: c.satColor || "#93c5fd", onChange: k => y("satColor", k.target.value), className: "w-8 h-8 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] }), o.jsx("button", { onClick: () => { y("sunColor", ""); y("satColor", ""); }, className: "text-white/40 hover:text-white text-[11px] underline bg-transparent border-none cursor-pointer ml-auto", children: "기본색" })] })] }), false && o.jsxs("section", { className: "mb-5", children: [o.jsx("h4", { className: "text-white/40 text-xs mb-3 uppercase tracking-wide", children: "\u{1F5D1} " + DDBTR("삭제한 일정 (휴지통)") }), o.jsxs("button", { onClick: () => y("trashKeep", !c.trashKeep), className: "w-full flex items-center justify-between bg-white/5 rounded-xl px-4 py-3 mb-2 cursor-pointer border-none text-left", children: [o.jsxs("div", { className: "flex flex-col", children: [o.jsx("span", { className: "text-white/85 text-sm", children: DDBTR("삭제한 일정 2주 보관") }), o.jsx("span", { className: "text-white/40 text-[11px]", children: c.trashKeep ? DDBTR("삭제해도 2주간 보관 후 자동 삭제") : DDBTR("끄면 삭제 즉시 사라집니다") })] }), o.jsx("span", { className: "relative inline-block w-10 h-5 rounded-full transition-colors flex-shrink-0 " + (c.trashKeep ? "bg-blue-500" : "bg-white/20"), children: o.jsx("span", { className: "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", style: { left: c.trashKeep ? 22 : 2 } }) })] }), c.trashKeep && o.jsx("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-open-trash")), className: "w-full flex items-center justify-center gap-2 bg-white/8 hover:bg-white/15 rounded-xl px-4 py-2.5 text-white/80 text-sm cursor-pointer border-none", children: "\u{1F5D1} " + DDBTR("삭제한 일정 보기") })] }), false && o.jsxs("section", { className: "mb-5", children: [o.jsx("h4", { className: "text-white/40 text-xs mb-3 uppercase tracking-wide", children: "\u{1F4B0} " + DDBTR("가계부·돈 관련 표시") }), o.jsxs("label", { className: "flex items-center justify-between bg-white/5 rounded-xl px-4 py-3 mb-2 cursor-pointer", children: [o.jsxs("div", { className: "flex flex-col pr-3", children: [o.jsx("span", { className: "text-white/85 text-sm", children: DDBTR("입·출금 · 가계부 상세보기 · 금액 표시") }), o.jsx("span", { className: "text-white/40 text-[11px]", children: DDBTR("끄면 가계부·상세보기 버튼과 달력의 모든 금액이 숨겨집니다") })] }), o.jsx("input", { type: "checkbox", checked: c.moneyShow !== !1, onChange: () => { if (c.moneyShow === !1) { if (c.moneyPw) { const inp = window.prompt(DDBTR("금액을 다시 표시하려면 비밀번호를 입력하세요")); if (inp == null) return; if (inp !== c.moneyPw) { window.alert(DDBTR("비밀번호가 일치하지 않습니다.")); return } } y("moneyShow", !0) } else y("moneyShow", !1) }, className: "w-4 h-4 flex-shrink-0" })] }), o.jsxs("div", { className: "flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2", children: [o.jsx("span", { className: "text-white/50 text-xs flex-shrink-0", children: DDBTR("공개 비밀번호") }), o.jsx("input", { type: "password", value: c.moneyPw ?? "", onChange: e => y("moneyPw", e.target.value), placeholder: DDBTR("비워두면 비번 없이 표시"), className: "flex-1 bg-white/10 border border-white/15 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-blue-400" })] }), o.jsx("p", { className: "text-white/30 text-[10px] mt-1", children: DDBTR("※ 숨기는 건 자유, 다시 표시할 때만 비밀번호가 필요합니다.") })] }), o.jsxs("section", {
                     children: [o.jsx("h4", {
