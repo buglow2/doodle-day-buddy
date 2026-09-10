@@ -2587,7 +2587,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.39";
+const DDB_VERSION = "0.99.40";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4137,7 +4137,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v376"
+                children: "v377"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -5004,16 +5004,17 @@ function Oi(e = 500) {
             ph: (sz == null ? void 0 : sz.h) ?? c.height
         })
     }
+    const _vw = (typeof window !== "undefined" ? window.innerWidth : 1280), _vh = (typeof window !== "undefined" ? window.innerHeight : 800);
     const szStyle = sz ? {
-        width: sz.w,
-        height: sz.h,
-        maxHeight: "none"
+        width: Math.min(sz.w, _vw - 16),
+        height: Math.min(sz.h, _vh - 16),
+        maxHeight: "94vh"
     } : {};
     return {
         style: t ? {
             position: "fixed",
-            left: t.x,
-            top: t.y,
+            left: Math.max(4, Math.min(t.x, _vw - 120)),
+            top: Math.max(4, Math.min(t.y, _vh - 60)),
             zIndex: e,
             ...szStyle
         } : {
