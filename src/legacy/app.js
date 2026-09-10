@@ -2587,7 +2587,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.40";
+const DDB_VERSION = "0.99.41";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4137,7 +4137,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v377"
+                children: "v378"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -10942,7 +10942,7 @@ function c4({
         _ = "flex items-center justify-between py-2 border-b border-white/5";
     return o.jsxs("div", {
         ref: i,
-        className: "bg-gray-950 border border-white/20 rounded-2xl w-[420px] shadow-2xl max-h-[86vh] flex flex-col",
+        className: "bg-gray-950 border border-white/20 rounded-2xl w-[min(860px,94vw)] shadow-2xl max-h-[86vh] flex flex-col",
         style: a,
         children: [RZ, o.jsxs("div", {
             className: "flex items-start gap-1 px-3 py-2 border-b border-white/10 flex-shrink-0 cursor-grab active:cursor-grabbing select-none",
@@ -11154,6 +11154,7 @@ function c4({
                     })]
                 })] }), x === "features" && o.jsxs(o.Fragment, { children: [
                     o.jsx("p", { className: "text-white/40 text-[11px] mb-2 px-1", children: "카테고리를 눌러 펼치세요. 자주 쓰는 기능 설정을 모아놨어요." }),
+                    o.jsxs("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "8px 12px", alignItems: "start" }, children: [
                     o.jsxs(DDBAccordion, { title: "기능버튼 (상단 툴바)", icon: "🔧", defaultOpen: true, children: [
                         o.jsxs("div", { className: "flex items-center justify-between gap-2 py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["줄 수", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "상단 기능버튼 영역 (1~6줄)" })] }), o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("button", { onClick: () => y("tileRows", Math.max(1, (c.tileRows || 3) - 1)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "－" }), o.jsx("span", { className: "text-white/85 text-sm w-6 text-center", children: (c.tileRows || 3) }), o.jsx("button", { onClick: () => y("tileRows", Math.min(6, (c.tileRows || 3) + 1)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "＋" })] })] }),
                         o.jsxs("div", { className: "flex items-center justify-between gap-2 py-1", children: [o.jsx("span", { className: "text-white/75 text-sm", children: "글씨 크기" }), o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("button", { onClick: () => y("tileFontSize", Math.max(9, (c.tileFontSize || 12) - 1)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "－" }), o.jsxs("span", { className: "text-white/85 text-sm w-9 text-center", children: [(c.tileFontSize || 12), "pt"] }), o.jsx("button", { onClick: () => y("tileFontSize", Math.min(20, (c.tileFontSize || 12) + 1)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "＋" })] })] }),
@@ -11203,8 +11204,8 @@ function c4({
                         o.jsx("p", { className: "text-white/50 text-[11px] mb-1.5 leading-relaxed", children: "영수증 사진을 여러 장 올리면 AI가 날짜·금액·항목을 뽑아 엑셀로 정리합니다. (Gemini API 키 필요 — 창 안에서 설정)" }),
                         o.jsx("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-open-receipt")), className: "w-full flex items-center justify-center gap-2 bg-white/8 hover:bg-white/15 rounded-xl px-4 py-2 text-white/80 text-sm cursor-pointer border-none", children: "🧾 영수증 정리 열기" })
                     ] }),
-                    o.jsx(DDBAccordion, { title: "달력 헤더 버튼 표시", icon: "🔘", children: o.jsx("div", { className: "grid grid-cols-2 gap-x-3 gap-y-1", children: [{ k: "lock", n: "사생활 잠금" }, { k: "do", n: "Do! 리스트" }, { k: "cal", n: "달력 보기" }, { k: "todo", n: "할 일" }, { k: "team", n: "팀" }, { k: "memodetail", n: "메모 상세" }, { k: "share", n: "일정 내보내기" }, { k: "imgedit", n: "이미지 편집" }, { k: "table", n: "표" }, { k: "receipt", n: "영수증" }].map(bt => o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer text-white/60 text-xs", children: [o.jsx("input", { type: "checkbox", checked: !((c.calBtnHidden) || []).includes(bt.k), onChange: k => { const cur = Array.isArray(c.calBtnHidden) ? c.calBtnHidden.slice() : []; const nx = k.target.checked ? cur.filter(z => z !== bt.k) : (cur.includes(bt.k) ? cur : [...cur, bt.k]); y("calBtnHidden", nx); }, className: "w-3.5 h-3.5 flex-shrink-0" }), bt.n] }, bt.k)) }) }),
-                ] }), x === "design" && o.jsxs(o.Fragment, {
+                    o.jsx(DDBAccordion, { title: "달력 헤더 버튼 표시", icon: "🔘", children: o.jsx("div", { className: "grid grid-cols-2 gap-x-3 gap-y-1", children: [{ k: "lock", n: "사생활 잠금" }, { k: "do", n: "Do! 리스트" }, { k: "cal", n: "달력 보기" }, { k: "todo", n: "할 일" }, { k: "team", n: "팀" }, { k: "memodetail", n: "메모 상세" }, { k: "share", n: "일정 내보내기" }, { k: "imgedit", n: "이미지 편집" }, { k: "table", n: "표" }, { k: "receipt", n: "영수증" }].map(bt => o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer text-white/60 text-xs", children: [o.jsx("input", { type: "checkbox", checked: !((c.calBtnHidden) || []).includes(bt.k), onChange: k => { const cur = Array.isArray(c.calBtnHidden) ? c.calBtnHidden.slice() : []; const nx = k.target.checked ? cur.filter(z => z !== bt.k) : (cur.includes(bt.k) ? cur : [...cur, bt.k]); y("calBtnHidden", nx); }, className: "w-3.5 h-3.5 flex-shrink-0" }), bt.n] }, bt.k)) }) })
+                ] })] }), x === "design" && o.jsxs(o.Fragment, {
                 children: [o.jsxs("section", { children: [o.jsx("h4", { className: "text-white/40 text-xs mb-2 uppercase tracking-wide", children: "🎨 달력 색상 팔레트 (1~8번)" }), o.jsx("div", { className: "text-white/40 text-[11px] mb-2 leading-relaxed", children: "색을 바꾸면 그 색을 쓰던 일정·할일·D-Day가 모두 함께 바뀝니다 (필터·구분 유지)." }), o.jsx("div", { className: "grid grid-cols-4 gap-2 mb-2", children: Object.keys(DDB_QT_DEFAULT).map(nm => o.jsxs("div", { className: "flex flex-col items-center gap-1 bg-white/5 rounded-lg p-2", children: [o.jsx("span", { className: "text-white/55 text-[11px]", children: DDB_QT_LABELS[nm] + "번" }), o.jsx("input", { type: "color", value: qt[nm], title: "클릭해서 색 변경", onChange: k => { const nv = k.target.value; if (window.__ddbPalOK || window.confirm("색상을 바꾸면 기존에 이 색을 사용하던 메모들도 모두 바뀐 색으로 변경됩니다. 그래도 하시겠습니까?")) { window.__ddbPalOK = true; y("palette", { ...(c.palette || {}), [nm]: nv }); } }, style: { width: 36, height: 36, border: "2px solid rgba(255,255,255,0.3)", borderRadius: 8, background: "transparent", cursor: "pointer", padding: 0 } })] }, nm)) }), o.jsx("button", { onClick: () => { if (window.confirm("모든 색을 기본값으로 되돌릴까요? (그 색을 쓰던 항목도 기본색으로 바뀝니다)")) { window.__ddbPalOK = false; y("palette", {}); } }, className: "text-white/50 hover:text-white text-[11px] underline bg-transparent border-none cursor-pointer p-0", children: "기본색으로 전체 되돌리기" })] }), o.jsxs("section", {
                     children: [o.jsx("h4", {
                         className: "text-white/40 text-xs mb-2 uppercase tracking-wide",
