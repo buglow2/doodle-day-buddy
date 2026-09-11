@@ -92,13 +92,40 @@ async function createWindow() {
   ipcMain.handle('ddb-clipboard-image', (_e, dataUrl) => { try { const img = nativeImage.createFromDataURL(String(dataUrl || '')); if (!img.isEmpty()) clipboard.writeImage(img); return true; } catch (e) { return false; } });
   ipcMain.handle('ddb-save-capture', (_e, arg) => { try { const dataUrl = (arg && arg.u) || arg || ''; let dir = (arg && arg.dir) || ''; if (!dir) dir = path.join(app.getPath('pictures'), 'MomentPlan'); try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {} const b = Buffer.from(String(dataUrl).split(',')[1] || '', 'base64'); const fn = 'capture-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.png'; const fp = path.join(dir, fn); fs.writeFileSync(fp, b); return fp; } catch (e) { return null; } });
   ipcMain.handle('ddb-pick-capture-dir', async () => { try { const r = await dialog.showOpenDialog(win, { title: '캡처 저장 폴더 선택', properties: ['openDirectory', 'createDirectory'] }); return (r.canceled || !r.filePaths || !r.filePaths[0]) ? null : r.filePaths[0]; } catch (e) { return null; } });
-  let capHotkey = '';
-  ipcMain.handle('ddb-set-capture-hotkey', (_e, accel) => {
+  // 영역 드래그 캡처 오버레이
+  const OVERLAY_HTML = "<!doctype html><html><head><meta charset='utf-8'></head><body style='margin:0;overflow:hidden;cursor:crosshair;background:transparent'>"
+    + "<img id='bg' style='position:fixed;inset:0;width:100vw;height:100vh;-webkit-user-drag:none;user-select:none'>"
+    + "<div id='dim' style='position:fixed;inset:0;background:rgba(0,0,0,0.35)'></div>"
+    + "<div id='sel' style='position:fixed;border:2px solid #22c55e;box-shadow:0 0 0 9999px rgba(0,0,0,0.35);display:none'></div>"
+    + "<div style='position:fixed;top:12px;left:50%;transform:translateX(-50%);color:#fff;background:rgba(0,0,0,0.65);padding:6px 14px;border-radius:8px;font:13px sans-serif;pointer-events:none'>드래그해서 영역 선택 · Esc 취소 · 클릭만 하면 전체화면</div>"
+    + "<script>const{ipcRenderer}=require('electron');let shot=null,sx=0,sy=0,drag=false;const img=document.getElementById('bg'),sel=document.getElementById('sel'),dim=document.getElementById('dim');ipcRenderer.on('shot',(e,u)=>{shot=u;img.src=u;});function rc(e){return{x:Math.min(sx,e.clientX),y:Math.min(sy,e.clientY),w:Math.abs(e.clientX-sx),h:Math.abs(e.clientY-sy)};}function up(e){const r=rc(e);sel.style.left=r.x+'px';sel.style.top=r.y+'px';sel.style.width=r.w+'px';sel.style.height=r.h+'px';}window.addEventListener('mousedown',e=>{drag=true;sx=e.clientX;sy=e.clientY;dim.style.display='none';sel.style.display='block';up(e);});window.addEventListener('mousemove',e=>{if(drag)up(e);});window.addEventListener('mouseup',e=>{if(!drag)return;drag=false;const r=rc(e);if(r.w<5||r.h<5)crop(0,0,innerWidth,innerHeight);else crop(r.x,r.y,r.w,r.h);});window.addEventListener('keydown',e=>{if(e.key==='Escape')ipcRenderer.send('ddb-region-cancel');});function crop(x,y,w,h){const im=new Image();im.onload=()=>{const sf=im.naturalWidth/window.innerWidth;const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(w*sf));cv.height=Math.max(1,Math.round(h*sf));cv.getContext('2d').drawImage(im,x*sf,y*sf,w*sf,h*sf,0,0,cv.width,cv.height);ipcRenderer.send('ddb-region-result',cv.toDataURL('image/png'));};im.src=shot;}<\/script></body></html>";
+  let overlayWin = null;
+  async function startRegionCapture() {
     try {
+      if (overlayWin) { try { overlayWin.close(); } catch (e) {} overlayWin = null; }
+      const url = await captureScreenDataUrl();
+      if (!url) return;
+      const d = screen.getPrimaryDisplay();
+      const b = d.bounds;
+      overlayWin = new BrowserWindow({ x: b.x, y: b.y, width: b.width, height: b.height, frame: false, transparent: true, alwaysOnTop: true, skipTaskbar: true, resizable: false, movable: false, minimizable: false, hasShadow: false, fullscreenable: false, webPreferences: { nodeIntegration: true, contextIsolation: false } });
+      try { overlayWin.setAlwaysOnTop(true, 'screen-saver'); } catch (e) {}
+      overlayWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(OVERLAY_HTML));
+      overlayWin.webContents.on('did-finish-load', () => { try { overlayWin.webContents.send('shot', url); overlayWin.focus(); } catch (e) {} });
+      overlayWin.on('closed', () => { overlayWin = null; });
+    } catch (e) {}
+  }
+  ipcMain.on('ddb-region-cancel', () => { try { if (overlayWin) { overlayWin.close(); overlayWin = null; } } catch (e) {} });
+  ipcMain.on('ddb-region-result', (_e, croppedUrl) => { try { if (overlayWin) { overlayWin.close(); overlayWin = null; } } catch (e) {} try { if (croppedUrl && win) { win.webContents.send('ddb-screenshot', croppedUrl); if (win.isMinimized()) win.restore(); win.show(); win.focus(); } } catch (e) {} });
+  ipcMain.handle('ddb-capture-region', async () => { await startRegionCapture(); return true; });
+  let capHotkey = '', capMode = 'region';
+  ipcMain.handle('ddb-set-capture-hotkey', (_e, accel, mode) => {
+    try {
+      capMode = mode === 'full' ? 'full' : 'region';
       if (capHotkey) { try { globalShortcut.unregister(capHotkey); } catch (e) {} capHotkey = ''; }
       accel = String(accel || '').trim();
       if (!accel) return true;
       const ok = globalShortcut.register(accel, async () => {
+        if (capMode === 'region') { startRegionCapture(); return; }
         const url = await captureScreenDataUrl();
         try { win && win.webContents.send('ddb-screenshot', url); } catch (e) {}
         try { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } } catch (e) {}
