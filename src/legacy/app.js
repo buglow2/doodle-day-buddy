@@ -1056,6 +1056,31 @@ function ddbLogAct(kind, detail) { try { const key = ddbActKey(); let arr = []; 
 function ddbUnlogRecent(kind, matchFn, ms) { try { const key = ddbActKey(); let arr = JSON.parse(localStorage.getItem(key) || "[]"); const now = Date.now(); for (let i = arr.length - 1; i >= 0; i--) { const e = arr[i]; if (e.kind === kind && (now - e.t) < (ms || 300000) && (!matchFn || matchFn(e))) { arr.splice(i, 1); localStorage.setItem(key, JSON.stringify(arr)); try { window.dispatchEvent(new CustomEvent("ddb-act-log")); } catch (er) {} return true; } } } catch (e) {} return false; }
 const _ddbMemoLogT = {};
 function ddbLogMemo(tabId, name, preview) { try { const now = Date.now(); if (_ddbMemoLogT[tabId] && now - _ddbMemoLogT[tabId] < 60000) return; _ddbMemoLogT[tabId] = now; ddbUnlogRecent("memo", x => x.tabId === tabId, 864e5); ddbLogAct("memo", { tabId: tabId, tab: name || "메모", preview: (preview || "").slice(0, 24) }); } catch (e) {} }
+function DDBHotkeyInput({ value, onChange }) {
+    const [rec, setRec] = O.useState(false);
+    O.useEffect(() => {
+        if (!rec) return;
+        const KMAP = { " ": "Space", "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right", "Enter": "Return", "Delete": "Delete", "Backspace": "Backspace", "Tab": "Tab", "Insert": "Insert", "Home": "Home", "End": "End", "PageUp": "PageUp", "PageDown": "PageDown" };
+        const mods = e => { const m = []; if (e.ctrlKey || e.metaKey) m.push("CommandOrControl"); if (e.altKey) m.push("Alt"); if (e.shiftKey) m.push("Shift"); return m; };
+        const done = acc => { onChange(acc); setRec(false); };
+        const kd = e => {
+            e.preventDefault(); e.stopPropagation();
+            if (e.key === "Escape") { setRec(false); return; }
+            if (e.key === "PrintScreen" || ["Control", "Shift", "Alt", "Meta"].includes(e.key)) return;
+            let k = e.key;
+            if (KMAP[k]) k = KMAP[k]; else if (/^f\d{1,2}$/i.test(k)) k = k.toUpperCase(); else if (k.length === 1) k = k.toUpperCase();
+            done(mods(e).concat([k]).join("+"));
+        };
+        const ku = e => { if (e.key === "PrintScreen") { e.preventDefault(); done(mods(e).concat(["PrintScreen"]).join("+")); } };
+        window.addEventListener("keydown", kd, true);
+        window.addEventListener("keyup", ku, true);
+        return () => { window.removeEventListener("keydown", kd, true); window.removeEventListener("keyup", ku, true); };
+    }, [rec]);
+    return o.jsxs("div", { className: "flex-1 flex items-center gap-1", children: [
+        o.jsx("button", { onClick: () => setRec(v => !v), className: "flex-1 rounded px-2 py-1 text-xs outline-none border cursor-pointer text-left " + (rec ? "bg-blue-500/30 border-blue-400 text-blue-100" : "bg-white/10 border-white/20 text-white hover:bg-white/15"), title: "클릭 후 원하는 키(조합)를 누르세요", children: rec ? "⌨ 원하는 키를 누르세요… (Esc 취소)" : (value || "PrintScreen") }),
+        !rec && value ? o.jsx("button", { onClick: () => onChange("PrintScreen"), className: "px-1.5 py-1 rounded text-[10px] bg-white/8 border border-white/15 text-white/55 hover:text-white cursor-pointer", title: "기본값(PrintScreen)으로", children: "기본" }) : null
+    ] });
+}
 function DDBPaintBanner() {
     const [hex, setHex] = O.useState(DDB_PAINT);
     O.useEffect(() => { const h = e => setHex((e && e.detail && e.detail.hex) || null); window.addEventListener("ddb-paint-change", h); return () => window.removeEventListener("ddb-paint-change", h); }, []);
@@ -2595,7 +2620,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.47";
+const DDB_VERSION = "0.99.48";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4145,7 +4170,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v384"
+                children: "v385"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -11209,8 +11234,8 @@ function c4({
                     o.jsxs(DDBAccordion, { title: "화면 캡처 (스크린샷)", icon: "📷", children: [
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["화면 캡처 사용", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "단축키로 화면을 찍어 이미지 편집창 슬라이드에 쌓기 (설치형 앱 전용)" })] }), o.jsx("input", { type: "checkbox", checked: !!(c.capture && c.capture.on), onChange: k => y("capture", { ...(c.capture || {}), on: k.target.checked }), className: "w-4 h-4 flex-shrink-0" })] }),
                         (c.capture && c.capture.on) ? o.jsxs("div", { className: "mt-1 flex flex-col gap-1.5", children: [
-                            o.jsxs("label", { className: "flex items-center justify-between gap-2", children: [o.jsx("span", { className: "text-white/70 text-xs flex-shrink-0", children: "단축키" }), o.jsx("input", { type: "text", value: (c.capture && c.capture.hotkey) || "PrintScreen", onChange: k => y("capture", { ...(c.capture || {}), hotkey: k.target.value }), placeholder: "PrintScreen", className: "flex-1 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs outline-none" })] }),
-                            o.jsx("p", { className: "text-white/35 text-[10px] leading-relaxed", children: "예: PrintScreen · CommandOrControl+Shift+S · Alt+A  (Electron 단축키 형식)" }),
+                            o.jsxs("label", { className: "flex items-center justify-between gap-2", children: [o.jsx("span", { className: "text-white/70 text-xs flex-shrink-0", children: "단축키" }), o.jsx(DDBHotkeyInput, { value: (c.capture && c.capture.hotkey) || "PrintScreen", onChange: v => y("capture", { ...(c.capture || {}), hotkey: v }) })] }),
+                            o.jsx("p", { className: "text-white/35 text-[10px] leading-relaxed", children: "칸을 누른 뒤 원하는 키(조합)를 그대로 누르면 지정됩니다. 예: PrintScreen · Ctrl+Shift+S · Alt+A" }),
                             o.jsxs("div", { className: "flex items-center gap-2", children: [o.jsx("span", { className: "text-white/70 text-xs flex-shrink-0", children: "방식" }), o.jsx("div", { className: "flex gap-1", children: [["region", "영역 지정(드래그)"], ["full", "전체화면"]].map(m => o.jsx("button", { onClick: () => y("capture", { ...(c.capture || {}), mode: m[0] }), className: "px-2 py-1 rounded text-[11px] cursor-pointer border " + (((c.capture && c.capture.mode) || "region") === m[0] ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/60"), children: m[1] }, m[0])) })] }),
                             o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer", children: [o.jsx("span", { className: "text-white/70 text-xs", children: "찍은 후 클립보드에 자동 복사" }), o.jsx("input", { type: "checkbox", checked: !!(c.capture && c.capture.autoCopy), onChange: k => y("capture", { ...(c.capture || {}), autoCopy: k.target.checked }), className: "w-4 h-4 flex-shrink-0" })] }),
                             o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer", children: [o.jsx("span", { className: "text-white/70 text-xs", children: "폴더에 자동 저장" }), o.jsx("input", { type: "checkbox", checked: !!(c.capture && c.capture.autoSave), onChange: k => y("capture", { ...(c.capture || {}), autoSave: k.target.checked }), className: "w-4 h-4 flex-shrink-0" })] }),
