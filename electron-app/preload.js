@@ -15,3 +15,5 @@ contextBridge.exposeInMainWorld('ddbNative', {
   setCaptureHotkey: (a, mode) => { try { return ipcRenderer.invoke('ddb-set-capture-hotkey', String(a || ''), String(mode || 'region')); } catch (e) { return Promise.resolve(false); } }
 });
 try { ipcRenderer.on('ddb-screenshot', (_e, url) => { try { window.dispatchEvent(new CustomEvent('ddb-capture-result', { detail: { url: url } })); } catch (e) {} }); } catch (e) {}
+try { ipcRenderer.on('ddb-cap-toggle', (_e, d) => { try { window.dispatchEvent(new CustomEvent('ddb-cap-toggle', { detail: d || {} })); } catch (e) {} }); } catch (e) {}
+try { ipcRenderer.on('ddb-open-capset', () => { try { window.dispatchEvent(new CustomEvent('ddb-open-capset-relay')); } catch (e) {} }); } catch (e) {}
