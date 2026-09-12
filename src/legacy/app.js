@@ -2656,7 +2656,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.52";
+const DDB_VERSION = "0.99.53";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4206,7 +4206,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v389"
+                children: "v390"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9322,10 +9322,13 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     ] });
     function renderTable(b, bi) {
         if (simpleTables) {
-            return o.jsx("div", { "data-block": bi, className: "mb-1.5", children: o.jsx("div", { onDoubleClick: () => { if (!readOnly) setEditTbl(bi); }, title: "더블클릭하면 표 편집창이 열립니다", style: { cursor: "pointer", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 6, overflow: "auto", display: "inline-block", maxWidth: "100%" }, children: o.jsxs("table", { style: { borderCollapse: "collapse", fontSize: 12 }, children: [
+            return o.jsxs("div", { "data-block": bi, className: "mb-1.5", style: { position: "relative", display: "inline-block", maxWidth: "100%" }, children: [
+                !readOnly ? o.jsx("button", { onClick: e => { e.stopPropagation(); if (window.confirm("이 표를 삭제할까요?")) delBlock(bi); }, title: "표 삭제", style: { position: "absolute", top: -7, right: -7, zIndex: 3, width: 18, height: 18, lineHeight: "16px", textAlign: "center", borderRadius: 999, background: "rgba(244,63,94,0.9)", color: "#fff", border: "1px solid rgba(255,255,255,0.5)", fontSize: 11, cursor: "pointer", padding: 0 }, children: "✕" }) : null,
+                o.jsx("div", { onDoubleClick: () => { if (!readOnly) setEditTbl(bi); }, title: "더블클릭하면 표 편집창이 열립니다", style: { cursor: "pointer", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 6, overflow: "auto", display: "inline-block", maxWidth: "100%" }, children: o.jsxs("table", { style: { borderCollapse: "collapse", fontSize: 12 }, children: [
                 o.jsx("thead", { children: o.jsx("tr", { children: b.headers.map((_h, c) => o.jsx("th", { style: { border: "1px solid rgba(255,255,255,0.16)", padding: "3px 8px", background: "rgba(255,255,255,0.08)", color: "#fff", fontWeight: 600, textAlign: "left", whiteSpace: "pre-wrap", verticalAlign: "top" }, children: ddbCellDisp(b, -1, c) }, c)) }) }),
                 o.jsx("tbody", { children: b.rows.map((_rw, r) => o.jsx("tr", { children: b.headers.map((_h, c) => o.jsx("td", { style: { border: "1px solid rgba(255,255,255,0.1)", padding: "3px 8px", color: "rgba(255,255,255,0.85)", whiteSpace: "pre-wrap", verticalAlign: "top" }, children: ddbCellDisp(b, r, c) }, c)) }, r)) })
-            ] }) }) }, "b" + bi);
+            ] }) })
+            ] }, "b" + bi);
         }
         const _view = tv[bi] || null;
         const _hasView = !!(_view && (_view.sort || (_view.filt && Object.keys(_view.filt).length)));
