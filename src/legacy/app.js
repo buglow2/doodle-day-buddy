@@ -1389,7 +1389,7 @@ function DDBAiMemoCard({ tab }) {
             o.jsx("span", { className: "text-white/35 text-[10px] ml-auto", children: "한 줄 = 일정" })
         ] }),
         (tCnt || iCnt) ? o.jsxs("div", { className: "px-2.5 py-1 text-[11px] flex items-center gap-2 flex-shrink-0 border-b border-white/5", children: [o.jsxs("span", { className: "text-sky-300", children: ["📊 오늘 표 ", tCnt] }), o.jsxs("span", { className: "text-purple-300", children: ["🖼 이미지 ", iCnt] }), o.jsx("span", { className: "text-white/30", children: "(메모 상세 → AI메모에서 날짜별로 보기)" })] }) : null,
-        o.jsx("div", { className: "flex-1 min-h-0 overflow-auto px-2 py-1", style: { borderLeft: "3px solid " + chipHex }, children: o.jsx(DDBDocEditor, { content: txt, onCommit: save, fontSize: 13, itemId: "aimemo-" + tab.id, maxH: "none", soloOn: true }, "aim-" + tab.id + "-" + resetN) }),
+        o.jsx("div", { className: "flex-1 min-h-0 overflow-auto px-2 py-1", style: { borderLeft: "3px solid " + chipHex }, children: o.jsx(DDBDocEditor, { content: txt, onCommit: save, fontSize: 13, itemId: "aimemo-" + tab.id, maxH: "none", soloOn: true, simpleTables: true }, "aim-" + tab.id + "-" + resetN) }),
         o.jsxs("div", { className: "flex items-center gap-2 px-2.5 py-1.5 border-t border-white/10 flex-shrink-0", children: [o.jsxs("span", { className: "text-white/45 text-[11px] flex-1", children: [cnt, "줄 → 일정 ", cnt, "개 · 오늘 ", today] }), o.jsx("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-ai-digest")), title: "날짜별 하루 요약 보기 (일정·표·이미지)", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer bg-white/8 border-white/20 text-white/70 hover:bg-white/15", children: "🗓 요약" }), o.jsx("button", { onClick: fileNow, disabled: !cnt, title: "지금 바로 오늘 날짜 일정으로 정리", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer disabled:opacity-40 " + (cnt ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100 hover:bg-emerald-500/40" : "bg-white/5 border-white/15 text-white/40"), children: "지금 정리" })] })
     ] });
 }
@@ -2656,7 +2656,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.51";
+const DDB_VERSION = "0.99.52";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4206,7 +4206,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v388"
+                children: "v389"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9150,7 +9150,7 @@ function jw({
 const DDB_CELL_COLORS = ["rgba(239,68,68,0.35)", "rgba(245,158,11,0.35)", "rgba(234,179,8,0.35)", "rgba(34,197,94,0.35)", "rgba(59,130,246,0.35)", "rgba(168,85,247,0.35)", "rgba(236,72,153,0.35)", "rgba(255,255,255,0.18)", "rgba(100,116,139,0.5)"];
 const DDB_FUNCS = [["SUM", "합계  =SUM(A2:A5)"], ["SUMIF", "조건 합계  =SUMIF(A2:A9,\">0\")"], ["SUMIFS", "다중조건 합계  =SUMIFS(C2:C9,A2:A9,\"수입\")"], ["SUMPRODUCT", "곱의 합  =SUMPRODUCT(A2:A5,B2:B5)"], ["SUMSQ", "제곱의 합  =SUMSQ(A2:A5)"], ["AVERAGE", "평균  =AVERAGE(A2:A5)"], ["AVERAGEIF", "조건 평균  =AVERAGEIF(A2:A9,\">=60\")"], ["AVERAGEIFS", "다중조건 평균  =AVERAGEIFS(C2:C9,A2:A9,\"A\")"], ["MEDIAN", "중앙값  =MEDIAN(A2:A9)"], ["MIN", "최소값  =MIN(A2:A9)"], ["MAX", "최대값  =MAX(A2:A9)"], ["MINIFS", "조건 최소  =MINIFS(C2:C9,A2:A9,\"A\")"], ["MAXIFS", "조건 최대  =MAXIFS(C2:C9,A2:A9,\"A\")"], ["LARGE", "n번째 큰 값  =LARGE(A2:A9,2)"], ["SMALL", "n번째 작은 값  =SMALL(A2:A9,2)"], ["COUNT", "숫자 개수  =COUNT(A2:A9)"], ["COUNTA", "빈칸 아닌 개수  =COUNTA(A2:A9)"], ["COUNTBLANK", "빈칸 개수  =COUNTBLANK(A2:A9)"], ["COUNTIF", "조건 개수  =COUNTIF(A2:A9,\"완료\")"], ["COUNTIFS", "다중조건 개수  =COUNTIFS(A2:A9,\"A\",B2:B9,\">0\")"], ["PRODUCT", "곱  =PRODUCT(A2:A5)"], ["STDEV", "표준편차(표본)  =STDEV(A2:A9)"], ["STDEVP", "표준편차(전체)  =STDEVP(A2:A9)"], ["VAR", "분산(표본)  =VAR(A2:A9)"], ["VARP", "분산(전체)  =VARP(A2:A9)"], ["ROUND", "반올림  =ROUND(A2,0)"], ["ROUNDUP", "올림  =ROUNDUP(A2,0)"], ["ROUNDDOWN", "내림  =ROUNDDOWN(A2,0)"], ["INT", "정수부  =INT(A2)"], ["TRUNC", "버림  =TRUNC(A2,1)"], ["CEILING", "올림(배수)  =CEILING(A2,10)"], ["FLOOR", "내림(배수)  =FLOOR(A2,10)"], ["ABS", "절대값  =ABS(A2)"], ["SIGN", "부호(-1/0/1)  =SIGN(A2)"], ["SQRT", "제곱근  =SQRT(A2)"], ["POWER", "거듭제곱  =POWER(2,10)"], ["MOD", "나머지  =MOD(A2,3)"], ["QUOTIENT", "몫(정수)  =QUOTIENT(A2,3)"], ["EXP", "e의 거듭제곱  =EXP(1)"], ["LN", "자연로그  =LN(A2)"], ["LOG", "로그  =LOG(100,10)"], ["LOG10", "상용로그  =LOG10(1000)"], ["PI", "원주율  =PI()"], ["IF", "조건  =IF(A2>=60,\"합격\",\"불합격\")"], ["IFS", "여러 조건  =IFS(A2>=90,\"A\",A2>=80,\"B\",1,\"C\")"], ["IFERROR", "오류시 대체값  =IFERROR(A2/B2,0)"], ["AND", "모두 참  =AND(A2>0,B2>0)"], ["OR", "하나라도 참  =OR(A2>0,B2>0)"], ["NOT", "부정  =NOT(A2>0)"], ["XOR", "홀수 개 참  =XOR(A2>0,B2>0)"], ["TRUE", "참(1)  =TRUE()"], ["FALSE", "거짓(0)  =FALSE()"], ["TODAY", "오늘 날짜  =TODAY()"], ["LEN", "글자 수  =LEN(A2)"], ["LEFT", "왼쪽 n글자  =LEFT(A2,3)"], ["RIGHT", "오른쪽 n글자  =RIGHT(A2,3)"], ["MID", "중간 글자  =MID(A2,2,3)"], ["UPPER", "대문자  =UPPER(A2)"], ["LOWER", "소문자  =LOWER(A2)"], ["TRIM", "공백 제거  =TRIM(A2)"], ["REPT", "반복  =REPT(\"*\",5)"], ["CONCAT", "이어붙이기  =CONCAT(A2,B2)"], ["CONCATENATE", "이어붙이기  =CONCATENATE(A2,B2)"], ["SUBSTITUTE", "바꾸기  =SUBSTITUTE(A2,\"-\",\"/\")"], ["TEXTJOIN", "구분자로 합치기  =TEXTJOIN(\",\",1,A2:A5)"], ["FIND", "위치 찾기(대소구분)  =FIND(\"b\",A2)"], ["SEARCH", "위치 찾기  =SEARCH(\"b\",A2)"], ["EXACT", "같은지 비교  =EXACT(A2,B2)"], ["VALUE", "문자→숫자  =VALUE(A2)"], ["VLOOKUP", "세로 조회  =VLOOKUP(\"영희\",A2:C9,2)"], ["HLOOKUP", "가로 조회  =HLOOKUP(\"점수\",A1:F4,3)"], ["INDEX", "위치의 값  =INDEX(A2:C9,2,3)"], ["MATCH", "위치 번호  =MATCH(\"민수\",A2:A9,0)"], ["CHOOSE", "n번째 선택  =CHOOSE(2,\"가\",\"나\")"], ["SIN", "사인  =SIN(RADIANS(30))"], ["COS", "코사인  =COS(0)"], ["TAN", "탄젠트  =TAN(0)"], ["ASIN", "아크사인  =ASIN(1)"], ["ACOS", "아크코사인  =ACOS(0)"], ["ATAN", "아크탄젠트  =ATAN(1)"], ["ATAN2", "아크탄젠트2  =ATAN2(1,1)"], ["DEGREES", "라디안→도  =DEGREES(PI())"], ["RADIANS", "도→라디안  =RADIANS(180)"], ["MROUND", "배수로 반올림  =MROUND(17,5)"], ["FACT", "팩토리얼  =FACT(5)"], ["EVEN", "짝수로 올림  =EVEN(3)"], ["ODD", "홀수로 올림  =ODD(4)"], ["GCD", "최대공약수  =GCD(12,18)"], ["LCM", "최소공배수  =LCM(4,6)"]];
 function ddbFxToken(val, pos) { if (String(val).charAt(0) !== "=") return null; let start = pos; while (start > 0 && /[A-Za-z]/.test(val[start - 1])) start--; const tok = val.slice(start, pos); if (!tok) return null; const prev = val[start - 1]; if (start > 0 && prev && !/[=(,+\-*/^ ]/.test(prev)) return null; return { tok: tok, start: start, pos: pos }; }
-function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloOn, onExit, readOnly }) {
+function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloOn, onExit, readOnly, simpleTables }) {
     const t = fontSize || 13;
     const [blocks, setBlocks] = O.useState(() => ddbToBlocks(ddbSplitFmt(content).body));
     const [fmt, setFmt] = O.useState(() => ddbSplitFmt(content).fmt || {});
@@ -9160,6 +9160,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     const [menu, setMenu] = O.useState(null);
     const [cmenu, setCmenu] = O.useState(null);
     const [copied, setCopied] = O.useState("");
+    const [editTbl, setEditTbl] = O.useState(null);
     const [fx, setFx] = O.useState(null);
     const [help, setHelp] = O.useState(null);
     const tcfgKey = "ddb_tcfg_" + itemId;
@@ -9302,6 +9303,12 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     function doCopyMenu(bi, whole) { const ok = copySel(bi, whole); setCmenu(null); if (ok) { setCopied("복사됨! 메모·엑셀에 붙여넣기(Ctrl+V)"); setTimeout(() => setCopied(""), 1800); } }
     const cmenuPortal = cmenu ? Rr.createPortal(o.jsxs(O.Fragment, { children: [o.jsx("div", { onMouseDown: () => setCmenu(null), onContextMenu: ev => { ev.preventDefault(); setCmenu(null); }, style: { position: "fixed", inset: 0, zIndex: 2147483040 } }), o.jsxs("div", { className: "fixed rounded-lg shadow-2xl overflow-hidden", style: { zIndex: 2147483041, left: Math.min(cmenu.x, window.innerWidth - 180) + "px", top: Math.min(cmenu.y, window.innerHeight - 90) + "px", background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.2)", minWidth: 168 }, children: [o.jsx("button", { onMouseDown: ev => { ev.preventDefault(); doCopyMenu(cmenu.bi, false); }, className: "flex items-center gap-2 w-full text-left px-3 py-2 border-none cursor-pointer bg-transparent hover:bg-white/10 text-white/90 text-xs", children: "📋 선택 영역 복사" }), o.jsx("button", { onMouseDown: ev => { ev.preventDefault(); doCopyMenu(cmenu.bi, true); }, className: "flex items-center gap-2 w-full text-left px-3 py-2 border-none cursor-pointer bg-transparent hover:bg-white/10 text-white/70 text-xs", children: "▦ 표 전체 복사" })] })] }), document.body) : null;
     const copiedPortal = copied ? Rr.createPortal(o.jsx("div", { style: { position: "fixed", left: "50%", bottom: 40, transform: "translateX(-50%)", zIndex: 2147483060, background: "rgba(16,185,129,0.95)", color: "#04220f", fontWeight: 700, fontSize: 12, padding: "7px 14px", borderRadius: 999, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", pointerEvents: "none" }, children: copied }), document.body) : null;
+    function applyTableEdit(out) { try { const body = ddbSplitFmt(out).body; const bl = ddbToBlocks(body); const tb = bl.find(x => x && x.t === "table"); if (tb) { const nb = blocks.map((x, i) => i === editTbl ? { t: "table", headers: tb.headers, rows: tb.rows } : x); setBlocks(nb); save(nb, fmt); } } catch (e) {} }
+    O.useEffect(() => { if (editTbl == null) return; const k = e => { if (e.key === "Escape") { e.stopPropagation(); setEditTbl(null); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, [editTbl]);
+    const editTblPortal = (editTbl != null && blocks[editTbl] && blocks[editTbl].t === "table") ? Rr.createPortal(o.jsx("div", { onMouseDown: () => setEditTbl(null), style: { position: "fixed", inset: 0, zIndex: 2147483300, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsxs("div", { onMouseDown: e => e.stopPropagation(), style: { width: "min(780px,93vw)", maxHeight: "86vh", background: "#0f1420", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.6)" }, children: [
+        o.jsxs("div", { className: "flex items-center gap-2 px-3 py-2 border-b border-white/10 flex-shrink-0 bg-white/5", children: [o.jsx("span", { className: "text-white font-semibold text-sm", children: "▦ 표 편집" }), o.jsx("span", { className: "text-white/40 text-[11px]", children: "셀을 눌러 수정 · Esc 또는 ✕로 닫기 (자동 저장)" }), o.jsx("span", { className: "flex-1" }), o.jsx("button", { onClick: () => setEditTbl(null), className: "text-white/55 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })] }),
+        o.jsx("div", { className: "flex-1 overflow-auto p-3 thin-scroll", children: o.jsx(DDBDocEditor, { content: ddbGridToMd(blocks[editTbl].headers, blocks[editTbl].rows), onCommit: applyTableEdit, fontSize: 13, itemId: "aimtbl-" + editTbl, maxH: "none", soloOn: true }, "edt-" + editTbl) })
+    ] }) }), document.body) : null;
     const tbTitle = { ff: "글꼴", fs: "글씨 크기", b: "굵게", u: "밑줄", bg: "셀 색", fg: "글자 색", al: "왼쪽 정렬", ac: "가운데 정렬", ar: "오른쪽 정렬", bw: "테두리 굵기", bs: "선 모양" };
     const tbDrop = { ff: 1, fs: 1, bg: 1, fg: 1, bw: 1, bs: 1 };
     function tbContent(id) { if (id === "ff") return o.jsx("span", { style: { fontWeight: 700, fontSize: "12px" }, children: "F" }); if (id === "fs") return o.jsx("span", { className: "text-[11px]", children: String(curFs) }); if (id === "b") return o.jsx("span", { style: { fontWeight: 800, fontSize: "12px" }, children: "B" }); if (id === "u") return o.jsx("span", { style: { textDecoration: "underline", fontSize: "12px" }, children: "U" }); if (id === "bg") return IcFill; if (id === "fg") return o.jsx("span", { style: { fontSize: "12px", fontWeight: 700, borderBottom: "3px solid #ef4444", lineHeight: 1.1 }, children: "가" }); if (id === "al") return alignIc("left"); if (id === "ac") return alignIc("center"); if (id === "ar") return alignIc("right"); if (id === "bw") return o.jsx("div", { style: { width: 16, height: 0, borderTop: "2px solid #fff" } }); if (id === "bs") return o.jsx("div", { style: { width: 16, height: 0, borderTop: "2px dashed #fff" } }); return null; }
@@ -9314,6 +9321,12 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
         menuPortal
     ] });
     function renderTable(b, bi) {
+        if (simpleTables) {
+            return o.jsx("div", { "data-block": bi, className: "mb-1.5", children: o.jsx("div", { onDoubleClick: () => { if (!readOnly) setEditTbl(bi); }, title: "더블클릭하면 표 편집창이 열립니다", style: { cursor: "pointer", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 6, overflow: "auto", display: "inline-block", maxWidth: "100%" }, children: o.jsxs("table", { style: { borderCollapse: "collapse", fontSize: 12 }, children: [
+                o.jsx("thead", { children: o.jsx("tr", { children: b.headers.map((_h, c) => o.jsx("th", { style: { border: "1px solid rgba(255,255,255,0.16)", padding: "3px 8px", background: "rgba(255,255,255,0.08)", color: "#fff", fontWeight: 600, textAlign: "left", whiteSpace: "pre-wrap", verticalAlign: "top" }, children: ddbCellDisp(b, -1, c) }, c)) }) }),
+                o.jsx("tbody", { children: b.rows.map((_rw, r) => o.jsx("tr", { children: b.headers.map((_h, c) => o.jsx("td", { style: { border: "1px solid rgba(255,255,255,0.1)", padding: "3px 8px", color: "rgba(255,255,255,0.85)", whiteSpace: "pre-wrap", verticalAlign: "top" }, children: ddbCellDisp(b, r, c) }, c)) }, r)) })
+            ] }) }) }, "b" + bi);
+        }
         const _view = tv[bi] || null;
         const _hasView = !!(_view && (_view.sort || (_view.filt && Object.keys(_view.filt).length)));
         const _order = _hasView ? ddbTableView(b, _view, (R, C) => ddbCellDisp(b, R, C)) : b.rows.map((_r, _i) => _i);
@@ -9340,6 +9353,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
         fxPortal,
         cmenuPortal,
         copiedPortal,
+        editTblPortal,
         helpPortal,
         gearPortal,
         filtPortal,
