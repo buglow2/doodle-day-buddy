@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('ddbNative', {
   saveCapture: (u, dir) => { try { return ipcRenderer.invoke('ddb-save-capture', { u: String(u || ''), dir: String(dir || '') }); } catch (e) { return Promise.resolve(null); } },
   pickCaptureDir: () => { try { return ipcRenderer.invoke('ddb-pick-capture-dir'); } catch (e) { return Promise.resolve(null); } },
   captureRegion: () => { try { return ipcRenderer.invoke('ddb-capture-region'); } catch (e) { return Promise.resolve(false); } },
+  setCapturePrefs: (obj) => { try { return ipcRenderer.invoke('ddb-cap-prefs', obj || {}); } catch (e) { return Promise.resolve(false); } },
   setCaptureHotkey: (a, mode) => { try { return ipcRenderer.invoke('ddb-set-capture-hotkey', String(a || ''), String(mode || 'region')); } catch (e) { return Promise.resolve(false); } }
 });
 try { ipcRenderer.on('ddb-screenshot', (_e, url) => { try { window.dispatchEvent(new CustomEvent('ddb-capture-result', { detail: { url: url } })); } catch (e) {} }); } catch (e) {}

@@ -114,7 +114,8 @@ async function createWindow() {
     + "<button id='b-cancel' style='" + OVERLAY_BTN + ";color:#fca5a5' onclick='doCancel()'><span style='font-size:18px'>✕</span>취소</button>"
     + "</div>"
     + "<script>const{ipcRenderer}=require('electron');let shot=null,sx=0,sy=0,drag=false,mode='region',fw=1000,fh=1000,bx=0,by=0,bw=1000,bh=1000,ds=null;const img=document.getElementById('bg'),sel=document.getElementById('sel'),dim=document.getElementById('dim'),hint=document.getElementById('hint'),fbox=document.getElementById('fbox'),fwv=document.getElementById('fwv'),fhv=document.getElementById('fhv');"
-    + "ipcRenderer.on('shot',(e,p)=>{shot=(p&&p.url)||p;img.src=shot;if(p&&p.fw){fw=p.fw;fh=p.fh;bw=p.fw;bh=p.fh;if(fwv)fwv.value=fw;if(fhv)fhv.value=fh;}});"
+    + "ipcRenderer.on('shot',(e,p)=>{shot=(p&&p.url)||p;img.src=shot;if(p&&p.fw){fw=p.fw;fh=p.fh;bw=p.fw;bh=p.fh;if(fwv)fwv.value=fw;if(fhv)fhv.value=fh;}if(p){if(p.guide){try{sel.style.borderColor=p.guide;fbox.style.borderColor=p.guide;var hs=fbox.querySelectorAll('[data-d]');for(var i=0;i<hs.length;i++)hs[i].style.background=p.guide;}catch(er){}}if(p.bar===false){var bar=document.getElementById('bar');if(bar)bar.style.display='none';}if(p.presets&&p.presets.length)buildPresets(p.presets);}});"
+    + "function buildPresets(ps){var ctr=document.getElementById('fctrl');if(!ctr)return;var wrap=document.createElement('div');wrap.style.cssText='display:flex;gap:3px;margin-left:6px';ps.forEach(function(p){var b=document.createElement('button');b.textContent=p.w+'×'+p.h;b.style.cssText='background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:4px;padding:3px 6px;cursor:pointer;font-size:11px';b.onclick=function(){bw=Math.min(p.w,innerWidth);bh=Math.min(p.h,innerHeight);bx=Math.round((innerWidth-bw)/2);by=Math.round((innerHeight-bh)/2);layout();};wrap.appendChild(b);});ctr.appendChild(wrap);}"
     + "var DIRS=[['nw','0','0','nwse'],['n','50%','0','ns'],['ne','100%','0','nesw'],['e','100%','50%','ew'],['se','100%','100%','nwse'],['s','50%','100%','ns'],['sw','0','100%','nesw'],['w','0','50%','ew']];DIRS.forEach(function(d){var h=document.createElement('div');h.setAttribute('data-d',d[0]);h.style.cssText='position:absolute;width:14px;height:14px;background:#22c55e;border:1px solid #fff;border-radius:2px;transform:translate(-50%,-50%);left:'+d[1]+';top:'+d[2]+';cursor:'+d[3]+'-resize;pointer-events:auto';fbox.appendChild(h);});"
     + "function inBar(t){return t&&t.closest&&t.closest('#bar');}function inCtrl(t){return t&&t.closest&&t.closest('#fctrl');}function doCancel(){ipcRenderer.send('ddb-region-cancel');}"
     + "function hl(){['region','fixed','full','redo','cancel'].forEach(function(k){var b=document.getElementById('b-'+k);if(b)b.style.background='transparent';});var a=document.getElementById('b-'+(mode==='fixed'?'fixed':'region'));if(a)a.style.background='rgba(59,130,246,0.5)';}"
@@ -133,6 +134,8 @@ async function createWindow() {
   const capCfgPath = path.join(app.getPath('userData'), 'ddb-capture.json');
   try { const j = JSON.parse(fs.readFileSync(capCfgPath, 'utf8')); if (j && j.w > 0 && j.h > 0) capFixed = { w: Math.round(j.w), h: Math.round(j.h) }; } catch (e) {}
   ipcMain.on('ddb-cap-fixed', (_e, sz) => { try { if (sz && sz.w > 0 && sz.h > 0) { capFixed = { w: Math.round(sz.w), h: Math.round(sz.h) }; fs.writeFileSync(capCfgPath, JSON.stringify(capFixed)); } } catch (e) {} });
+  let capPrefs = { guideColor: '#22c55e', overlayBar: true, presets: [] };
+  ipcMain.handle('ddb-cap-prefs', (_e, obj) => { try { if (obj && typeof obj === 'object') { capPrefs = { guideColor: obj.guideColor || '#22c55e', overlayBar: obj.overlayBar !== false, presets: Array.isArray(obj.presets) ? obj.presets.slice(0, 6) : [] }; } } catch (e) {} return true; });
   async function startRegionCapture() {
     try {
       if (overlayWin) { try { overlayWin.close(); } catch (e) {} overlayWin = null; }
@@ -143,7 +146,7 @@ async function createWindow() {
       overlayWin = new BrowserWindow({ x: b.x, y: b.y, width: b.width, height: b.height, frame: false, transparent: true, alwaysOnTop: true, skipTaskbar: true, resizable: false, movable: false, minimizable: false, hasShadow: false, fullscreenable: false, webPreferences: { nodeIntegration: true, contextIsolation: false } });
       try { overlayWin.setAlwaysOnTop(true, 'screen-saver'); } catch (e) {}
       overlayWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(OVERLAY_HTML));
-      overlayWin.webContents.on('did-finish-load', () => { try { overlayWin.webContents.send('shot', { url: url, fw: capFixed.w, fh: capFixed.h }); overlayWin.focus(); } catch (e) {} });
+      overlayWin.webContents.on('did-finish-load', () => { try { overlayWin.webContents.send('shot', { url: url, fw: capFixed.w, fh: capFixed.h, guide: capPrefs.guideColor, bar: capPrefs.overlayBar, presets: capPrefs.presets }); overlayWin.focus(); } catch (e) {} });
       overlayWin.on('closed', () => { overlayWin = null; });
     } catch (e) {}
   }
