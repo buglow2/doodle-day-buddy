@@ -1039,6 +1039,7 @@ function DDBTableWindow() {
             o.jsx("span", { className: "text-white font-semibold text-sm", children: "▦ 표" }),
             o.jsx("div", { className: "flex items-center gap-1 overflow-x-auto flex-1", children: tables.map((tb, i) => o.jsx("button", { onClick: () => setTi(i), onDoubleClick: () => { if (i === ti) renameTable(); }, title: "더블클릭: 이름 변경", className: "px-2 py-0.5 rounded text-xs whitespace-nowrap cursor-pointer border " + (i === ti ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"), children: tb.name }, tb.id)) }),
             o.jsx("button", { onClick: newTable, title: "새 표", className: "px-2 py-0.5 rounded text-xs bg-white/10 text-white/70 hover:bg-white/20 cursor-pointer border-none", children: "＋" }),
+            o.jsx("button", { onClick: () => { try { window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: tab.name || "표", html: ddbBlocksToPrintHtml(tab.content), landscape: true } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤)", className: "px-2 py-0.5 rounded text-xs bg-green-600/70 text-white hover:bg-green-600 cursor-pointer border-none", children: "🖨 인쇄" }),
             o.jsx("button", { onClick: delTable, title: "이 표 삭제", className: "px-1.5 py-0.5 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none", children: "🗑" }),
             o.jsx("button", { onClick: () => setOpen(false), className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
         ] }),
@@ -1114,6 +1115,35 @@ function DDBCaptureSettings() {
         o.jsx("div", { onMouseDown: _dh.resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) })
     ] }), document.body);
 }
+function DDBPrintPreview() {
+    const [d, setD] = O.useState(null);
+    const [fit, setFit] = O.useState(true);
+    const [land, setLand] = O.useState(false);
+    const [geo, setGeo] = O.useState(() => ({ x: Math.max(20, ((typeof window !== "undefined" ? window.innerWidth : 900) / 2) - 410), y: 40, w: 820, h: 680 }));
+    const _dh = ddbDragH(() => geo, setGeo);
+    const fr = O.useRef(null);
+    O.useEffect(() => { const h = e => { const x = (e && e.detail) || {}; setD(x); setFit(true); setLand(!!x.landscape); }; window.addEventListener("ddb-print-preview", h); return () => window.removeEventListener("ddb-print-preview", h); }, []);
+    O.useEffect(() => { if (!d) return; const k = e => { if (e.key === "Escape") setD(null); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [d]);
+    const buildDoc = forPrint => { const pw = land ? 1123 : 794, ph = land ? 794 : 1123, mm = 38, innerW = pw - mm * 2, innerH = ph - mm * 2; return "<html><head><meta charset='utf-8'><style>@page{size:A4 " + (land ? "landscape" : "portrait") + ";margin:0}html,body{margin:0;padding:0;background:#fff}*{box-sizing:border-box}.pg{width:" + pw + "px;min-height:" + ph + "px;padding:" + mm + "px;background:#fff;color:#000;font-family:sans-serif}.pg table{border-collapse:collapse}.pg td,.pg th{border:1px solid #999;padding:2px 6px;font-size:12px;vertical-align:top}.pg th{background:#eee;font-weight:700}.wrap{transform-origin:top left;width:" + innerW + "px}</style></head><body><div class='pg'><div class='wrap' id='w'>" + (d.html || "") + "</div></div><script>(function(){var w=document.getElementById('w');if(!w)return;var fit=" + (fit ? "true" : "false") + ";if(fit){var s=Math.min(1," + innerW + "/w.scrollWidth," + innerH + "/w.scrollHeight);if(s<1)w.style.transform='scale('+s+')';}" + (forPrint ? "setTimeout(function(){try{window.focus();window.print();}catch(e){}},250);" : "") + "})();<\/script></body></html>"; };
+    O.useEffect(() => { if (!d || !fr.current) return; try { const doc = fr.current.contentDocument || fr.current.contentWindow.document; doc.open(); doc.write(buildDoc(false)); doc.close(); } catch (e) {} }, [d, fit, land]);
+    function doPrint() { try { const pf = document.createElement("iframe"); pf.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(pf); const doc = pf.contentDocument || pf.contentWindow.document; doc.open(); doc.write(buildDoc(true)); doc.close(); setTimeout(() => { try { pf.remove(); } catch (e) {} }, 5000); } catch (e) {} }
+    if (!d) return null;
+    const btn = "px-2.5 py-1 rounded text-xs cursor-pointer border-none text-white";
+    return Rr.createPortal(o.jsxs("div", { className: "fixed rounded-xl shadow-2xl flex flex-col overflow-hidden", style: { zIndex: 2147483400, left: geo.x, top: geo.y, width: geo.w, height: geo.h, background: "#0f1420", border: "1px solid rgba(255,255,255,0.2)" }, children: [
+        o.jsxs("div", { onMouseDown: _dh.drag, style: { cursor: "grab" }, className: "flex items-center gap-2 px-3 py-2 border-b border-white/10 flex-shrink-0 bg-white/5 select-none", children: [
+            o.jsx("span", { className: "text-white font-semibold text-sm", children: "🖨 인쇄 미리보기" }),
+            o.jsx("span", { className: "text-white/40 text-[11px] truncate", children: d.title || "" }),
+            o.jsx("span", { className: "flex-1" }),
+            o.jsxs("label", { className: "flex items-center gap-1 text-white/75 text-xs cursor-pointer", onMouseDown: e => e.stopPropagation(), children: [o.jsx("input", { type: "checkbox", checked: fit, onChange: e => setFit(e.target.checked), className: "w-3.5 h-3.5" }), "한 페이지 맞춤"] }),
+            o.jsxs("div", { className: "flex gap-1", onMouseDown: e => e.stopPropagation(), children: [["", "세로"], ["L", "가로"]].map(m => o.jsx("button", { onClick: () => setLand(m[0] === "L"), className: btn + " " + ((land ? "L" : "") === m[0] ? "" : "opacity-50"), style: { background: (land ? "L" : "") === m[0] ? "#3b82f6" : "rgba(255,255,255,0.12)" }, children: m[1] }, m[1])) }),
+            o.jsx("button", { onMouseDown: e => e.stopPropagation(), onClick: doPrint, className: btn, style: { background: "#16a34a" }, children: "🖨 인쇄" }),
+            o.jsx("button", { onMouseDown: e => e.stopPropagation(), onClick: () => setD(null), className: "text-white/55 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
+        ] }),
+        o.jsx("div", { className: "flex-1 min-h-0", style: { background: "#525659" }, children: o.jsx("iframe", { ref: fr, title: "print", style: { width: "100%", height: "100%", border: "none" } }) }),
+        o.jsx("div", { onMouseDown: _dh.resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) })
+    ] }), document.body);
+}
+function ddbBlocksToPrintHtml(content) { try { const esc = s => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); const body = ddbSplitFmt(content).body; const blocks = ddbToBlocks(body); return blocks.map(b => { if (b.t === "table") { const hd = "<tr>" + (b.headers || []).map(h => "<th>" + esc(h).replace(/\n/g, "<br>") + "</th>").join("") + "</tr>"; const rs = (b.rows || []).map(r => "<tr>" + (b.headers || []).map((_, i) => "<td>" + esc((r && r[i]) || "").replace(/\n/g, "<br>") + "</td>").join("") + "</tr>").join(""); return "<table><thead>" + hd + "</thead><tbody>" + rs + "</tbody></table>"; } return "<p style='margin:4px 0'>" + esc(b.s || "").replace(/\n/g, "<br>") + "</p>"; }).join("<div style='height:12px'></div>"); } catch (e) { return ""; } }
 function DDBPaintBanner() {
     const [hex, setHex] = O.useState(DDB_PAINT);
     O.useEffect(() => { const h = e => setHex((e && e.detail && e.detail.hex) || null); window.addEventListener("ddb-paint-change", h); return () => window.removeEventListener("ddb-paint-change", h); }, []);
@@ -2658,7 +2688,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.56";
+const DDB_VERSION = "0.99.57";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4208,7 +4238,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v393"
+                children: "v394"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -11049,8 +11079,8 @@ function c4({
         _ = "flex items-center justify-between py-2 border-b border-white/5";
     return o.jsxs("div", {
         ref: i,
-        className: "bg-gray-950 border border-white/20 rounded-2xl w-[min(860px,94vw)] shadow-2xl h-[80vh] max-h-[80vh] flex flex-col",
-        style: a,
+        className: "bg-gray-950 border border-white/20 rounded-2xl w-[min(860px,94vw)] shadow-2xl flex flex-col",
+        style: { height: "80vh", maxHeight: "80vh", ...a },
         children: [RZ, o.jsxs("div", {
             className: "flex items-start gap-1 px-3 py-2 border-b border-white/10 flex-shrink-0 cursor-grab active:cursor-grabbing select-none",
             onMouseDown: l,
@@ -16964,7 +16994,8 @@ function DDBDocViewer({ panel }) {
         o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 6px", borderBottom: "1px solid rgba(255,255,255,0.1)" }, children: [
             o.jsx("button", { onClick: pick, className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#2563eb" }, children: "📂 파일 열기" }),
             o.jsx("span", { style: { flex: 1, minWidth: 0, fontSize: 11, color: "rgba(255,255,255,0.7)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: name || "엑셀·PDF·워드·한글 파일" }),
-            (sheets || (html && html !== "__HWP__") || pdfUrl) && o.jsx("button", { onClick: printCur, title: "인쇄 / PDF로 저장", className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#16a34a" }, children: "🖨 인쇄" }),
+            (sheets || (html && html !== "__HWP__")) && o.jsx("button", { onClick: () => { try { const inner = sheets ? ((sheets[act] || {}).html || "") : (html || ""); window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: name || "문서", html: inner, landscape: !!sheets } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤 · 가로/세로)", className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#2563eb" }, children: "🔍 미리보기" }),
+            (sheets || (html && html !== "__HWP__") || pdfUrl) && o.jsx("button", { onClick: printCur, title: "바로 인쇄 / PDF로 저장", className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#16a34a" }, children: "🖨 인쇄" }),
             o.jsx("input", { ref: fileRef, type: "file", accept: ".xlsx,.xls,.xlsm,.csv,.pdf,.docx,.hwp", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) openFile(f); }, style: { display: "none" } })
         ] }),
         sheets && sheets.length > 1 && o.jsx("div", { className: "flex items-center gap-1 px-2 py-1 overflow-x-auto", style: { borderBottom: "1px solid rgba(255,255,255,0.08)" }, children: sheets.map((s, i) => o.jsx("button", { onClick: () => setAct(i), className: "px-2 py-0.5 rounded text-[11px] cursor-pointer border flex-shrink-0 " + (act === i ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: s.name }, i)) }),
@@ -17618,7 +17649,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPaintBanner, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBPaintBanner, {})]
         })
     })
 }
