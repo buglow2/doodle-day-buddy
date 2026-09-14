@@ -1115,6 +1115,57 @@ function DDBCaptureSettings() {
         o.jsx("div", { onMouseDown: _dh.resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) })
     ] }), document.body);
 }
+function DDBThemeStyle() {
+    const { state } = vt();
+    const c = (state && state.settings) || {};
+    const font = c.uiFont || "";
+    const zoom = c.uiZoom || 1;
+    const dim = c.bgDim || 0;
+    const radius = c.uiRadius;
+    O.useEffect(() => { try { document.body.style.zoom = (zoom && zoom !== 1) ? String(zoom) : ""; } catch (e) {} return () => { try { document.body.style.zoom = ""; } catch (e) {} }; }, [zoom]);
+    let css = "";
+    if (font) css += "body,#root,button,input,textarea,select,.thin-scroll{font-family:" + font + " !important;}";
+    if (typeof radius === "number") css += ".rounded,.rounded-md,.rounded-lg,.rounded-xl,.rounded-2xl,.rounded-full{border-radius:" + radius + "px !important;}";
+    return o.jsxs(o.Fragment, { children: [
+        css ? o.jsx("style", { dangerouslySetInnerHTML: { __html: css } }) : null,
+        dim > 0 ? Rr.createPortal(o.jsx("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0," + dim + ")", pointerEvents: "none", zIndex: 1 } }), document.body) : null
+    ] });
+}
+function DDBDesignEditor() {
+    const { state, dispatch } = vt();
+    const [open, setOpen] = O.useState(false);
+    const [geo, setGeo] = O.useState(() => ({ x: 200, y: 90, w: 420, h: 560 }));
+    const _dh = ddbDragH(() => geo, setGeo);
+    O.useEffect(() => { const h = () => setOpen(true); window.addEventListener("ddb-open-design", h); return () => window.removeEventListener("ddb-open-design", h); }, []);
+    O.useEffect(() => { if (!open) return; const k = e => { if (e.key === "Escape") setOpen(false); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [open]);
+    if (!open) return null;
+    const c = (state.settings) || {};
+    const y = (k, v) => dispatch({ type: "UPDATE_SETTINGS", settings: { [k]: v } });
+    const FONTS = [["기본(시스템)", ""], ["맑은 고딕", "'Malgun Gothic',sans-serif"], ["돋움", "'Dotum',sans-serif"], ["굴림", "'Gulim',sans-serif"], ["바탕", "'Batang',serif"], ["나눔고딕", "'NanumGothic','Nanum Gothic',sans-serif"], ["고딕(sans)", "sans-serif"], ["명조(serif)", "serif"], ["고정폭", "monospace"]];
+    const zoom = c.uiZoom || 1, dim = c.bgDim || 0, radius = (typeof c.uiRadius === "number") ? c.uiRadius : null;
+    const sec = t => o.jsx("div", { className: "text-white/45 text-[11px] font-bold mt-3 mb-1", children: t });
+    const stepRow = (label, val, set, min, max, step, unit) => o.jsxs("div", { className: "flex items-center justify-between gap-2 py-1", children: [o.jsx("span", { className: "text-white/80 text-sm", children: label }), o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("button", { onClick: () => set(Math.max(min, Math.round((val - step) * 100) / 100)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "－" }), o.jsx("span", { className: "text-white/85 text-sm w-14 text-center", children: (Math.round(val * 100) / 100) + (unit || "") }), o.jsx("button", { onClick: () => set(Math.min(max, Math.round((val + step) * 100) / 100)), className: "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "＋" })] })] });
+    return Rr.createPortal(o.jsxs("div", { className: "fixed rounded-xl shadow-2xl flex flex-col overflow-hidden", style: { zIndex: 2147483360, left: geo.x, top: geo.y, width: geo.w, height: geo.h, background: "#0f1420", border: "1px solid rgba(255,255,255,0.2)" }, children: [
+        o.jsxs("div", { onMouseDown: _dh.drag, style: { cursor: "grab" }, className: "flex items-center gap-2 px-3 py-2 border-b border-white/10 flex-shrink-0 bg-white/5 select-none", children: [o.jsx("span", { className: "text-white font-semibold text-sm", children: "🎨 디자인 편집기" }), o.jsx("span", { className: "flex-1" }), o.jsx("button", { onClick: () => setOpen(false), className: "text-white/55 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })] }),
+        o.jsxs("div", { className: "flex-1 overflow-auto thin-scroll px-4 py-3", children: [
+            o.jsx("p", { className: "text-white/40 text-[11px] mb-1", children: "바꾸면 즉시 앱 전체에 적용됩니다." }),
+            sec("글꼴 (폰트)"),
+            o.jsx("select", { value: c.uiFont || "", onChange: e => y("uiFont", e.target.value), className: "w-full bg-white/10 border border-white/20 rounded-lg px-2 py-1.5 text-white text-sm outline-none", style: { colorScheme: "dark" }, children: FONTS.map(f => o.jsx("option", { value: f[1], style: { color: "#000" }, children: f[0] }, f[0])) }),
+            sec("전체 크기 (화면 확대/축소)"),
+            stepRow("배율", zoom, v => y("uiZoom", v), 0.7, 1.6, 0.05, "×"),
+            sec("모서리 둥글기"),
+            o.jsxs("div", { className: "flex items-center gap-1 flex-wrap", children: [[["각짐", 0], ["약간", 6], ["기본", null], ["둥글", 14], ["많이", 24]].map(r => o.jsx("button", { onClick: () => y("uiRadius", r[1]), className: "px-2.5 py-1 rounded text-[11px] cursor-pointer border " + ((radius === r[1]) ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/60"), children: r[0] }, String(r[0])))] }),
+            sec("배경 어둡게 (글씨 가독성)"),
+            stepRow("어둡기", dim, v => y("bgDim", Math.max(0, Math.min(0.85, v))), 0, 0.85, 0.05, ""),
+            sec("화면 스타일"),
+            o.jsx("div", { className: "flex gap-1", children: [["default", "기본"], ["modern", "모던"], ["minimal", "미니멀"]].map(s => o.jsx("button", { onClick: () => y("uiSkin", s[0]), className: "px-2.5 py-1 rounded text-[11px] cursor-pointer border " + ((c.uiSkin || "default") === s[0] ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/60"), children: s[1] }, s[0])) }),
+            sec("요일 색 (일 / 토)"),
+            o.jsxs("div", { className: "flex items-center gap-3", children: [o.jsxs("label", { className: "flex items-center gap-1 cursor-pointer", children: [o.jsx("span", { className: "text-white/75 text-xs", children: "일" }), o.jsx("input", { type: "color", value: c.sunColor || "#fca5a5", onChange: e => y("sunColor", e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] }), o.jsxs("label", { className: "flex items-center gap-1 cursor-pointer", children: [o.jsx("span", { className: "text-white/75 text-xs", children: "토" }), o.jsx("input", { type: "color", value: c.satColor || "#93c5fd", onChange: e => y("satColor", e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] })] }),
+            o.jsx("div", { className: "mt-4 pt-3 border-t border-white/10", children: o.jsx("button", { onClick: () => { y("uiFont", ""); y("uiZoom", 1); y("uiRadius", null); y("bgDim", 0); }, className: "w-full py-2 rounded-lg bg-white/8 hover:bg-white/15 text-white/70 text-xs border-none cursor-pointer", children: "↺ 디자인 기본값으로 되돌리기" }) })
+        ] }),
+        o.jsx("div", { onMouseDown: _dh.resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) })
+    ] }), document.body);
+}
 function DDBPrintPreview() {
     const [d, setD] = O.useState(null);
     const [fit, setFit] = O.useState(true);
@@ -2688,7 +2739,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.57";
+const DDB_VERSION = "0.99.58";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4238,7 +4289,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v394"
+                children: "v395"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8315,8 +8366,8 @@ function fd({
                                 children: cn ? o.jsxs(o.Fragment, {
                                     children: [o.jsx("span", {
                                         className: "flex-1 min-w-0 overflow-hidden",
-                                        style: { textOverflow: "ellipsis" },
-                                        children: ddbTT(_e.title)
+                                        style: { textOverflow: "ellipsis", color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.85)", fontSize: Math.max(11, (l || 12) - 1) },
+                                        children: ddbTT(_e.title) || _e.title || ""
                                     }), (() => {
                                         const Fq = mr.find(Q2 => !Q2.isDismissed && Q2.eventId === _e.id);
                                         return Fq ? o.jsx("span", {
@@ -11346,7 +11397,7 @@ function c4({
                     ] }),
                     o.jsx(DDBAccordion, { title: "달력 헤더 버튼 표시", icon: "🔘", children: o.jsx("div", { className: "grid grid-cols-2 gap-x-3 gap-y-1", children: [{ k: "lock", n: "사생활 잠금" }, { k: "do", n: "Do! 리스트" }, { k: "cal", n: "달력 보기" }, { k: "todo", n: "할 일" }, { k: "team", n: "팀" }, { k: "memodetail", n: "메모 상세" }, { k: "share", n: "일정 내보내기" }, { k: "imgedit", n: "이미지 편집" }, { k: "table", n: "표" }, { k: "receipt", n: "영수증" }].map(bt => o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer text-white/60 text-xs", children: [o.jsx("input", { type: "checkbox", checked: !((c.calBtnHidden) || []).includes(bt.k), onChange: k => { const cur = Array.isArray(c.calBtnHidden) ? c.calBtnHidden.slice() : []; const nx = k.target.checked ? cur.filter(z => z !== bt.k) : (cur.includes(bt.k) ? cur : [...cur, bt.k]); y("calBtnHidden", nx); }, className: "w-3.5 h-3.5 flex-shrink-0" }), bt.n] }, bt.k)) }) }),
                 ] }), x === "design" && o.jsxs(o.Fragment, {
-                children: [o.jsxs("section", { children: [o.jsx("h4", { className: "text-white/40 text-xs mb-2 uppercase tracking-wide", children: "🎨 달력 색상 팔레트 (1~8번)" }), o.jsx("div", { className: "text-white/40 text-[11px] mb-2 leading-relaxed", children: "색을 바꾸면 그 색을 쓰던 일정·할일·D-Day가 모두 함께 바뀝니다 (필터·구분 유지)." }), o.jsx("div", { className: "grid grid-cols-8 gap-1 mb-2", children: Object.keys(DDB_QT_DEFAULT).map(nm => o.jsxs("div", { className: "flex flex-col items-center gap-0.5", children: [o.jsx("span", { className: "text-white/45 text-[9px]", children: DDB_QT_LABELS[nm] }), o.jsx("input", { type: "color", value: qt[nm], title: DDB_QT_LABELS[nm] + "번 색 변경", onChange: k => { const nv = k.target.value; if (window.__ddbPalOK || window.confirm("색상을 바꾸면 기존에 이 색을 사용하던 메모들도 모두 바뀐 색으로 변경됩니다. 그래도 하시겠습니까?")) { window.__ddbPalOK = true; y("palette", { ...(c.palette || {}), [nm]: nv }); } }, style: { width: 26, height: 26, border: "2px solid rgba(255,255,255,0.3)", borderRadius: 6, background: "transparent", cursor: "pointer", padding: 0 } })] }, nm)) }), o.jsx("button", { onClick: () => { if (window.confirm("모든 색을 기본값으로 되돌릴까요? (그 색을 쓰던 항목도 기본색으로 바뀝니다)")) { window.__ddbPalOK = false; y("palette", {}); } }, className: "text-white/50 hover:text-white text-[11px] underline bg-transparent border-none cursor-pointer p-0", children: "기본색으로 전체 되돌리기" })] }), o.jsxs("section", {
+                children: [o.jsx("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-open-design")), style: { columnSpan: "all" }, className: "w-full mb-3 flex items-center justify-center gap-2 bg-blue-500/25 hover:bg-blue-500/40 rounded-xl px-4 py-2.5 text-white text-sm cursor-pointer border border-blue-400/40", children: "🎨 디자인 편집기 열기 (폰트·크기·모서리·배경·스킨)" }), o.jsxs("section", { children: [o.jsx("h4", { className: "text-white/40 text-xs mb-2 uppercase tracking-wide", children: "🎨 달력 색상 팔레트 (1~8번)" }), o.jsx("div", { className: "text-white/40 text-[11px] mb-2 leading-relaxed", children: "색을 바꾸면 그 색을 쓰던 일정·할일·D-Day가 모두 함께 바뀝니다 (필터·구분 유지)." }), o.jsx("div", { className: "grid grid-cols-8 gap-1 mb-2", children: Object.keys(DDB_QT_DEFAULT).map(nm => o.jsxs("div", { className: "flex flex-col items-center gap-0.5", children: [o.jsx("span", { className: "text-white/45 text-[9px]", children: DDB_QT_LABELS[nm] }), o.jsx("input", { type: "color", value: qt[nm], title: DDB_QT_LABELS[nm] + "번 색 변경", onChange: k => { const nv = k.target.value; if (window.__ddbPalOK || window.confirm("색상을 바꾸면 기존에 이 색을 사용하던 메모들도 모두 바뀐 색으로 변경됩니다. 그래도 하시겠습니까?")) { window.__ddbPalOK = true; y("palette", { ...(c.palette || {}), [nm]: nv }); } }, style: { width: 26, height: 26, border: "2px solid rgba(255,255,255,0.3)", borderRadius: 6, background: "transparent", cursor: "pointer", padding: 0 } })] }, nm)) }), o.jsx("button", { onClick: () => { if (window.confirm("모든 색을 기본값으로 되돌릴까요? (그 색을 쓰던 항목도 기본색으로 바뀝니다)")) { window.__ddbPalOK = false; y("palette", {}); } }, className: "text-white/50 hover:text-white text-[11px] underline bg-transparent border-none cursor-pointer p-0", children: "기본색으로 전체 되돌리기" })] }), o.jsxs("section", {
                     children: [o.jsx("h4", {
                         className: "text-white/40 text-xs mb-2 uppercase tracking-wide",
                         children: DDBTR("대출·적금 추가 버튼 표시")
@@ -17649,7 +17700,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBPaintBanner, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBPaintBanner, {})]
         })
     })
 }
