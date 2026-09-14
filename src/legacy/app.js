@@ -1220,7 +1220,9 @@ function DDBTileBar() {
         toast ? Rr.createPortal(o.jsx("div", { style: { position: "fixed", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 2147483402, background: "rgba(20,16,36,0.98)", color: "#e0e7ff", border: "1px solid rgba(96,165,250,0.6)", borderRadius: 10, padding: "10px 16px", fontSize: 13, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }, children: toast }), document.body) : null,
         actMenu ? Rr.createPortal(o.jsxs(o.Fragment, { children: [
             o.jsx("div", { className: "fixed inset-0", style: { zIndex: 2147483410 }, onMouseDown: () => setActMenu(null) }),
-            o.jsxs("div", { className: "fixed rounded-lg shadow-2xl overflow-hidden", style: { zIndex: 2147483411, left: Math.min(actMenu.x, window.innerWidth - 150) + "px", top: actMenu.y + "px", width: 140, background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.2)" }, onMouseDown: e => e.stopPropagation(), children: [
+            o.jsxs("div", { className: "fixed rounded-lg shadow-2xl overflow-hidden", style: { zIndex: 2147483411, left: Math.min(actMenu.x, window.innerWidth - 190) + "px", top: Math.min(actMenu.y, window.innerHeight - 150) + "px", width: 176, background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.2)" }, onMouseDown: e => e.stopPropagation(), children: [
+                o.jsxs("div", { className: "px-2 pt-2 pb-1", children: [o.jsx("div", { className: "text-white/40 text-[10px] mb-1", children: "색상" }), o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 4 }, children: [["#ef4444"], ["#f97316"], ["#eab308"], ["#22c55e"], ["#14b8a6"], ["#3b82f6"], ["#6366f1"], ["#a855f7"], ["#ec4899"], ["#64748b"], ["#0ea5e9"], ["#84cc16"]].map(c => o.jsx("button", { onClick: () => { const t = actMenu.t; if (t && t.a) saveActs((settings.quickActions || []).map(a => a.id === t.a.id ? { ...a, color: c[0] } : a)); setActMenu(null); }, title: c[0], style: { width: "100%", height: 18, borderRadius: 4, background: c[0], border: "1px solid rgba(255,255,255,0.25)", cursor: "pointer" } }, c[0])) })] }),
+                o.jsx("div", { style: { height: 1, background: "rgba(255,255,255,0.1)", margin: "4px 0" } }),
                 o.jsx("button", { onClick: () => { const x = actMenu.x, y = actMenu.y; openEdit(actMenu.t); setMenu({ x: Math.min(x, window.innerWidth - 260), y: y }); setActMenu(null); }, className: "block w-full text-left px-3 py-2 text-xs text-white/85 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "✏ 이름·색상 편집" }),
                 o.jsx("button", { onClick: () => { delAct(actMenu.t); setActMenu(null); }, className: "block w-full text-left px-3 py-2 text-xs text-red-300 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "🗑 삭제" })
             ] })
@@ -2656,7 +2658,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.55";
+const DDB_VERSION = "0.99.56";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4206,7 +4208,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v392"
+                children: "v393"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9359,7 +9361,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     function renderText(b, bi) {
         return o.jsxs("div", { "data-block": bi, className: "mb-1.5" + (dragBi === bi ? " opacity-40" : ""), style: (dropBi === bi && dragBi !== null && dragBi !== bi) ? { boxShadow: "0 -3px 0 0 #60a5fa" } : void 0, children: [
             (!simpleTables && hov) ? o.jsx("div", { className: "flex gap-1 mb-0.5", children: ctrl(bi) }) : null,
-            o.jsx("textarea", { value: b.s == null ? "" : b.s, "data-tb": bi, readOnly: !!readOnly, onMouseDown: ev => ev.stopPropagation(), onFocus: () => { if (readOnly) return; if (onSolo && !soloOn) onSolo(); }, onKeyDown: ev => readOnly ? null : textNav(ev, bi), onPaste: ev => { if (readOnly) return; try { const html = ev.clipboardData.getData("text/html"); const plain = ev.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (!md) return; const g = GT(md); if (!g || !g.headers) return; ev.preventDefault(); const nbk = { t: "table", headers: g.headers, rows: g.rows || [] }; const nb = blocks.slice(); const cur = String(b.s || "").trim(); let at = bi + 1; if (!cur) { nb.splice(bi, 1, nbk); } else { nb.splice(bi + 1, 0, nbk); } if (g.trail && g.trail.trim()) nb.splice((cur ? bi + 2 : bi + 1), 0, { t: "text", s: g.trail.trim() }); const nf = remapFmt(fmt, x => x > bi ? x + (cur ? 1 : 0) : x); setBlocks(nb); setFmt(nf); save(nb, nf); } catch (e) {} }, onChange: ev => setText(bi, ev.target.value), placeholder: "메모 입력…", rows: Math.max(2, (String(b.s || "").match(/\n/g) || []).length + 1), className: "w-full px-1 py-0.5 text-white/90 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "transparent", border: "none" } })
+            o.jsx("textarea", { value: b.s == null ? "" : b.s, "data-tb": bi, readOnly: !!readOnly, onMouseDown: ev => ev.stopPropagation(), onFocus: () => { if (readOnly) return; if (onSolo && !soloOn) onSolo(); }, onKeyDown: ev => readOnly ? null : textNav(ev, bi), onPaste: ev => { if (readOnly) return; try { const html = ev.clipboardData.getData("text/html"); const plain = ev.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (!md) return; const g = GT(md); if (!g || !g.headers) return; ev.preventDefault(); const tbl = { t: "table", headers: g.headers, rows: g.rows || [] }; const cur = String(b.s || "").trim(); const ins = []; if (cur) ins.push(b); ins.push(tbl); ins.push({ t: "text", s: (g.trail && g.trail.trim()) ? g.trail.trim() : "" }); const nb = blocks.slice(); nb.splice(bi, 1, ...ins); const added = ins.length - 1; const nf = remapFmt(fmt, x => x > bi ? x + added : x); setBlocks(nb); setFmt(nf); save(nb, nf); } catch (e) {} }, onChange: ev => setText(bi, ev.target.value), placeholder: "메모 입력…", rows: Math.max(2, (String(b.s || "").match(/\n/g) || []).length + 1), className: "w-full px-1 py-0.5 text-white/90 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "transparent", border: "none" } })
         ] }, "b" + bi);
     }
     return o.jsxs("div", { ref: rootRef, tabIndex: -1, onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false), onKeyDown: ev => { ev.stopPropagation(); if (ev.altKey && !ev.ctrlKey && !ev.metaKey && /^[0-9]$/.test(ev.key)) { ev.preventDefault(); const num = +ev.key; const idx = num === 0 ? 9 : num - 1; const id = tbOrder[idx]; if (id) tbAct(id); return; } const ae = document.activeElement; const editingNow = !!(ae && rootRef.current && rootRef.current.contains(ae) && (ae.tagName === "TEXTAREA" || ae.tagName === "INPUT")); if (ev.key === "Escape") { ev.preventDefault(); if (editingNow) { try { ae.blur(); } catch {} setSel(null); setEditKey(null); try { rootRef.current && rootRef.current.focus(); } catch {} } else if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && ev.key === "ArrowLeft") { ev.preventDefault(); if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && (ev.key === "z" || ev.key === "Z")) { ev.preventDefault(); undo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "x" || ev.key === "X"))) { const ae2 = document.activeElement; const hasSel = ae2 && typeof ae2.selectionStart === "number" && ae2.selectionStart !== ae2.selectionEnd; if (hasSel) return; ev.preventDefault(); redo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "y" || ev.key === "Y")) || ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === "z" || ev.key === "Z"))) { ev.preventDefault(); redo(); return; } }, onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: maxH || "400px", maxWidth: "100%" }, children: [
@@ -11047,7 +11049,7 @@ function c4({
         _ = "flex items-center justify-between py-2 border-b border-white/5";
     return o.jsxs("div", {
         ref: i,
-        className: "bg-gray-950 border border-white/20 rounded-2xl w-[min(860px,94vw)] shadow-2xl max-h-[86vh] flex flex-col",
+        className: "bg-gray-950 border border-white/20 rounded-2xl w-[min(860px,94vw)] shadow-2xl h-[80vh] max-h-[80vh] flex flex-col",
         style: a,
         children: [RZ, o.jsxs("div", {
             className: "flex items-start gap-1 px-3 py-2 border-b border-white/10 flex-shrink-0 cursor-grab active:cursor-grabbing select-none",
@@ -11861,6 +11863,7 @@ function c4({
                         l: "⏯ 재생/정지"
                     }];
                 return o.jsxs("section", {
+                    style: { columnSpan: "all" },
                     children: [o.jsxs("div", { className: "mb-5 pb-4 border-b border-white/10", children: [o.jsx("h4", { className: "text-white/40 text-xs mb-2 uppercase tracking-wide", children: "🖼 " + DDBTR("이미지 편집 단축키") }), o.jsx("p", { className: "text-white/30 text-[10px] mb-3", children: DDBTR("이미지 편집창에서 쓸 키(글자 1개). 예: 도형 s, 선 l") }), o.jsx("div", { className: "grid grid-cols-2 gap-2", children: [["pen", "🖊 펜", "p"], ["line", "／ 선", "l"], ["arrow", "➜ 화살표", "a"], ["shape", "◆ 도형", "s"], ["crop", "✂ 자르기", "c"], ["wand", "🪄 매직완드", "w"], ["undo", "↶ 뒤로", ""], ["redo", "↷ 앞으로", ""]].map(row => o.jsxs("label", { className: "flex items-center justify-between bg-white/5 rounded-lg px-3 py-1.5 cursor-pointer", children: [o.jsx("span", { className: "text-white/70 text-xs", children: row[1] }), o.jsx("input", { maxLength: 1, value: (c.imgKeys && c.imgKeys[row[0]]) ?? row[2], onChange: k => { const v = (k.target.value || "").slice(-1).toLowerCase(); y("imgKeys", { ...(c.imgKeys || {}), [row[0]]: v }); }, className: "w-10 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm text-center outline-none focus:border-blue-400" })] }, row[0])) })] }), o.jsx("h4", {
                         className: "text-white/40 text-xs mb-2 uppercase tracking-wide",
                         children: DDBTR("달력 버튼 단축키")
@@ -11868,7 +11871,7 @@ function c4({
                         className: "text-white/30 text-[10px] mb-3",
                         children: DDBTR("입력칸을 클릭한 뒤 원하는 키(조합키 가능: Ctrl/Alt/Shift+키)를 누르면 저장됩니다. Backspace로 삭제. 달력 창이 열려 있을 때 작동하며, 글자 입력 중에는 무시됩니다.")
                     }), o.jsx("div", {
-                        className: "flex flex-col gap-2",
+                        className: "grid grid-cols-2 gap-2",
                         children: N9.map(K => o.jsxs("div", {
                             className: "flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2",
                             children: [o.jsx("span", {
