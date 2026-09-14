@@ -1166,6 +1166,29 @@ function DDBDesignEditor() {
         o.jsx("div", { onMouseDown: _dh.resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) })
     ] }), document.body);
 }
+function DDBCalBtnMenu() {
+    const { state, dispatch } = vt();
+    const [m, setM] = O.useState(null);
+    O.useEffect(() => { const h = e => setM((e && e.detail) || null); window.addEventListener("ddb-calbtn-menu", h); return () => window.removeEventListener("ddb-calbtn-menu", h); }, []);
+    if (!m) return null;
+    const chb = (state.settings && state.settings.calHeadBtn) || {};
+    const set = patch => dispatch({ type: "UPDATE_SETTINGS", settings: { calHeadBtn: { ...chb, [m.k]: { ...(chb[m.k] || {}), ...patch } } } });
+    const hiddenKeys = (state.settings && state.settings.calBtnHidden) || [];
+    const hideThis = () => dispatch({ type: "UPDATE_SETTINGS", settings: { calBtnHidden: hiddenKeys.includes(m.k) ? hiddenKeys : hiddenKeys.concat([m.k]) } });
+    const unhideAll = () => dispatch({ type: "UPDATE_SETTINGS", settings: { calBtnHidden: [] } });
+    const COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#6366f1", "#a855f7", "#ec4899", "#64748b", "#0ea5e9", "#84cc16"];
+    return Rr.createPortal(o.jsxs(o.Fragment, { children: [
+        o.jsx("div", { onMouseDown: () => setM(null), onContextMenu: e => { e.preventDefault(); setM(null); }, style: { position: "fixed", inset: 0, zIndex: 2147483450 } }),
+        o.jsxs("div", { className: "fixed rounded-lg shadow-2xl p-2", style: { zIndex: 2147483451, left: Math.min(m.x, window.innerWidth - 200) + "px", top: Math.min(m.y, window.innerHeight - 200) + "px", width: 188, background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.2)" }, onMouseDown: e => e.stopPropagation(), children: [
+            o.jsxs("div", { className: "text-white/50 text-[10px] mb-1", children: ["버튼: ", m.label || m.k] }),
+            o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 4 }, children: COLORS.map(col => o.jsx("button", { onClick: () => { set({ color: col }); setM(null); }, title: col, style: { width: "100%", height: 18, borderRadius: 4, background: col, border: "1px solid rgba(255,255,255,0.25)", cursor: "pointer" } }, col)) }),
+            o.jsxs("div", { className: "flex items-center gap-1 mt-1.5", children: [o.jsx("input", { type: "color", value: (chb[m.k] || {}).color || "#3b82f6", onChange: e => set({ color: e.target.value }), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0", title: "직접 색 선택" }), o.jsx("button", { onClick: () => { set({ color: "" }); setM(null); }, className: "flex-1 px-2 py-1 rounded text-[11px] bg-white/8 border border-white/15 text-white/60 cursor-pointer", children: "색 없음(기본)" })] }),
+            o.jsx("div", { style: { height: 1, background: "rgba(255,255,255,0.1)", margin: "6px 0" } }),
+            o.jsx("button", { onClick: () => { hideThis(); setM(null); }, className: "block w-full text-left px-2 py-1.5 rounded text-xs text-red-300 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "🚫 이 버튼 숨기기" }),
+            hiddenKeys.length ? o.jsxs("button", { onClick: () => { unhideAll(); setM(null); }, className: "block w-full text-left px-2 py-1.5 rounded text-xs text-white/70 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: ["👁 숨긴 버튼 모두 보이기 (", hiddenKeys.length, ")"] }) : null
+        ] })
+    ] }), document.body);
+}
 function DDBPrintPreview() {
     const [d, setD] = O.useState(null);
     const [fit, setFit] = O.useState(true);
@@ -2739,7 +2762,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.58";
+const DDB_VERSION = "0.99.59";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4289,7 +4312,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v395"
+                children: "v396"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -7447,6 +7470,7 @@ function fd({
                     }), r7.map((S, D) => o.jsx("button", {
                         "data-ddbcal": "1",
                         draggable: Ceo,
+                        onContextMenu: J => { J.preventDefault(); J.stopPropagation(); try { window.dispatchEvent(new CustomEvent("ddb-calbtn-menu", { detail: { x: J.clientX, y: J.clientY, k: S.k, label: (typeof S.body === "string" ? S.body : S.title) } })); } catch (e) {} },
                         onDragStart: () => {
                             window.__ddbCDrag = S.k
                         },
@@ -7468,9 +7492,9 @@ function fd({
                             }
                             S.act()
                         },
-                        title: Ceo ? DDBTR("드래그해서 순서 변경") : S.title,
+                        title: Ceo ? DDBTR("드래그해서 순서 변경") : (S.title + " · 우클릭: 색상/숨기기"),
                         className: S.cls + (Ceo ? " ring-1 ring-amber-400/80 cursor-move" : ""),
-                        style: { zoom: t.settings.calBtnScale || 1 },
+                        style: { zoom: t.settings.calBtnScale || 1, ...((((t.settings.calHeadBtn || {})[S.k] || {}).color) ? { background: (t.settings.calHeadBtn[S.k].color), borderColor: (t.settings.calHeadBtn[S.k].color), color: "#fff" } : {}) },
                         children: S.body
                     }, S.k))]
                 })
@@ -17700,7 +17724,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBPaintBanner, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBPaintBanner, {})]
         })
     })
 }
