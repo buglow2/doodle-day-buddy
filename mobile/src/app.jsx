@@ -244,8 +244,13 @@ function AuthPanel({ onClose, onAuthed }) {
       const fn = mode === 'login' ? signIn : signUp;
       const { data, error } = await fn(email, pw);
       if (error) { setErr(error.message || '실패'); setBusy(false); return; }
-      const u = (data && data.user) || null;
-      if (mode === 'signup' && !u) { setErr('가입 확인 메일을 보냈어요. 메일 확인 후 로그인하세요.'); setBusy(false); return; }
+      // 실제 로그인 세션이 생겼는지 서버에 확인 (가짜 성공 방지)
+      const u = await currentUser();
+      if (!u) {
+        if (mode === 'signup') setErr('이미 가입된 이메일 같아요. "로그인"으로 바꿔서 PC와 같은 비밀번호로 시도하세요. (또는 가입 확인 메일을 확인하세요)');
+        else setErr('로그인 실패 — 이메일/비밀번호를 확인하세요. (PC 앱과 완전히 같아야 합니다)');
+        setBusy(false); return;
+      }
       await onAuthed(u);
     } catch (e) { setErr(String(e && e.message || e)); }
     setBusy(false);
