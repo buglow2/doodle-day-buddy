@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, COLORS } from './data.js';
 import { scheduleEventAlarm } from './notify.js';
 import { currentUser, signIn, signUp, signOut, pull, push, subscribe } from './sync.js';
+import { lunarText, holidayName } from './kcal.js';
 
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const pad = n => String(n).padStart(2, '0');
@@ -116,6 +117,9 @@ function Today({ evByDate, ddays, onDel }) {
   const upcomingDd = ddays.map(d => ({ ...d, left: daysBetween(d.date, t) })).filter(d => d.left >= 0).sort((a, b) => a.left - b.left).slice(0, 5);
   return (
     <div style={{ padding: 14 }}>
+      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+        {lunarText(t)}{holidayName(t) ? ' · ' : ''}<span style={{ color: '#fca5a5' }}>{holidayName(t) || ''}</span>
+      </div>
       <h3 style={{ margin: '4px 0 10px', fontSize: 15, color: '#93c5fd' }}>오늘 일정 ({list.length})</h3>
       {list.length ? list.map(e => <EvRow key={e.id} e={e} onDel={onDel} />) : <Empty>오늘 일정이 없어요.</Empty>}
       {upcomingDd.length > 0 && <>
@@ -149,20 +153,26 @@ function Month({ cur, setCur, evByDate, onDel }) {
         {WD.map((w, i) => <div key={w} style={{ textAlign: 'center', fontSize: 11, color: i === 0 ? '#fca5a5' : i === 6 ? '#93c5fd' : 'rgba(255,255,255,0.4)', padding: '2px 0' }}>{w}</div>)}
         {cells.map((d, i) => {
           const ds = ymd(d), inMonth = d.getMonth() === m, has = (evByDate[ds] || []).length, isToday = ds === todayStr(), isSel = ds === sel;
+          const hol = holidayName(ds), dow = d.getDay();
+          const col = !inMonth ? 'rgba(255,255,255,0.25)' : (hol || dow === 0) ? '#fca5a5' : dow === 6 ? '#93c5fd' : '#e5e7eb';
           return (
             <button key={i} onClick={() => setSel(ds)} style={{
               aspectRatio: '1', border: isSel ? '2px solid #60a5fa' : '1px solid rgba(255,255,255,0.06)',
               borderRadius: 8, background: isToday ? 'rgba(96,165,250,0.15)' : 'transparent',
-              color: inMonth ? '#e5e7eb' : 'rgba(255,255,255,0.25)', fontSize: 13, position: 'relative', cursor: 'pointer'
+              color: col, fontSize: 13, position: 'relative', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, padding: 0
             }}>
-              {d.getDate()}
-              {has ? <span style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: 5, height: 5, borderRadius: 999, background: '#38bdf8' }} /> : null}
+              <span>{d.getDate()}</span>
+              {hol && inMonth ? <span style={{ fontSize: 8, color: '#fca5a5', lineHeight: 1, maxWidth: '100%', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{hol}</span> : null}
+              {has ? <span style={{ position: 'absolute', bottom: 3, left: '50%', transform: 'translateX(-50%)', width: 5, height: 5, borderRadius: 999, background: '#38bdf8' }} /> : null}
             </button>
           );
         })}
       </div>
       <div style={{ marginTop: 12 }}>
-        <h3 style={{ fontSize: 14, color: '#93c5fd', margin: '4px 0 8px' }}>{sel} 일정 ({selList.length})</h3>
+        <h3 style={{ fontSize: 14, color: '#93c5fd', margin: '4px 0 2px' }}>{sel} 일정 ({selList.length})</h3>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginBottom: 8 }}>
+          {lunarText(sel)}{holidayName(sel) ? ' · ' : ''}<span style={{ color: '#fca5a5' }}>{holidayName(sel) || ''}</span>
+        </div>
         {selList.length ? selList.map(e => <EvRow key={e.id} e={e} onDel={onDel} />) : <Empty>이 날 일정이 없어요.</Empty>}
       </div>
     </div>
