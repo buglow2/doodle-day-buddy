@@ -1,0 +1,6 @@
+{
+  "appId": "com.momentplan.mobile",
+  "appName": "MomentPlan",
+  "webDir": "dist",
+  "server": { "androidScheme": "https" }
+}

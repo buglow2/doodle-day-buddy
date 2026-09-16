@@ -2372,6 +2372,24 @@ function Hv(e) {
     try {
         localStorage.setItem(Ef, JSON.stringify(e))
     } catch {}
+    try { ddbCloudSyncPush(e) } catch {}
+}
+
+let _ddbSyncT = null;
+function ddbCloudSyncPush(state) {
+    try {
+        const c = $a(); if (!c) return;
+        if (_ddbSyncT) clearTimeout(_ddbSyncT);
+        _ddbSyncT = setTimeout(async () => {
+            try {
+                const { data: u } = await c.auth.getUser();
+                if (!u || !u.user) return;
+                const events = (state.events || []).filter(x => x && x.amount === void 0 && !x._team && !x._loanId && !x._savingsId);
+                const ddays = state.ddays || [];
+                await c.from("user_sync").upsert({ user_id: u.user.id, data: { events, ddays }, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+            } catch (e) {}
+        }, 1500);
+    } catch (e) {}
 }
 
 function Vk() {
@@ -2773,7 +2791,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.60";
+const DDB_VERSION = "0.99.61";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4323,7 +4341,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v397"
+                children: "v398"
             }), (() => {
                 const S = [{
                     k: "cal",
