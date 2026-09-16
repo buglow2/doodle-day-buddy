@@ -30,7 +30,7 @@ export async function pull() {
   const { data, error } = await sb.from(TABLE).select('data').eq('user_id', u.id).maybeSingle();
   if (error) return null;
   const d = (data && data.data) || {};
-  return { events: d.events || [], ddays: d.ddays || [] };
+  return { events: d.events || [], ddays: d.ddays || [], memos: d.mobileMemos || {} };
 }
 
 // 클라우드에 저장 — PC의 다른 데이터는 건드리지 않게 전체를 불러와 events/ddays만 갱신
@@ -44,6 +44,7 @@ export async function push(payload) {
   } catch {}
   full.events = payload.events || [];
   full.ddays = payload.ddays || [];
+  full.mobileMemos = payload.memos || {};
   const { error } = await sb.from(TABLE).upsert({
     user_id: u.id, data: full, updated_at: new Date().toISOString()
   }, { onConflict: 'user_id' });
@@ -58,7 +59,7 @@ export function subscribe(onChange) {
     if (!u) return;
     ch = sb.channel('user_data_' + u.id)
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLE, filter: 'user_id=eq.' + u.id }, payload => {
-        try { const d = payload.new && payload.new.data; if (d) onChange({ events: d.events || [], ddays: d.ddays || [] }); } catch {}
+        try { const d = payload.new && payload.new.data; if (d) onChange({ events: d.events || [], ddays: d.ddays || [], memos: d.mobileMemos || {} }); } catch {}
       })
       .subscribe();
   })();

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, COLORS } from './data.js';
+import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, COLORS } from './data.js';
 import { scheduleEventAlarm } from './notify.js';
 import { currentUser, signIn, signUp, signOut, pull, push, subscribe } from './sync.js';
 import { lunarText, holidayName } from './kcal.js';
@@ -18,11 +18,13 @@ export default function App() {
   const [tab, setTab] = useState('today');
   const [events, setEvents] = useState(loadEvents());
   const [ddays, setDdays] = useState(loadDdays());
+  const [memos, setMemos] = useState(loadMemos());
   const [cur, setCur] = useState(new Date());
+  const [addDate, setAddDate] = useState(todayStr());
   const [user, setUser] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
-  const refresh = () => { setEvents(loadEvents()); setDdays(loadDdays()); };
+  const refresh = () => { setEvents(loadEvents()); setDdays(loadDdays()); setMemos(loadMemos()); };
 
   // 로그인돼 있으면 클라우드에서 내려받아 합치기 + 실시간 구독
   useEffect(() => {
@@ -82,8 +84,11 @@ export default function App() {
 
       <main style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {tab === 'today' && <Today evByDate={evByDate} ddays={ddays} onDel={id => { deleteEvent(id); refresh(); pushCloud(); }} />}
-        {tab === 'month' && <Month cur={cur} setCur={setCur} evByDate={evByDate} onDel={id => { deleteEvent(id); refresh(); pushCloud(); }} />}
-        {tab === 'add' && <AddEvent onAdd={(ev, time) => { const it = addEvent(ev); if (time) scheduleEventAlarm(it, time); refresh(); pushCloud(); setTab('today'); }} onImport={txt => { if (importFromPcBackup(txt)) { refresh(); pushCloud(); } }} />}
+        {tab === 'month' && <Month cur={cur} setCur={setCur} evByDate={evByDate} memos={memos}
+          onDel={id => { deleteEvent(id); refresh(); pushCloud(); }}
+          onAddDay={ds => { setAddDate(ds); setTab('add'); }}
+          onMemo={(ds, txt) => { setMemo(ds, txt); setMemos(loadMemos()); pushCloud(); }} />}
+        {tab === 'add' && <AddEvent initialDate={addDate} onAdd={(ev, time) => { const it = addEvent(ev); if (time) scheduleEventAlarm(it, time); refresh(); pushCloud(); setTab('month'); }} onImport={txt => { if (importFromPcBackup(txt)) { refresh(); pushCloud(); } }} />}
         {tab === 'dday' && <Dday ddays={ddays} onAdd={dd => { addDday(dd); refresh(); pushCloud(); }} onDel={id => { deleteDday(id); refresh(); pushCloud(); }} />}
       </main>
 
@@ -135,53 +140,78 @@ function Today({ evByDate, ddays, onDel }) {
   );
 }
 
-function Month({ cur, setCur, evByDate, onDel }) {
+function Month({ cur, setCur, evByDate, memos, onDel, onAddDay, onMemo }) {
   const y = cur.getFullYear(), m = cur.getMonth();
   const first = new Date(y, m, 1);
   const start = new Date(first); start.setDate(1 - first.getDay());
   const cells = Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
   const [sel, setSel] = useState(todayStr());
   const selList = evByDate[sel] || [];
+  const [memo, setMemoText] = useState((memos && memos[sel]) || '');
+  useEffect(() => { setMemoText((memos && memos[sel]) || ''); }, [sel, memos]);
+  const selDate = new Date(sel + 'T00:00:00');
+  const selWd = WD[selDate.getDay()];
+  const selHol = holidayName(sel);
   return (
-    <div style={{ padding: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px 10px' }}>
-        <button onClick={() => setCur(new Date(y, m - 1, 1))} style={navBtn}>‹</button>
-        <b style={{ fontSize: 17 }}>{y}년 {m + 1}월</b>
-        <button onClick={() => setCur(new Date(y, m + 1, 1))} style={navBtn}>›</button>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
-        {WD.map((w, i) => <div key={w} style={{ textAlign: 'center', fontSize: 11, color: i === 0 ? '#fca5a5' : i === 6 ? '#93c5fd' : 'rgba(255,255,255,0.4)', padding: '2px 0' }}>{w}</div>)}
-        {cells.map((d, i) => {
-          const ds = ymd(d), inMonth = d.getMonth() === m, has = (evByDate[ds] || []).length, isToday = ds === todayStr(), isSel = ds === sel;
-          const hol = holidayName(ds), dow = d.getDay();
-          const col = !inMonth ? 'rgba(255,255,255,0.25)' : (hol || dow === 0) ? '#fca5a5' : dow === 6 ? '#93c5fd' : '#e5e7eb';
-          return (
-            <button key={i} onClick={() => setSel(ds)} style={{
-              aspectRatio: '1', border: isSel ? '2px solid #60a5fa' : '1px solid rgba(255,255,255,0.06)',
-              borderRadius: 8, background: isToday ? 'rgba(96,165,250,0.15)' : 'transparent',
-              color: col, fontSize: 13, position: 'relative', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, padding: 0
-            }}>
-              <span>{d.getDate()}</span>
-              {hol && inMonth ? <span style={{ fontSize: 8, color: '#fca5a5', lineHeight: 1, maxWidth: '100%', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{hol}</span> : null}
-              {has ? <span style={{ position: 'absolute', bottom: 3, left: '50%', transform: 'translateX(-50%)', width: 5, height: 5, borderRadius: 999, background: '#38bdf8' }} /> : null}
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ marginTop: 12 }}>
-        <h3 style={{ fontSize: 14, color: '#93c5fd', margin: '4px 0 2px' }}>{sel} 일정 ({selList.length})</h3>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginBottom: 8 }}>
-          {lunarText(sel)}{holidayName(sel) ? ' · ' : ''}<span style={{ color: '#fca5a5' }}>{holidayName(sel) || ''}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* 위: 작은 달력 */}
+      <div style={{ flexShrink: 0, padding: '8px 10px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px 8px' }}>
+          <button onClick={() => setCur(new Date(y, m - 1, 1))} style={navBtn}>‹</button>
+          <b style={{ fontSize: 16 }}>{y}년 {m + 1}월</b>
+          <button onClick={() => setCur(new Date(y, m + 1, 1))} style={navBtn}>›</button>
         </div>
-        {selList.length ? selList.map(e => <EvRow key={e.id} e={e} onDel={onDel} />) : <Empty>이 날 일정이 없어요.</Empty>}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
+          {WD.map((w, i) => <div key={w} style={{ textAlign: 'center', fontSize: 10, color: i === 0 ? '#fca5a5' : i === 6 ? '#93c5fd' : 'rgba(255,255,255,0.4)' }}>{w}</div>)}
+          {cells.map((d, i) => {
+            const ds = ymd(d), inMonth = d.getMonth() === m, has = (evByDate[ds] || []).length, hasMemo = memos && memos[ds], isToday = ds === todayStr(), isSel = ds === sel;
+            const hol = holidayName(ds), dow = d.getDay();
+            const col = !inMonth ? 'rgba(255,255,255,0.22)' : (hol || dow === 0) ? '#fca5a5' : dow === 6 ? '#93c5fd' : '#e5e7eb';
+            return (
+              <button key={i} onClick={() => setSel(ds)} style={{
+                height: 38, border: isSel ? '2px solid #60a5fa' : '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 7, background: isToday ? 'rgba(96,165,250,0.18)' : 'transparent',
+                color: col, fontSize: 13, position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0
+              }}>
+                {d.getDate()}
+                <span style={{ position: 'absolute', bottom: 3, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 2 }}>
+                  {has ? <span style={{ width: 4, height: 4, borderRadius: 999, background: '#38bdf8' }} /> : null}
+                  {hasMemo ? <span style={{ width: 4, height: 4, borderRadius: 999, background: '#fbbf24' }} /> : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 아래: 넓은 상세 영역 (선택한 날) */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
+          <b style={{ fontSize: 20 }}>{selDate.getMonth() + 1}월 {selDate.getDate()}일</b>
+          <span style={{ color: selHol || selDate.getDay() === 0 ? '#fca5a5' : selDate.getDay() === 6 ? '#93c5fd' : 'rgba(255,255,255,0.6)', fontSize: 14 }}>{selWd}요일</span>
+        </div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 12 }}>
+          {lunarText(sel)}{selHol ? ' · ' : ''}<span style={{ color: '#fca5a5' }}>{selHol || ''}</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ fontSize: 13, color: '#93c5fd', fontWeight: 700 }}>일정 ({selList.length})</span>
+          <button onClick={() => onAddDay(sel)} style={{ background: 'rgba(59,130,246,0.25)', border: '1px solid rgba(96,165,250,0.5)', color: '#bfdbfe', borderRadius: 8, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>＋ 이 날 일정</button>
+        </div>
+        {selList.length ? selList.map(e => <EvRow key={e.id} e={e} onDel={onDel} />) : <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, padding: '8px 0 14px' }}>일정 없음</div>}
+
+        <div style={{ fontSize: 13, color: '#fbbf24', fontWeight: 700, margin: '10px 0 6px' }}>메모</div>
+        <textarea value={memo} onChange={e => setMemoText(e.target.value)} onBlur={() => onMemo(sel, memo)}
+          placeholder="이 날의 메모… (자동 저장·동기화)"
+          style={{ width: '100%', minHeight: 120, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: '#fff', fontSize: 14, padding: 12, resize: 'none', outline: 'none', lineHeight: 1.6 }} />
       </div>
     </div>
   );
 }
 
-function AddEvent({ onAdd, onImport }) {
+function AddEvent({ initialDate, onAdd, onImport }) {
   const [title, setTitle] = useState('');
-  const [date, setDate] = useState(todayStr());
+  const [date, setDate] = useState(initialDate || todayStr());
   const [color, setColor] = useState('blue');
   const [alarm, setAlarm] = useState(false);
   const [time, setTime] = useState('09:00');
@@ -243,7 +273,7 @@ function Dday({ ddays, onAdd, onDel }) {
 
 function AuthPanel({ onClose, onAuthed }) {
   const [mode, setMode] = useState('login');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => { try { return localStorage.getItem('mp_email') || ''; } catch { return ''; } });
   const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -261,6 +291,7 @@ function AuthPanel({ onClose, onAuthed }) {
         else setErr('로그인 실패 — 이메일/비밀번호를 확인하세요. (PC 앱과 완전히 같아야 합니다)');
         setBusy(false); return;
       }
+      try { localStorage.setItem('mp_email', email.trim()); } catch {}
       await onAuthed(u);
     } catch (e) { setErr(String(e && e.message || e)); }
     setBusy(false);
@@ -272,7 +303,7 @@ function AuthPanel({ onClose, onAuthed }) {
           <b style={{ fontSize: 16 }}>☁ 클라우드 {mode === 'login' ? '로그인' : '회원가입'}</b>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 18 }}>✕</button>
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>PC 앱과 <b>같은 이메일·비밀번호</b>로 로그인하면 일정이 폰에도 뜹니다.</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>PC 앱과 <b>같은 이메일·비밀번호</b>로 로그인하면 일정이 폰에도 뜹니다. 한 번 로그인하면 <b>다음부터 자동 로그인</b>돼요.</div>
         <input value={email} onChange={e => setEmail(e.target.value)} placeholder="이메일" autoCapitalize="none" style={inp} />
         <input value={pw} onChange={e => setPw(e.target.value)} placeholder="비밀번호" type="password" style={inp} />
         {err && <div style={{ color: '#fca5a5', fontSize: 12, marginBottom: 8 }}>{err}</div>}

@@ -5,11 +5,11 @@
 const KEY = 'momentplan_mobile_v1';
 
 function readAll() {
-  try { return JSON.parse(localStorage.getItem(KEY) || 'null') || { events: [], ddays: [] }; }
-  catch { return { events: [], ddays: [] }; }
+  try { const d = JSON.parse(localStorage.getItem(KEY) || 'null') || {}; return { events: d.events || [], ddays: d.ddays || [], memos: d.memos || {} }; }
+  catch { return { events: [], ddays: [], memos: {} }; }
 }
 function writeAll(data) {
-  try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {}
+  try { localStorage.setItem(KEY, JSON.stringify({ events: data.events || [], ddays: data.ddays || [], memos: data.memos || {} })); } catch {}
   // TODO(동기화): 여기서 Supabase에 업로드하면 PC와 공유됩니다.
   // 예) supabase.from('user_events').upsert(data.events)
 }
@@ -17,7 +17,9 @@ function writeAll(data) {
 export function loadEvents() { return readAll().events || []; }
 export function loadDdays() { return readAll().ddays || []; }
 export function getAll() { return readAll(); }
-export function setAll(data) { writeAll({ events: data.events || [], ddays: data.ddays || [] }); }
+export function setAll(data) { writeAll({ events: data.events || [], ddays: data.ddays || [], memos: data.memos || {} }); }
+export function loadMemos() { return readAll().memos || {}; }
+export function setMemo(dateStr, text) { const d = readAll(); d.memos = { ...(d.memos || {}) }; if (text && text.trim()) d.memos[dateStr] = text; else delete d.memos[dateStr]; writeAll(d); }
 
 export function addEvent(ev) {
   const d = readAll();
