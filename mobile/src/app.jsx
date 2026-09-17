@@ -274,43 +274,53 @@ function Dday({ ddays, onAdd, onDel }) {
   );
 }
 
-function shareRows(sel, evByDate) {
+function shareGrid(sel, evByDate) {
   const dates = Array.from(sel).sort();
-  return dates.map(ds => {
+  const cols = dates.map(ds => {
     const d = new Date(ds + 'T00:00:00');
     const label = (d.getMonth() + 1) + '월 ' + d.getDate() + '일(' + WD[d.getDay()] + ')';
     const events = (evByDate[ds] || []).map(e => (e.title || '').replace(/\t/g, ' ').replace(/\r?\n/g, ' '));
     return { ds, label, events };
   });
+  const maxEv = Math.max(0, ...cols.map(c => c.events.length));
+  return { cols, maxEv };
+}
+// 날짜=열, 일정=세로로 나열 (엑셀 붙여넣기용 TSV)
+function gridToTsv(cols, maxEv) {
+  const lines = [cols.map(c => c.label).join('\t')];
+  for (let i = 0; i < maxEv; i++) lines.push(cols.map(c => c.events[i] || '').join('\t'));
+  return lines.join('\n');
 }
 async function shareText(text) {
   try { if (navigator.share) { await navigator.share({ text }); return '공유창을 열었어요'; } } catch (e) { if (e && e.name === 'AbortError') return ''; }
   try { await navigator.clipboard.writeText(text); return '복사됐어요! 엑셀·메모에 붙여넣기 하세요.'; } catch { window.prompt('아래 내용을 복사하세요 (엑셀 붙여넣기용)', text); return ''; }
 }
-function buildImageBlob(rows) {
-  const maxEv = Math.max(1, ...rows.map(r => r.events.length));
-  const S = 2, dateW = 120, evW = 170, rowH = 38, headH = 34, pad = 12;
-  const W = dateW + evW * maxEv + pad * 2;
-  const H = headH + rows.length * rowH + pad * 2 + 22;
+// 날짜=열, 일정=세로로 나열한 표 이미지
+function buildImageBlob(cols, maxEv) {
+  const S = 2, colW = 168, headH = 34, rowH = 34, pad = 12, titleH = 26;
+  const W = pad * 2 + colW * Math.max(1, cols.length);
+  const H = pad * 2 + titleH + headH + Math.max(1, maxEv) * rowH + 20;
   const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S;
   const g = cv.getContext('2d'); g.scale(S, S);
   g.fillStyle = '#0f172a'; g.fillRect(0, 0, W, H);
   g.fillStyle = '#e2e8f0'; g.font = 'bold 15px sans-serif';
-  g.fillText('📅 일정 공유 (' + rows.length + '일)', pad, pad + 16);
-  let y = pad + headH;
-  g.font = '13px sans-serif';
-  rows.forEach((r, ri) => {
-    g.strokeStyle = 'rgba(255,255,255,0.12)'; g.strokeRect(pad, y, dateW, rowH);
-    g.fillStyle = '#93c5fd'; g.font = 'bold 13px sans-serif';
-    g.fillText(r.label, pad + 6, y + rowH / 2 + 4, dateW - 10);
-    g.font = '13px sans-serif'; g.fillStyle = '#e2e8f0';
-    for (let c = 0; c < maxEv; c++) {
-      const x = pad + dateW + c * evW;
-      g.strokeStyle = 'rgba(255,255,255,0.10)'; g.strokeRect(x, y, evW, rowH);
-      const t = r.events[c] || '';
-      if (t) g.fillText(t, x + 6, y + rowH / 2 + 4, evW - 12);
+  g.fillText('📅 일정 공유', pad, pad + 16);
+  const top = pad + titleH;
+  cols.forEach((c, ci) => {
+    const x = pad + ci * colW;
+    // 날짜 헤더
+    g.fillStyle = 'rgba(96,165,250,0.18)'; g.fillRect(x, top, colW, headH);
+    g.strokeStyle = 'rgba(255,255,255,0.15)'; g.strokeRect(x, top, colW, headH);
+    g.fillStyle = '#bfdbfe'; g.font = 'bold 13px sans-serif';
+    g.fillText(c.label, x + 8, top + headH / 2 + 4, colW - 14);
+    // 일정 세로 나열
+    g.font = '13px sans-serif';
+    for (let i = 0; i < maxEv; i++) {
+      const y = top + headH + i * rowH;
+      g.strokeStyle = 'rgba(255,255,255,0.08)'; g.strokeRect(x, y, colW, rowH);
+      const t = c.events[i] || '';
+      if (t) { g.fillStyle = '#e2e8f0'; g.fillText('• ' + t, x + 8, y + rowH / 2 + 4, colW - 16); }
     }
-    y += rowH;
   });
   g.fillStyle = 'rgba(255,255,255,0.3)'; g.font = '11px sans-serif';
   g.fillText('MomentPlan', W - pad - 74, H - 8);
@@ -333,11 +343,11 @@ function SharePanel({ evByDate, onClose }) {
   const first = new Date(y, m, 1); const start = new Date(first); start.setDate(1 - first.getDay());
   const cells = Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
   const toggle = ds => setSel(s => { const n = new Set(s); n.has(ds) ? n.delete(ds) : n.add(ds); return n; });
-  const rows = shareRows(sel, evByDate);
-  const tsv = rows.map(r => [r.label, ...r.events].join('\t')).join('\n');
-  const doText = async () => { if (!rows.length) return; setMsg(await shareText(tsv) || ''); setTimeout(() => setMsg(''), 2500); };
-  const doImage = async () => { if (!rows.length) return; setMsg('이미지 만드는 중…'); const b = await buildImageBlob(rows); setMsg(await shareImage(b) || ''); setTimeout(() => setMsg(''), 2500); };
-  const doCopy = async () => { if (!rows.length) return; try { await navigator.clipboard.writeText(tsv); setMsg('복사됨! 엑셀에 붙여넣기'); } catch { window.prompt('복사하세요', tsv); } setTimeout(() => setMsg(''), 2500); };
+  const { cols, maxEv } = shareGrid(sel, evByDate);
+  const tsv = gridToTsv(cols, maxEv);
+  const doText = async () => { if (!cols.length) return; setMsg(await shareText(tsv) || ''); setTimeout(() => setMsg(''), 2500); };
+  const doImage = async () => { if (!cols.length) return; setMsg('이미지 만드는 중…'); const b = await buildImageBlob(cols, maxEv); setMsg(await shareImage(b) || ''); setTimeout(() => setMsg(''), 2500); };
+  const doCopy = async () => { if (!cols.length) return; try { await navigator.clipboard.writeText(tsv); setMsg('복사됨! 엑셀에 붙여넣기'); } catch { window.prompt('복사하세요', tsv); } setTimeout(() => setMsg(''), 2500); };
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#0b0e16', zIndex: 90, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px', paddingTop: 'max(12px, env(safe-area-inset-top))', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
@@ -369,12 +379,12 @@ function SharePanel({ evByDate, onClose }) {
             );
           })}
         </div>
-        {rows.length > 0 && (
+        {cols.length > 0 && (
           <div style={{ marginTop: 14, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden' }}>
-            {rows.map(r => (
-              <div key={r.ds} style={{ display: 'flex', gap: 8, padding: '7px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12 }}>
-                <span style={{ color: '#93c5fd', flexShrink: 0, width: 92 }}>{r.label}</span>
-                <span style={{ color: 'rgba(255,255,255,0.8)' }}>{r.events.length ? r.events.join(', ') : '—'}</span>
+            {cols.map(c => (
+              <div key={c.ds} style={{ padding: '7px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12 }}>
+                <div style={{ color: '#93c5fd', marginBottom: 2 }}>{c.label}</div>
+                {c.events.length ? c.events.map((t, i) => <div key={i} style={{ color: 'rgba(255,255,255,0.85)', paddingLeft: 6 }}>• {t}</div>) : <div style={{ color: 'rgba(255,255,255,0.3)', paddingLeft: 6 }}>—</div>}
               </div>
             ))}
           </div>
