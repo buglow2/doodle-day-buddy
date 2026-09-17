@@ -285,42 +285,68 @@ function shareGrid(sel, evByDate) {
   const maxEv = Math.max(0, ...cols.map(c => c.events.length));
   return { cols, maxEv };
 }
-// 날짜=열, 일정=세로로 나열 (엑셀 붙여넣기용 TSV)
-function gridToTsv(cols, maxEv) {
-  const lines = [cols.map(c => c.label).join('\t')];
-  for (let i = 0; i < maxEv; i++) lines.push(cols.map(c => c.events[i] || '').join('\t'));
-  return lines.join('\n');
+// 날짜를 위에서 아래로 이어서 (빠른 날짜부터) — 읽기 좋은 세로 텍스트
+function gridToText(cols) {
+  return cols.map(c => [c.label, ...c.events.map(t => '• ' + t)].join('\n')).join('\n\n');
+}
+// 캔버스 글자 줄바꿈 (한글/영문 모두, 글씨 크기 유지)
+function wrapLines(g, text, maxW) {
+  const chars = Array.from(String(text)); let line = ''; const out = [];
+  for (const ch of chars) {
+    const test = line + ch;
+    if (g.measureText(test).width > maxW && line) { out.push(line); line = ch; }
+    else line = test;
+  }
+  if (line) out.push(line);
+  return out.length ? out : [''];
 }
 async function shareText(text) {
   try { if (navigator.share) { await navigator.share({ text }); return '공유창을 열었어요'; } } catch (e) { if (e && e.name === 'AbortError') return ''; }
   try { await navigator.clipboard.writeText(text); return '복사됐어요! 엑셀·메모에 붙여넣기 하세요.'; } catch { window.prompt('아래 내용을 복사하세요 (엑셀 붙여넣기용)', text); return ''; }
 }
-// 날짜=열, 일정=세로로 나열한 표 이미지
-function buildImageBlob(cols, maxEv) {
-  const S = 2, colW = 168, headH = 34, rowH = 34, pad = 12, titleH = 26;
-  const W = pad * 2 + colW * Math.max(1, cols.length);
-  const H = pad * 2 + titleH + headH + Math.max(1, maxEv) * rowH + 20;
+// 날짜를 위→아래로 이어붙인 세로 이미지 (긴 일정은 자동 줄바꿈)
+function buildImageBlob(cols) {
+  const S = 2, W = 400, pad = 14, headH = 30, lineH = 23, evGap = 3, dayGap = 12, titleH = 30;
+  const evFont = '15px sans-serif', headFont = 'bold 15px sans-serif';
+  const tmp = document.createElement('canvas').getContext('2d');
+  tmp.font = evFont;
+  const contentW = W - pad * 2 - 12; // 불릿 들여쓰기 감안
+  // 미리 줄 계산해서 전체 높이 산출
+  const blocks = cols.map(c => ({
+    label: c.label,
+    evs: c.events.map(t => wrapLines(tmp, t, contentW))
+  }));
+  let H = pad + titleH;
+  blocks.forEach(b => {
+    H += headH + 4;
+    if (b.evs.length) b.evs.forEach(ls => { H += ls.length * lineH + evGap; });
+    else H += lineH;
+    H += dayGap;
+  });
+  H += 18;
   const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S;
   const g = cv.getContext('2d'); g.scale(S, S);
   g.fillStyle = '#0f172a'; g.fillRect(0, 0, W, H);
-  g.fillStyle = '#e2e8f0'; g.font = 'bold 15px sans-serif';
+  g.fillStyle = '#e2e8f0'; g.font = 'bold 16px sans-serif';
   g.fillText('📅 일정 공유', pad, pad + 16);
-  const top = pad + titleH;
-  cols.forEach((c, ci) => {
-    const x = pad + ci * colW;
-    // 날짜 헤더
-    g.fillStyle = 'rgba(96,165,250,0.18)'; g.fillRect(x, top, colW, headH);
-    g.strokeStyle = 'rgba(255,255,255,0.15)'; g.strokeRect(x, top, colW, headH);
-    g.fillStyle = '#bfdbfe'; g.font = 'bold 13px sans-serif';
-    g.fillText(c.label, x + 8, top + headH / 2 + 4, colW - 14);
-    // 일정 세로 나열
-    g.font = '13px sans-serif';
-    for (let i = 0; i < maxEv; i++) {
-      const y = top + headH + i * rowH;
-      g.strokeStyle = 'rgba(255,255,255,0.08)'; g.strokeRect(x, y, colW, rowH);
-      const t = c.events[i] || '';
-      if (t) { g.fillStyle = '#e2e8f0'; g.fillText('• ' + t, x + 8, y + rowH / 2 + 4, colW - 16); }
-    }
+  let y = pad + titleH;
+  blocks.forEach(b => {
+    g.fillStyle = 'rgba(96,165,250,0.20)'; g.fillRect(pad, y, W - pad * 2, headH);
+    g.fillStyle = '#bfdbfe'; g.font = headFont;
+    g.fillText(b.label, pad + 8, y + headH / 2 + 5);
+    y += headH + 4;
+    g.font = evFont;
+    if (b.evs.length) {
+      b.evs.forEach(ls => {
+        ls.forEach((ln, li) => {
+          g.fillStyle = '#e2e8f0';
+          g.fillText(li === 0 ? '• ' + ln : '   ' + ln, pad + 6, y + 16);
+          y += lineH;
+        });
+        y += evGap;
+      });
+    } else { g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillText('일정 없음', pad + 6, y + 16); y += lineH; }
+    y += dayGap;
   });
   g.fillStyle = 'rgba(255,255,255,0.3)'; g.font = '11px sans-serif';
   g.fillText('MomentPlan', W - pad - 74, H - 8);
@@ -343,11 +369,11 @@ function SharePanel({ evByDate, onClose }) {
   const first = new Date(y, m, 1); const start = new Date(first); start.setDate(1 - first.getDay());
   const cells = Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
   const toggle = ds => setSel(s => { const n = new Set(s); n.has(ds) ? n.delete(ds) : n.add(ds); return n; });
-  const { cols, maxEv } = shareGrid(sel, evByDate);
-  const tsv = gridToTsv(cols, maxEv);
-  const doText = async () => { if (!cols.length) return; setMsg(await shareText(tsv) || ''); setTimeout(() => setMsg(''), 2500); };
-  const doImage = async () => { if (!cols.length) return; setMsg('이미지 만드는 중…'); const b = await buildImageBlob(cols, maxEv); setMsg(await shareImage(b) || ''); setTimeout(() => setMsg(''), 2500); };
-  const doCopy = async () => { if (!cols.length) return; try { await navigator.clipboard.writeText(tsv); setMsg('복사됨! 엑셀에 붙여넣기'); } catch { window.prompt('복사하세요', tsv); } setTimeout(() => setMsg(''), 2500); };
+  const { cols } = shareGrid(sel, evByDate);
+  const text = gridToText(cols);
+  const doText = async () => { if (!cols.length) return; setMsg(await shareText(text) || ''); setTimeout(() => setMsg(''), 2500); };
+  const doImage = async () => { if (!cols.length) return; setMsg('이미지 만드는 중…'); const b = await buildImageBlob(cols); setMsg(await shareImage(b) || ''); setTimeout(() => setMsg(''), 2500); };
+  const doCopy = async () => { if (!cols.length) return; try { await navigator.clipboard.writeText(text); setMsg('복사됨!'); } catch { window.prompt('복사하세요', text); } setTimeout(() => setMsg(''), 2500); };
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#0b0e16', zIndex: 90, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px', paddingTop: 'max(12px, env(safe-area-inset-top))', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
