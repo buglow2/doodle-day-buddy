@@ -23,6 +23,7 @@ export default function App() {
   const [addDate, setAddDate] = useState(todayStr());
   const [user, setUser] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
   const refresh = () => { setEvents(loadEvents()); setDdays(loadDdays()); setMemos(loadMemos()); };
 
@@ -75,12 +76,14 @@ export default function App() {
           <div style={{ fontWeight: 800, fontSize: 20 }}>📅 MomentPlan</div>
           <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>{todayStr()} ({WD[new Date().getDay()]}){syncMsg ? ' · ' + syncMsg : ''}</div>
         </div>
+        <button onClick={() => setShowShare(true)} title="일정 공유" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#e5e7eb', borderRadius: 999, padding: '6px 11px', fontSize: 12, cursor: 'pointer' }}>📤 공유</button>
         <button onClick={() => user ? onSignOut() : setShowAuth(true)} style={{
           background: user ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.1)', border: '1px solid ' + (user ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.2)'),
           color: user ? '#86efac' : '#e5e7eb', borderRadius: 999, padding: '6px 12px', fontSize: 12, cursor: 'pointer'
-        }}>{user ? '☁ 연결됨' : '☁ 로그인'}</button>
+        }}>{user ? '☁' : '☁ 로그인'}</button>
       </header>
       {showAuth && <AuthPanel onClose={() => setShowAuth(false)} onAuthed={onAuthed} />}
+      {showShare && <SharePanel evByDate={evByDate} onClose={() => setShowShare(false)} />}
 
       <main style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {tab === 'today' && <Today evByDate={evByDate} ddays={ddays} onDel={id => { deleteEvent(id); refresh(); pushCloud(); }} />}
@@ -271,6 +274,121 @@ function Dday({ ddays, onAdd, onDel }) {
   );
 }
 
+function shareRows(sel, evByDate) {
+  const dates = Array.from(sel).sort();
+  return dates.map(ds => {
+    const d = new Date(ds + 'T00:00:00');
+    const label = (d.getMonth() + 1) + '월 ' + d.getDate() + '일(' + WD[d.getDay()] + ')';
+    const events = (evByDate[ds] || []).map(e => (e.title || '').replace(/\t/g, ' ').replace(/\r?\n/g, ' '));
+    return { ds, label, events };
+  });
+}
+async function shareText(text) {
+  try { if (navigator.share) { await navigator.share({ text }); return '공유창을 열었어요'; } } catch (e) { if (e && e.name === 'AbortError') return ''; }
+  try { await navigator.clipboard.writeText(text); return '복사됐어요! 엑셀·메모에 붙여넣기 하세요.'; } catch { window.prompt('아래 내용을 복사하세요 (엑셀 붙여넣기용)', text); return ''; }
+}
+function buildImageBlob(rows) {
+  const maxEv = Math.max(1, ...rows.map(r => r.events.length));
+  const S = 2, dateW = 120, evW = 170, rowH = 38, headH = 34, pad = 12;
+  const W = dateW + evW * maxEv + pad * 2;
+  const H = headH + rows.length * rowH + pad * 2 + 22;
+  const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S;
+  const g = cv.getContext('2d'); g.scale(S, S);
+  g.fillStyle = '#0f172a'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#e2e8f0'; g.font = 'bold 15px sans-serif';
+  g.fillText('📅 일정 공유 (' + rows.length + '일)', pad, pad + 16);
+  let y = pad + headH;
+  g.font = '13px sans-serif';
+  rows.forEach((r, ri) => {
+    g.strokeStyle = 'rgba(255,255,255,0.12)'; g.strokeRect(pad, y, dateW, rowH);
+    g.fillStyle = '#93c5fd'; g.font = 'bold 13px sans-serif';
+    g.fillText(r.label, pad + 6, y + rowH / 2 + 4, dateW - 10);
+    g.font = '13px sans-serif'; g.fillStyle = '#e2e8f0';
+    for (let c = 0; c < maxEv; c++) {
+      const x = pad + dateW + c * evW;
+      g.strokeStyle = 'rgba(255,255,255,0.10)'; g.strokeRect(x, y, evW, rowH);
+      const t = r.events[c] || '';
+      if (t) g.fillText(t, x + 6, y + rowH / 2 + 4, evW - 12);
+    }
+    y += rowH;
+  });
+  g.fillStyle = 'rgba(255,255,255,0.3)'; g.font = '11px sans-serif';
+  g.fillText('MomentPlan', W - pad - 74, H - 8);
+  return new Promise(res => cv.toBlob(b => res(b), 'image/png'));
+}
+async function shareImage(blob) {
+  try {
+    const file = new File([blob], 'momentplan.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return '공유창을 열었어요'; }
+  } catch (e) { if (e && e.name === 'AbortError') return ''; }
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'momentplan.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1500);
+  return '이미지를 저장했어요';
+}
+
+function SharePanel({ evByDate, onClose }) {
+  const [cur, setCur] = useState(new Date());
+  const [sel, setSel] = useState(() => new Set());
+  const [msg, setMsg] = useState('');
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const first = new Date(y, m, 1); const start = new Date(first); start.setDate(1 - first.getDay());
+  const cells = Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+  const toggle = ds => setSel(s => { const n = new Set(s); n.has(ds) ? n.delete(ds) : n.add(ds); return n; });
+  const rows = shareRows(sel, evByDate);
+  const tsv = rows.map(r => [r.label, ...r.events].join('\t')).join('\n');
+  const doText = async () => { if (!rows.length) return; setMsg(await shareText(tsv) || ''); setTimeout(() => setMsg(''), 2500); };
+  const doImage = async () => { if (!rows.length) return; setMsg('이미지 만드는 중…'); const b = await buildImageBlob(rows); setMsg(await shareImage(b) || ''); setTimeout(() => setMsg(''), 2500); };
+  const doCopy = async () => { if (!rows.length) return; try { await navigator.clipboard.writeText(tsv); setMsg('복사됨! 엑셀에 붙여넣기'); } catch { window.prompt('복사하세요', tsv); } setTimeout(() => setMsg(''), 2500); };
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: '#0b0e16', zIndex: 90, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px', paddingTop: 'max(12px, env(safe-area-inset-top))', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <b style={{ flex: 1, fontSize: 16 }}>📤 일정 공유</b>
+        <span style={{ fontSize: 12, color: '#86efac' }}>{sel.size}일 선택{msg ? ' · ' + msg : ''}</span>
+        <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: 20 }}>✕</button>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>공유할 날짜를 여러 개 탭하세요.</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px 8px' }}>
+          <button onClick={() => setCur(new Date(y, m - 1, 1))} style={navBtn}>‹</button>
+          <b style={{ fontSize: 16 }}>{y}년 {m + 1}월</b>
+          <button onClick={() => setCur(new Date(y, m + 1, 1))} style={navBtn}>›</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
+          {WD.map((w, i) => <div key={w} style={{ textAlign: 'center', fontSize: 10, color: i === 0 ? '#fca5a5' : i === 6 ? '#93c5fd' : 'rgba(255,255,255,0.4)' }}>{w}</div>)}
+          {cells.map((d, i) => {
+            const ds = ymd(d), inMonth = d.getMonth() === m, has = (evByDate[ds] || []).length, isSel = sel.has(ds);
+            return (
+              <button key={i} onClick={() => toggle(ds)} style={{
+                height: 40, border: isSel ? '2px solid #22c55e' : '1px solid rgba(255,255,255,0.08)', borderRadius: 7,
+                background: isSel ? 'rgba(34,197,94,0.22)' : 'transparent', color: inMonth ? '#e5e7eb' : 'rgba(255,255,255,0.22)',
+                fontSize: 13, position: 'relative', cursor: 'pointer'
+              }}>
+                {d.getDate()}
+                {isSel ? <span style={{ position: 'absolute', top: 1, right: 3, fontSize: 10, color: '#86efac' }}>✓</span> : null}
+                {has ? <span style={{ position: 'absolute', bottom: 3, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: 999, background: '#38bdf8' }} /> : null}
+              </button>
+            );
+          })}
+        </div>
+        {rows.length > 0 && (
+          <div style={{ marginTop: 14, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden' }}>
+            {rows.map(r => (
+              <div key={r.ds} style={{ display: 'flex', gap: 8, padding: '7px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12 }}>
+                <span style={{ color: '#93c5fd', flexShrink: 0, width: 92 }}>{r.label}</span>
+                <span style={{ color: 'rgba(255,255,255,0.8)' }}>{r.events.length ? r.events.join(', ') : '—'}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: 8, padding: 12, paddingBottom: 'max(12px, env(safe-area-inset-bottom))', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+        <button disabled={!sel.size} onClick={doImage} style={{ ...shBtn, background: '#3b82f6', opacity: sel.size ? 1 : 0.4 }}>🖼 이미지</button>
+        <button disabled={!sel.size} onClick={doText} style={{ ...shBtn, background: '#22c55e', color: '#04220f', opacity: sel.size ? 1 : 0.4 }}>📝 텍스트</button>
+        <button disabled={!sel.size} onClick={doCopy} style={{ ...shBtn, background: 'rgba(255,255,255,0.12)', opacity: sel.size ? 1 : 0.4 }}>📋 복사</button>
+      </div>
+    </div>
+  );
+}
+
 function AuthPanel({ onClose, onAuthed }) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState(() => { try { return localStorage.getItem('mp_email') || ''; } catch { return ''; } });
@@ -321,3 +439,4 @@ const lbl = { display: 'block', fontSize: 12, color: 'rgba(255,255,255,0.5)', ma
 const inp = { width: '100%', padding: '11px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: 15, marginBottom: 12, outline: 'none' };
 const bigBtn = { width: '100%', padding: 13, borderRadius: 12, border: 'none', background: '#3b82f6', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginTop: 6 };
 const navBtn = { width: 40, height: 40, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 20, cursor: 'pointer' };
+const shBtn = { flex: 1, padding: 13, borderRadius: 12, border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' };
