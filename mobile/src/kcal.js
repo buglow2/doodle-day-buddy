@@ -14,6 +14,10 @@ export function lunarText(dateStr) {
   } catch { return ''; }
 }
 
+export function lunarShort(dateStr) {
+  try { const [y, m, d] = dateStr.split('-').map(Number); cal.setSolarDate(y, m, d); const l = cal.getLunarCalendar(); return l.month + '.' + l.day; }
+  catch { return ''; }
+}
 function lunarToSolar(y, m, d) {
   try { cal.setLunarDate(y, m, d, false); const s = cal.getSolarCalendar(); return new Date(s.year, s.month - 1, s.day); }
   catch { return null; }

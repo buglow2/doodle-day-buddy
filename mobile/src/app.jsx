@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, COLORS } from './data.js';
 import { scheduleEventAlarm } from './notify.js';
 import { currentUser, signIn, signUp, signOut, pull, push, subscribe } from './sync.js';
-import { lunarText, holidayName } from './kcal.js';
+import { lunarText, lunarShort, holidayName } from './kcal.js';
 
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const pad = n => String(n).padStart(2, '0');
@@ -96,7 +96,7 @@ export default function App() {
       </main>
 
       <nav style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.1)', background: '#111827', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        {[['today', '오늘', '📌'], ['month', '달력', '🗓'], ['add', '추가', '➕'], ['dday', 'D-Day', '⏳']].map(t => (
+        {[['today', '오늘', '📌'], ['month', '달력', '🗓'], ['dday', 'D-Day', '⏳'], ['add', '추가', '➕']].map(t => (
           <button key={t[0]} onClick={() => setTab(t[0])} style={{
             flex: 1, padding: '10px 0 12px', background: 'transparent', border: 'none',
             color: tab === t[0] ? '#60a5fa' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer'
@@ -172,12 +172,13 @@ function Month({ cur, setCur, evByDate, memos, onDel, onAddDay, onMemo }) {
             const col = !inMonth ? 'rgba(255,255,255,0.22)' : (hol || dow === 0) ? '#fca5a5' : dow === 6 ? '#93c5fd' : '#e5e7eb';
             return (
               <button key={i} onClick={() => setSel(ds)} style={{
-                height: 38, border: isSel ? '2px solid #60a5fa' : '1px solid rgba(255,255,255,0.06)',
+                height: 46, border: isSel ? '2px solid #60a5fa' : '1px solid rgba(255,255,255,0.06)',
                 borderRadius: 7, background: isToday ? 'rgba(96,165,250,0.18)' : 'transparent',
-                color: col, fontSize: 13, position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0
+                color: col, fontSize: 13, position: 'relative', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, padding: 0
               }}>
-                {d.getDate()}
-                <span style={{ position: 'absolute', bottom: 3, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 2 }}>
+                <span style={{ lineHeight: 1.1 }}>{d.getDate()}</span>
+                <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.32)', lineHeight: 1.1 }}>{lunarShort(ds)}</span>
+                <span style={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 2 }}>
                   {has ? <span style={{ width: 4, height: 4, borderRadius: 999, background: '#38bdf8' }} /> : null}
                   {hasMemo ? <span style={{ width: 4, height: 4, borderRadius: 999, background: '#fbbf24' }} /> : null}
                 </span>
@@ -193,15 +194,13 @@ function Month({ cur, setCur, evByDate, memos, onDel, onAddDay, onMemo }) {
           <b style={{ fontSize: 20 }}>{selDate.getMonth() + 1}월 {selDate.getDate()}일</b>
           <span style={{ color: selHol || selDate.getDay() === 0 ? '#fca5a5' : selDate.getDay() === 6 ? '#93c5fd' : 'rgba(255,255,255,0.6)', fontSize: 14 }}>{selWd}요일</span>
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 12 }}>
-          {lunarText(sel)}{selHol ? ' · ' : ''}<span style={{ color: '#fca5a5' }}>{selHol || ''}</span>
-        </div>
+        {selHol ? <div style={{ fontSize: 12, color: '#fca5a5', marginBottom: 10 }}>{selHol}</div> : <div style={{ height: 4 }} />}
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span style={{ fontSize: 13, color: '#93c5fd', fontWeight: 700 }}>일정 ({selList.length})</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: selList.length ? 6 : 0 }}>
+          <span style={{ fontSize: 13, color: '#93c5fd', fontWeight: 700 }}>일정{selList.length ? ' (' + selList.length + ')' : ''}</span>
           <button onClick={() => onAddDay(sel)} style={{ background: 'rgba(59,130,246,0.25)', border: '1px solid rgba(96,165,250,0.5)', color: '#bfdbfe', borderRadius: 8, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>＋ 이 날 일정</button>
         </div>
-        {selList.length ? selList.map(e => <EvRow key={e.id} e={e} onDel={onDel} />) : <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, padding: '8px 0 14px' }}>일정 없음</div>}
+        {selList.length ? selList.map(e => <EvRow key={e.id} e={e} onDel={onDel} />) : null}
 
         <div style={{ fontSize: 13, color: '#fbbf24', fontWeight: 700, margin: '10px 0 6px' }}>메모</div>
         <textarea value={memo} onChange={e => setMemoText(e.target.value)} onBlur={() => onMemo(sel, memo)}
