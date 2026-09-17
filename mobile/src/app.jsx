@@ -289,6 +289,22 @@ function shareGrid(sel, evByDate) {
 function gridToText(cols) {
   return cols.map(c => [c.label, ...c.events.map(t => '• ' + t)].join('\n')).join('\n\n');
 }
+// 엑셀/시트용 CSV (날짜=열, 일정=행) — 파일로 내보내기
+function csvCell(s) { s = String(s == null ? '' : s); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function gridToCsv(cols, maxEv) {
+  const lines = [cols.map(c => csvCell(c.label)).join(',')];
+  for (let i = 0; i < maxEv; i++) lines.push(cols.map(c => csvCell(c.events[i] || '')).join(','));
+  return '﻿' + lines.join('\r\n'); // BOM: 엑셀에서 한글 안 깨지게
+}
+async function shareCsv(csv) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  try {
+    const file = new File([blob], 'momentplan.csv', { type: 'text/csv' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return '공유창을 열었어요 (엑셀·시트로 열기)'; }
+  } catch (e) { if (e && e.name === 'AbortError') return ''; }
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'momentplan.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1500);
+  return 'CSV 파일로 저장됨 (엑셀·시트로 열기)';
+}
 // 캔버스 글자 줄바꿈 (한글/영문 모두, 글씨 크기 유지)
 function wrapLines(g, text, maxW) {
   const chars = Array.from(String(text)); let line = ''; const out = [];
@@ -369,11 +385,11 @@ function SharePanel({ evByDate, onClose }) {
   const first = new Date(y, m, 1); const start = new Date(first); start.setDate(1 - first.getDay());
   const cells = Array.from({ length: 42 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
   const toggle = ds => setSel(s => { const n = new Set(s); n.has(ds) ? n.delete(ds) : n.add(ds); return n; });
-  const { cols } = shareGrid(sel, evByDate);
+  const { cols, maxEv } = shareGrid(sel, evByDate);
   const text = gridToText(cols);
   const doText = async () => { if (!cols.length) return; setMsg(await shareText(text) || ''); setTimeout(() => setMsg(''), 2500); };
   const doImage = async () => { if (!cols.length) return; setMsg('이미지 만드는 중…'); const b = await buildImageBlob(cols); setMsg(await shareImage(b) || ''); setTimeout(() => setMsg(''), 2500); };
-  const doCopy = async () => { if (!cols.length) return; try { await navigator.clipboard.writeText(text); setMsg('복사됨!'); } catch { window.prompt('복사하세요', text); } setTimeout(() => setMsg(''), 2500); };
+  const doExcel = async () => { if (!cols.length) return; setMsg('CSV 만드는 중…'); setMsg(await shareCsv(gridToCsv(cols, maxEv)) || ''); setTimeout(() => setMsg(''), 3000); };
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#0b0e16', zIndex: 90, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px', paddingTop: 'max(12px, env(safe-area-inset-top))', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
@@ -419,7 +435,7 @@ function SharePanel({ evByDate, onClose }) {
       <div style={{ display: 'flex', gap: 8, padding: 12, paddingBottom: 'max(12px, env(safe-area-inset-bottom))', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
         <button disabled={!sel.size} onClick={doImage} style={{ ...shBtn, background: '#3b82f6', opacity: sel.size ? 1 : 0.4 }}>🖼 이미지</button>
         <button disabled={!sel.size} onClick={doText} style={{ ...shBtn, background: '#22c55e', color: '#04220f', opacity: sel.size ? 1 : 0.4 }}>📝 텍스트</button>
-        <button disabled={!sel.size} onClick={doCopy} style={{ ...shBtn, background: 'rgba(255,255,255,0.12)', opacity: sel.size ? 1 : 0.4 }}>📋 복사</button>
+        <button disabled={!sel.size} onClick={doExcel} style={{ ...shBtn, background: '#059669', opacity: sel.size ? 1 : 0.4 }}>📊 엑셀</button>
       </div>
     </div>
   );
