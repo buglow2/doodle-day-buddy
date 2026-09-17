@@ -3,6 +3,7 @@ import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, impo
 import { scheduleEventAlarm } from './notify.js';
 import { currentUser, signIn, signUp, signOut, pull, push, subscribe } from './sync.js';
 import { lunarText, lunarShort, holidayName } from './kcal.js';
+import { ddayInfo, ddayLabel, ddayKindText } from './dday.js';
 
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const pad = n => String(n).padStart(2, '0');
@@ -122,7 +123,7 @@ function EvRow({ e, onDel }) {
 function Today({ evByDate, ddays, onDel }) {
   const t = todayStr();
   const list = evByDate[t] || [];
-  const upcomingDd = ddays.map(d => ({ ...d, left: daysBetween(d.date, t) })).filter(d => d.left >= 0).sort((a, b) => a.left - b.left).slice(0, 5);
+  const upcomingDd = ddays.map(d => ({ ...d, left: ddayInfo(d).left })).filter(d => d.left >= 0).sort((a, b) => a.left - b.left).slice(0, 5);
   return (
     <div style={{ padding: 14 }}>
       <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
@@ -135,7 +136,7 @@ function Today({ evByDate, ddays, onDel }) {
         {upcomingDd.map(d => (
           <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 8 }}>
             <span style={{ flex: 1 }}>{d.title}</span>
-            <b style={{ color: '#f59e0b' }}>{d.left === 0 ? 'D-DAY' : 'D-' + d.left}</b>
+            <b style={{ color: '#f59e0b' }}>{ddayLabel(d.left)}</b>
           </div>
         ))}
       </>}
@@ -249,26 +250,53 @@ function AddEvent({ initialDate, onAdd, onImport }) {
 function Dday({ ddays, onAdd, onDel }) {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(todayStr());
-  const t = todayStr();
-  const list = ddays.map(d => ({ ...d, left: daysBetween(d.date, t) })).sort((a, b) => a.left - b.left);
+  const [kind, setKind] = useState('once'); // once | yearly | monthly
+  const list = ddays.map(d => ({ d, info: ddayInfo(d), kindTxt: ddayKindText(d) }))
+    .sort((a, b) => a.info.left - b.info.left);
+  const add = () => {
+    if (!title.trim()) return;
+    const base = { title: title.trim(), date };
+    if (kind === 'yearly') onAdd({ ...base, type: 'anniversary', isYearly: true });
+    else if (kind === 'monthly') onAdd({ ...base, type: 'repeat', repeatUnit: 'monthly' });
+    else onAdd({ ...base, type: 'anniversary', isYearly: false });
+    setTitle('');
+  };
   return (
     <div style={{ padding: 16 }}>
       <h3 style={{ marginTop: 4, fontSize: 16 }}>D-Day</h3>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="예: 시험" style={{ ...inp, marginBottom: 0, flex: 1 }} />
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inp, marginBottom: 0, width: 140 }} />
+      <input value={title} onChange={e => setTitle(e.target.value)} placeholder="예: 시험 / 엄마 생신 / 보험료" style={{ ...inp }} />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inp, marginBottom: 0, flex: 1 }} />
       </div>
-      <button disabled={!title.trim()} onClick={() => { onAdd({ title: title.trim(), date }); setTitle(''); }} style={{ ...bigBtn, marginBottom: 16, opacity: title.trim() ? 1 : 0.4 }}>＋ D-Day 추가</button>
-      {list.length ? list.map(d => (
-        <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 8 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15 }}>{d.title}</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{d.date}</div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        {[['once', '한 번'], ['yearly', '매년(생일)'], ['monthly', '매월(납부)']].map(k => (
+          <button key={k[0]} onClick={() => setKind(k[0])} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid ' + (kind === k[0] ? '#60a5fa' : 'rgba(255,255,255,0.15)'), background: kind === k[0] ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.06)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>{k[1]}</button>
+        ))}
+      </div>
+      <button disabled={!title.trim()} onClick={add} style={{ ...bigBtn, marginBottom: 16, opacity: title.trim() ? 1 : 0.4 }}>＋ D-Day 추가</button>
+      {list.length ? list.map(({ d, info, kindTxt }) => {
+        const past = info.left < 0;
+        return (
+          <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
+                <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '1px 6px', flexShrink: 0 }}>{kindTxt}</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                {info.next && info.next !== d.date ? '다음 ' + info.next.slice(5).replace('-', '.') : d.date}
+                {info.nthLabel && /[0-9]/.test(info.nthLabel) ? ' · ' + info.nthLabel : ''}
+              </div>
+            </div>
+            {info.nthLabel && /[0-9]/.test(info.nthLabel) ? <div style={{ textAlign: 'center', flexShrink: 0 }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#e5e7eb', lineHeight: 1 }}>{info.nth}</div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>{info.nthLabel.replace(/[0-9]+/, '')}</div>
+            </div> : null}
+            <b style={{ color: past ? 'rgba(255,255,255,0.35)' : '#f59e0b', fontSize: 16, flexShrink: 0, minWidth: 56, textAlign: 'right' }}>{ddayLabel(info.left)}</b>
+            <button onClick={() => onDel(d.id)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 16, flexShrink: 0 }}>✕</button>
           </div>
-          <b style={{ color: d.left < 0 ? 'rgba(255,255,255,0.35)' : '#f59e0b', fontSize: 16 }}>{d.left === 0 ? 'D-DAY' : d.left > 0 ? 'D-' + d.left : 'D+' + (-d.left)}</b>
-          <button onClick={() => onDel(d.id)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 16 }}>✕</button>
-        </div>
-      )) : <Empty>등록된 D-Day가 없어요.</Empty>}
+        );
+      }) : <Empty>등록된 D-Day가 없어요.</Empty>}
     </div>
   );
 }
