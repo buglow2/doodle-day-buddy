@@ -151,6 +151,14 @@ function ddbDayText(dateStr, events, label) {
     return lines.join("\n");
 }
 async function ddbCopyText(txt) { try { await navigator.clipboard.writeText(txt); return !0 } catch { return !1 } }
+function ddbSpellCheck(text) {
+    const t = String(text || "").replace(/\|[-\s|:]+\|/g, "").trim();
+    if (!t) { try { alert("검사할 내용이 없습니다."); } catch (e) {} return; }
+    try { navigator.clipboard && navigator.clipboard.writeText(t); } catch (e) {}
+    const url = "https://search.naver.com/search.naver?query=" + encodeURIComponent("맞춤법 검사기");
+    try { if (window.ddbNative && window.ddbNative.openExternal) window.ddbNative.openExternal(url); else window.open(url, "_blank"); } catch (e) {}
+    try { alert("메모를 복사했어요.\n열린 '맞춤법 검사기' 입력칸에 붙여넣기(Ctrl+V) 하면 교정 결과가 나옵니다."); } catch (e) {}
+}
 async function ddbDayImageBlob(dateStr, events, label) {
     const p = String(dateStr).split("-"), evs = (events || []).filter(e => e && e.amount === void 0);
     const W = 380, pad = 18, lh = 30, headH = 54, W2 = 2;
@@ -1503,7 +1511,8 @@ function DDBAiMemoCard({ tab }) {
                 ] }),
                 palOpen ? o.jsx("div", { className: "absolute left-0 top-6 z-[60] p-1.5 rounded-lg bg-neutral-900 border border-white/15 shadow-xl flex flex-wrap gap-1 w-40", children: Object.keys(qt).map(nm => o.jsx("button", { onClick: () => { setColor(nm); setPalOpen(false); }, title: nm, className: "w-4 h-4 rounded-full flex-shrink-0 border " + (colorName === nm ? "border-white" : "border-white/20"), style: { background: qt[nm] } }, nm)) }) : null
             ] }),
-            o.jsx("span", { className: "text-white/35 text-[10px] ml-auto", children: "한 줄 = 일정" })
+            o.jsx("button", { onClick: () => ddbSpellCheck(ddbSplitFmt(txt).body), title: "맞춤법 검사 (검사기 열고 붙여넣기)", className: "ml-auto px-1.5 py-0.5 rounded text-[10px] bg-white/8 hover:bg-white/15 text-white/65 border-none cursor-pointer whitespace-nowrap", children: "🔤 맞춤법" }),
+            o.jsx("span", { className: "text-white/35 text-[10px]", children: "한 줄 = 일정" })
         ] }),
         (tCnt || iCnt) ? o.jsxs("div", { className: "px-2.5 py-1 text-[11px] flex items-center gap-2 flex-shrink-0 border-b border-white/5", children: [o.jsxs("span", { className: "text-sky-300", children: ["📊 오늘 표 ", tCnt] }), o.jsxs("span", { className: "text-purple-300", children: ["🖼 이미지 ", iCnt] }), o.jsx("span", { className: "text-white/30", children: "(메모 상세 → AI메모에서 날짜별로 보기)" })] }) : null,
         o.jsx("div", { className: "flex-1 min-h-0 overflow-auto px-2 py-1", style: { borderLeft: "3px solid " + chipHex }, children: o.jsx(DDBDocEditor, { content: txt, onCommit: save, fontSize: 13, itemId: "aimemo-" + tab.id, maxH: "none", soloOn: true, simpleTables: true }, "aim-" + tab.id + "-" + resetN) }),
@@ -2773,7 +2782,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.63";
+const DDB_VERSION = "0.99.64";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4323,7 +4332,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v400"
+                children: "v401"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9149,6 +9158,11 @@ function jw({
                     className: "flex items-center gap-1 mb-1 flex-shrink-0",
                     children: [o.jsx("div", {
                         className: "flex-1"
+                    }), o.jsx("button", {
+                        onClick: () => ddbSpellCheck(l),
+                        title: "맞춤법 검사 (검사기 열고 붙여넣기)",
+                        className: "px-1.5 py-0.5 mr-1 rounded text-[10px] text-white/50 hover:text-white/85 hover:bg-white/10 border-none cursor-pointer bg-transparent whitespace-nowrap",
+                        children: "🔤 맞춤법"
                     }), o.jsxs("div", {
                         ref: p,
                         className: "relative",
@@ -9455,7 +9469,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     function tbDown(id, ev) { if (ev.button !== 0) return; let started = false; const fromIdx = tbOrder.indexOf(id); const st = { from: fromIdx, to: fromIdx }; const timer = setTimeout(() => { started = true; setTbDrag(id); tbSuppress.current = true; }, 1000); const move = e2 => { if (!started) return; const els = [].slice.call(rootRef.current.querySelectorAll("[data-tbid]")); let t = tbOrder.length - 1; for (let k = 0; k < els.length; k++) { const rc = els[k].getBoundingClientRect(); if (e2.clientX < rc.left + rc.width / 2) { t = k; break; } } st.to = t; }; const up = () => { clearTimeout(timer); document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); if (started) { if (st.from != null && st.to != null && st.from !== st.to) { const no = tbOrder.slice(); const it = no.splice(st.from, 1)[0]; no.splice(st.to, 0, it); setTbOrder(no); try { localStorage.setItem("ddb_tb_order", JSON.stringify(no)); } catch {} } setTbDrag(null); setTimeout(() => { tbSuppress.current = false; }, 60); } }; document.addEventListener("mousemove", move); document.addEventListener("mouseup", up); }
     const altLabel = idx => idx <= 8 ? String(idx + 1) : (idx === 9 ? "0" : "");
     const toolbar = o.jsxs("div", { className: "sticky top-0 z-10", style: { background: "rgba(12,16,26,0.97)" }, children: [
-        o.jsx("div", { className: "flex items-center gap-1 flex-wrap py-1", style: { paddingLeft: 13 }, children: tbOrder.map((id, idx) => o.jsxs("button", { "data-tbid": id, onMouseDown: e => tbDown(id, e), onClick: e => { if (tbSuppress.current) { tbSuppress.current = false; return; } tbAct(id, e.currentTarget.getBoundingClientRect()); }, title: tbTitle[id] + (altLabel(idx) ? " (Alt+" + altLabel(idx) + ")" : "") + " · 1초 눌러 위치 이동", className: iconBtn + (tbDrop[id] ? mOn(id) : "") + (tbDrag === id ? " opacity-40 ring-1 ring-blue-400" : ""), style: { position: "relative", minWidth: id === "fs" ? 28 : void 0 }, children: tbContent(id) }, id)) }),
+        o.jsx("div", { className: "flex items-center gap-1 flex-wrap py-1", style: { paddingLeft: 13 }, children: [o.jsx("button", { onClick: () => ddbSpellCheck(ddbBlocksToMd(blocks)), title: "맞춤법 검사 (검사기 열고 붙여넣기)", className: iconBtn, children: "🔤" }, "spell"), ...tbOrder.map((id, idx) => o.jsxs("button", { "data-tbid": id, onMouseDown: e => tbDown(id, e), onClick: e => { if (tbSuppress.current) { tbSuppress.current = false; return; } tbAct(id, e.currentTarget.getBoundingClientRect()); }, title: tbTitle[id] + (altLabel(idx) ? " (Alt+" + altLabel(idx) + ")" : "") + " · 1초 눌러 위치 이동", className: iconBtn + (tbDrop[id] ? mOn(id) : "") + (tbDrag === id ? " opacity-40 ring-1 ring-blue-400" : ""), style: { position: "relative", minWidth: id === "fs" ? 28 : void 0 }, children: tbContent(id) }, id))] }),
         menuPortal
     ] });
     function renderTable(b, bi) {
