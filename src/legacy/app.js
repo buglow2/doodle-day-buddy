@@ -2773,7 +2773,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.62";
+const DDB_VERSION = "0.99.63";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4323,7 +4323,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v399"
+                children: "v400"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9116,6 +9116,15 @@ function jw({
         r({ type: "ADD_MEMO_ITEM", tabId: i.id, item: { id: Ft(), content: l.trim(), createdAt: new Date().toISOString() } }), c(""), (R = u.current) == null || R.focus()
     }
 
+    function persistDraft() {
+        const v = (l || "").trim(); if (!v || !i) return;
+        if (editId) { const it = i.items.find(z => z.id === editId); if (it && it.content !== v) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, content: v } }); }
+        else { r({ type: "ADD_MEMO_ITEM", tabId: i.id, item: { id: Ft(), content: v, createdAt: new Date().toISOString() } }); c(""); }
+    }
+    function saveExisting() { const v = (l || "").trim(); if (!v || !editId || !i) return; const it = i.items.find(z => z.id === editId); if (it && it.content !== v) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, content: v } }); }
+    const flushRef = O.useRef(null); flushRef.current = persistDraft;
+    O.useEffect(() => () => { try { flushRef.current && flushRef.current(); } catch (e) {} }, []);
+
     function F(R) {
         const K = {
             id: Ft(),
@@ -9178,9 +9187,10 @@ function jw({
                     "data-ddb-memo": a,
                     value: l,
                     onChange: R => c(R.target.value),
+                    onBlur: () => saveExisting(),
                     onKeyDown: R => {
                         if (R.key === "Enter" && (R.ctrlKey || R.metaKey)) return H();
-                        if (t.settings.memoKbdNav) { if ((R.ctrlKey || R.metaKey) && R.key === "ArrowLeft") { R.preventDefault(); setSelIdx(0); setMo("list") } else if (R.key === "Escape") escRef.current = Date.now(); else if (R.key === "Backspace" && Date.now() - escRef.current < 1500) { R.preventDefault(); escRef.current = 0; setSelIdx(0); setMo("list") } }
+                        if (t.settings.memoKbdNav) { if ((R.ctrlKey || R.metaKey) && R.key === "ArrowLeft") { R.preventDefault(); persistDraft(); setEditId(null); c(""); setSelIdx(0); setMo("list") } else if (R.key === "Escape") escRef.current = Date.now(); else if (R.key === "Backspace" && Date.now() - escRef.current < 1500) { R.preventDefault(); escRef.current = 0; persistDraft(); setEditId(null); c(""); setSelIdx(0); setMo("list") } }
                     },
                     onPaste: _,
                     placeholder: `내용 입력 (Ctrl+Enter 추가)
@@ -9200,7 +9210,7 @@ function jw({
                         size: 10
                     }), editId ? " 저장 (Ctrl+Enter)" : " 추가 (Ctrl+Enter)"]
                 }), o.jsxs("button", {
-                    onClick: () => { setSelIdx(0); setMo("list") },
+                    onClick: () => { persistDraft(); setEditId(null); c(""); setSelIdx(0); setMo("list") },
                     className: "px-2 py-0.5 text-xs text-white/50 hover:text-white bg-white/8 hover:bg-white/15 rounded flex items-center gap-1 whitespace-nowrap border-none cursor-pointer",
                     children: ["📋 ", DDBTR("목록")]
                 })]
