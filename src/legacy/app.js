@@ -1455,13 +1455,27 @@ function DDBAiDigest() {
         ] })
     ] }), document.body);
 }
+// 팀 모드면 팀 캘린더(team_events)에, 아니면 개인 캘린더(ADD_EVENT)에 일정 추가
+function ddbTeamWriteCtx() { const tc = window.__ddbTeamCtx; return (tc && tc.on && tc.meta) ? tc : null; }
+function ddbAddCalEvent(ev, dispatch) {
+    const tc = ddbTeamWriteCtx();
+    if (tc) {
+        if (!(tc.caps && tc.caps.event)) return false; // 읽기 전용 멤버
+        try { const c = $a(); if (c) { c.from("team_events").insert({ team_id: tc.meta.team_id, data: { title: ev.title, date: ev.date, color: ev.color, customColor: ev.customColor, isAllDay: true }, created_by: tc.uid }).then(() => {}, () => {}); return true; } } catch (e) {}
+        return false;
+    }
+    dispatch({ type: "ADD_EVENT", event: ev });
+    return true;
+}
 function ddbAiFlush(tab, dispatch) {
     if (!tab) return 0;
     const today = ddbLocalDay();
     if (!tab.aiDate) { dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiDate: today } }); return 0; }
     if (tab.aiDate >= today) return 0;
+    const tc = ddbTeamWriteCtx();
+    if (tc && !(tc.caps && tc.caps.event)) return 0; // 팀 읽기전용이면 정리 보류
     const lines = ddbAiLines(tab.aiText);
-    lines.forEach((ln, ix) => dispatch({ type: "ADD_EVENT", event: { id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: ln.slice(0, 200), date: tab.aiDate, color: tab.aiColorName || "green", customColor: (!tab.aiColorName && tab.aiCustom) ? tab.aiCustom : void 0, isAllDay: true } }));
+    lines.forEach((ln, ix) => ddbAddCalEvent({ id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: ln.slice(0, 200), date: tab.aiDate, color: tab.aiColorName || "green", customColor: (!tab.aiColorName && tab.aiCustom) ? tab.aiCustom : void 0, isAllDay: true }, dispatch));
     dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "* ", aiDate: today } });
     return lines.length;
 }
@@ -1493,7 +1507,7 @@ function DDBAiMemoCard({ tab }) {
     const save = v => { setTxt(v); dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: v, aiDate: tab.aiDate || today } }); };
     const setColor = nm => dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiColorName: nm, color: qt[nm] || tab.color } });
     const cnt = ddbAiLines(txt).length;
-    const fileNow = () => { const ls = ddbAiLines(txt); if (!ls.length) return; ls.forEach((ln, ix) => dispatch({ type: "ADD_EVENT", event: { id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: ln.slice(0, 200), date: today, color: colorName, isAllDay: true } })); dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "* ", aiDate: today } }); setTxt("* "); setResetN(n => n + 1); };
+    const fileNow = () => { const ls = ddbAiLines(txt); if (!ls.length) return; const tc = ddbTeamWriteCtx(); if (tc && !(tc.caps && tc.caps.event)) { alert("팀 캘린더에 쓰기 권한이 없어 일정을 추가할 수 없어요. (읽기 전용 멤버)\n팀 관리에서 운영자에게 권한을 요청하세요."); return; } ls.forEach((ln, ix) => ddbAddCalEvent({ id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: ln.slice(0, 200), date: today, color: colorName, isAllDay: true }, dispatch)); dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "* ", aiDate: today } }); setTxt("* "); setResetN(n => n + 1); };
     const chipHex = qt[colorName] || tab.color || "#22c55e";
     const rec = (state.aiDaily || {})[today] || {};
     const tCnt = (rec.tables || []).length, iCnt = (rec.images || []).length;
@@ -1502,7 +1516,7 @@ function DDBAiMemoCard({ tab }) {
         o.jsxs("div", { className: "flex items-center gap-1.5 px-2.5 py-1.5 border-b border-white/10 flex-shrink-0", children: [
             o.jsxs("div", { className: "relative flex-shrink-0", onMouseEnter: () => setTip(true), onMouseLeave: () => setTip(false), children: [
                 o.jsx("div", { className: "w-4 h-4 rounded-full bg-white/10 border border-white/25 text-white/70 text-[10px] flex items-center justify-center cursor-help select-none", children: "i" }),
-                o.jsx("div", { className: "absolute left-0 top-5 z-[60] w-60 px-2.5 py-2 rounded-lg bg-black/90 border border-white/15 text-white/80 text-[11px] leading-relaxed shadow-xl pointer-events-none", style: { opacity: tip ? 1 : 0, transition: "opacity 0.45s ease", visibility: tip ? "visible" : "hidden" }, children: "🤖 한 줄 = 일정 1개 (자정에 그날 날짜로 자동 정리) · 표를 붙여넣으면 메모 안에 표로 바로 들어갑니다 · 이미지 저장 시 자동 보관" })
+                o.jsx("div", { className: "absolute left-0 top-5 z-[60] px-2.5 py-2 rounded-lg bg-black/95 border border-white/15 text-white/80 text-[11px] leading-relaxed shadow-xl pointer-events-none", style: { opacity: tip ? 1 : 0, transition: "opacity 0.45s ease", visibility: tip ? "visible" : "hidden", width: 240, maxWidth: "none", whiteSpace: "normal" }, children: "🤖 한 줄 = 일정 1개 (자정에 그날 날짜로 자동 정리) · 표를 붙여넣으면 메모 안에 표로 바로 들어갑니다 · 이미지 저장 시 자동 보관" })
             ] }),
             o.jsxs("div", { className: "relative flex-shrink-0", children: [
                 o.jsxs("button", { onClick: () => setPalOpen(v => !v), title: "일정 색 선택", className: "flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/8 border border-white/15 hover:bg-white/15 cursor-pointer", children: [
@@ -2782,7 +2796,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.64";
+const DDB_VERSION = "0.99.65";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4332,7 +4346,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v401"
+                children: "v402"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9347,7 +9361,8 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     function delCol(bi) { const b = blocks[bi]; if (!b || b.t !== "table" || b.headers.length <= 1) return; const lc = b.headers.length - 1; const nb = blocks.map((x, i) => i === bi ? { ...x, headers: x.headers.slice(0, -1), rows: x.rows.map(r => r.slice(0, -1)) } : x); const nf = { ...fmt }; Object.keys(nf).forEach(k => { if (k.indexOf(bi + ":") === 0 && k.slice(k.indexOf(",") + 1) === String(lc)) delete nf[k]; }); setBlocks(nb); setFmt(nf); save(nb, nf); }
     function remapFmt(nf, map) { const out = {}; Object.keys(nf).forEach(k => { const ci = k.indexOf(":"); const bi = +k.slice(0, ci); const rest = k.slice(ci); const nb = map(bi); if (nb >= 0) out[nb + rest] = nf[k]; }); return out; }
     function addBlock(kind, at) { const nbk = kind === "table" ? { t: "table", headers: ["열1", "열2", "열3"], rows: [["", "", ""], ["", "", ""]] } : { t: "text", s: "" }; const nb = blocks.slice(); nb.splice(at, 0, nbk); const nf = remapFmt(fmt, bi => bi >= at ? bi + 1 : bi); setBlocks(nb); setFmt(nf); save(nb, nf); setSel(null); }
-    function delBlock(bi) { let nb = blocks.filter((_, i) => i !== bi); const nf = remapFmt(fmt, x => x === bi ? -1 : (x > bi ? x - 1 : x)); if (!nb.length) nb = [{ t: "text", s: "" }]; setBlocks(nb); setFmt(nf); save(nb, nf); setSel(null); }
+    function normalizeBlocks(nb, nf) { const out = []; const map = {}; nb.forEach((b, oi) => { const prev = out[out.length - 1]; if (b.t === "text" && !String(b.s || "").trim() && prev && prev.t === "text" && !String(prev.s || "").trim()) { map[oi] = out.length - 1; return; } map[oi] = out.length; out.push(b); }); if (!out.length) out.push({ t: "text", s: "" }); const rf = remapFmt(nf || {}, bi => (map[bi] != null ? map[bi] : -1)); return { blocks: out, fmt: rf }; }
+    function delBlock(bi) { let nb = blocks.filter((_, i) => i !== bi); let nf = remapFmt(fmt, x => x === bi ? -1 : (x > bi ? x - 1 : x)); if (!nb.length) nb = [{ t: "text", s: "" }]; const z = normalizeBlocks(nb, nf); nb = z.blocks; nf = z.fmt; setBlocks(nb); setFmt(nf); save(nb, nf); setSel(null); }
     function moveBlock(bi, dir) { const j = bi + dir; if (j < 0 || j >= blocks.length) return; const nb = blocks.slice(); const tmp = nb[bi]; nb[bi] = nb[j]; nb[j] = tmp; const nf = remapFmt(fmt, x => x === bi ? j : (x === j ? bi : x)); setBlocks(nb); setFmt(nf); save(nb, nf); setSel(null); }
     function applyFmt(prop, val) { if (!sel) return; const r0 = Math.min(sel.r, sel.r2), r1 = Math.max(sel.r, sel.r2), c0 = Math.min(sel.c, sel.c2), c1 = Math.max(sel.c, sel.c2); const nf = { ...fmt }; for (let rr = r0; rr <= r1; rr++) for (let cc = c0; cc <= c1; cc++) { const k = sel.bi + ":" + rr + "," + cc; const cur = { ...(nf[k] || {}) }; if (val === null || val === void 0 || val === "") delete cur[prop]; else cur[prop] = val; if (Object.keys(cur).length) nf[k] = cur; else delete nf[k]; } setFmt(nf); save(blocks, nf); }
     const twKey = "ddb_tw2_" + itemId;
@@ -9476,6 +9491,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
         if (simpleTables) {
             const PREV = 2; const more = Math.max(0, b.rows.length - PREV);
             return o.jsxs("div", { "data-block": bi, className: "mb-1.5", style: { position: "relative", display: "inline-block", maxWidth: "100%" }, children: [
+                !readOnly ? o.jsx("button", { onClick: e => { e.stopPropagation(); copySel(bi, true); setCopied("표 복사됨! 다른 메모·엑셀에 붙여넣기"); setTimeout(() => setCopied(""), 1600); }, title: "표 복사 (다른 메모/엑셀에 붙여넣기)", style: { position: "absolute", top: -7, right: 16, zIndex: 3, width: 18, height: 18, lineHeight: "16px", textAlign: "center", borderRadius: 999, background: "rgba(59,130,246,0.9)", color: "#fff", border: "1px solid rgba(255,255,255,0.5)", fontSize: 10, cursor: "pointer", padding: 0 }, children: "📋" }) : null,
                 !readOnly ? o.jsx("button", { onClick: e => { e.stopPropagation(); if (window.confirm("이 표를 삭제할까요?")) delBlock(bi); }, title: "표 삭제", style: { position: "absolute", top: -7, right: -7, zIndex: 3, width: 18, height: 18, lineHeight: "16px", textAlign: "center", borderRadius: 999, background: "rgba(244,63,94,0.9)", color: "#fff", border: "1px solid rgba(255,255,255,0.5)", fontSize: 11, cursor: "pointer", padding: 0 }, children: "✕" }) : null,
                 o.jsxs("div", { onDoubleClick: () => { if (!readOnly) setEditTbl(bi); }, title: "더블클릭하면 표 편집창이 열립니다", style: { cursor: "pointer", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 6, overflow: "auto", display: "inline-block", maxWidth: "100%" }, children: [
                     o.jsxs("table", { style: { borderCollapse: "collapse", fontSize: 12 }, children: [
@@ -9504,7 +9520,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     function renderText(b, bi) {
         return o.jsxs("div", { "data-block": bi, className: "mb-1.5" + (dragBi === bi ? " opacity-40" : ""), style: (dropBi === bi && dragBi !== null && dragBi !== bi) ? { boxShadow: "0 -3px 0 0 #60a5fa" } : void 0, children: [
             (!simpleTables && hov) ? o.jsx("div", { className: "flex gap-1 mb-0.5", children: ctrl(bi) }) : null,
-            o.jsx("textarea", { value: b.s == null ? "" : b.s, "data-tb": bi, readOnly: !!readOnly, onMouseDown: ev => ev.stopPropagation(), onFocus: () => { if (readOnly) return; if (onSolo && !soloOn) onSolo(); }, onKeyDown: ev => readOnly ? null : textNav(ev, bi), onPaste: ev => { if (readOnly) return; try { const html = ev.clipboardData.getData("text/html"); const plain = ev.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (!md) return; const g = GT(md); if (!g || !g.headers) return; ev.preventDefault(); const tbl = { t: "table", headers: g.headers, rows: g.rows || [] }; const cur = String(b.s || "").trim(); const ins = []; if (cur) ins.push(b); ins.push(tbl); ins.push({ t: "text", s: (g.trail && g.trail.trim()) ? g.trail.trim() : "" }); const nb = blocks.slice(); nb.splice(bi, 1, ...ins); const added = ins.length - 1; const nf = remapFmt(fmt, x => x > bi ? x + added : x); setBlocks(nb); setFmt(nf); save(nb, nf); } catch (e) {} }, onChange: ev => setText(bi, ev.target.value), placeholder: "메모 입력…", rows: Math.max(2, (String(b.s || "").match(/\n/g) || []).length + 1), className: "w-full px-1 py-0.5 text-white/90 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "transparent", border: "none" } })
+            o.jsx("textarea", { value: b.s == null ? "" : b.s, "data-tb": bi, readOnly: !!readOnly, onMouseDown: ev => ev.stopPropagation(), onFocus: () => { if (readOnly) return; if (onSolo && !soloOn) onSolo(); }, onKeyDown: ev => readOnly ? null : textNav(ev, bi), onPaste: ev => { if (readOnly) return; try { const html = ev.clipboardData.getData("text/html"); const plain = ev.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (!md) return; const g = GT(md); if (!g || !g.headers) return; ev.preventDefault(); const tbl = { t: "table", headers: g.headers, rows: g.rows || [] }; const cur = String(b.s || "").trim(); const ins = []; if (cur) ins.push(b); ins.push(tbl); if (g.trail && g.trail.trim()) ins.push({ t: "text", s: g.trail.trim() }); else ins.push({ t: "text", s: "" }); const nb0 = blocks.slice(); nb0.splice(bi, 1, ...ins); const added = ins.length - 1; const nf0 = remapFmt(fmt, x => x > bi ? x + added : x); const z = normalizeBlocks(nb0, nf0); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } catch (e) {} }, onChange: ev => setText(bi, ev.target.value), placeholder: "메모 입력…", rows: Math.max(2, (String(b.s || "").match(/\n/g) || []).length + 1), className: "w-full px-1 py-0.5 text-white/90 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "transparent", border: "none" } })
         ] }, "b" + bi);
     }
     return o.jsxs("div", { ref: rootRef, tabIndex: -1, onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false), onKeyDown: ev => { ev.stopPropagation(); if (ev.altKey && !ev.ctrlKey && !ev.metaKey && /^[0-9]$/.test(ev.key)) { ev.preventDefault(); const num = +ev.key; const idx = num === 0 ? 9 : num - 1; const id = tbOrder[idx]; if (id) tbAct(id); return; } const ae = document.activeElement; const editingNow = !!(ae && rootRef.current && rootRef.current.contains(ae) && (ae.tagName === "TEXTAREA" || ae.tagName === "INPUT")); if (ev.key === "Escape") { ev.preventDefault(); if (editingNow) { try { ae.blur(); } catch {} setSel(null); setEditKey(null); try { rootRef.current && rootRef.current.focus(); } catch {} } else if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && ev.key === "ArrowLeft") { ev.preventDefault(); if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && (ev.key === "z" || ev.key === "Z")) { ev.preventDefault(); undo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "x" || ev.key === "X"))) { const ae2 = document.activeElement; const hasSel = ae2 && typeof ae2.selectionStart === "number" && ae2.selectionStart !== ae2.selectionEnd; if (hasSel) return; ev.preventDefault(); redo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "y" || ev.key === "Y")) || ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === "z" || ev.key === "Z"))) { ev.preventDefault(); redo(); return; } }, onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: maxH || "400px", maxWidth: "100%" }, children: [
@@ -11683,6 +11699,9 @@ function c4({
                                 children: k.l
                             })]
                         }, k.l))
+                    }), o.jsxs("div", {
+                        className: "flex items-center justify-between gap-2 bg-white/5 rounded-xl px-4 py-3 mb-2",
+                        children: [o.jsxs("div", { className: "flex flex-col", children: [o.jsx("span", { className: "text-white/85 text-sm", children: "🔍 전체 화면 배율" }), o.jsx("span", { className: "text-white/40 text-[11px]", children: "달력뿐 아니라 좌측 할일·메모·창 제목까지 앱 전체 크기 (큰 모니터용)" })] }), o.jsxs("div", { className: "flex items-center gap-1 flex-shrink-0", children: [o.jsx("button", { onClick: () => y("uiZoom", Math.max(0.7, Math.round(((c.uiZoom || 1) - 0.1) * 10) / 10)), className: "w-7 h-7 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "－" }), o.jsx("span", { className: "text-white/85 text-sm w-12 text-center", children: Math.round((c.uiZoom || 1) * 100) + "%" }), o.jsx("button", { onClick: () => y("uiZoom", Math.min(2, Math.round(((c.uiZoom || 1) + 0.1) * 10) / 10)), className: "w-7 h-7 rounded bg-white/10 text-white/80 border-none cursor-pointer", children: "＋" }), o.jsx("button", { onClick: () => y("uiZoom", 1), className: "ml-1 text-[10px] text-white/40 hover:text-white underline bg-transparent border-none cursor-pointer", children: "기본" })] })]
                     }), false && o.jsxs("div", {
                         className: "flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2",
                         children: [o.jsx("span", {
