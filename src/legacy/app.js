@@ -2801,7 +2801,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.70";
+const DDB_VERSION = "0.99.71";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4351,7 +4351,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v407"
+                children: "v408"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9482,8 +9482,19 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     const tbSuppress = O.useRef(false);
     function tbDown(id, ev) { if (ev.button !== 0) return; let started = false; const fromIdx = tbOrder.indexOf(id); const st = { from: fromIdx, to: fromIdx }; const timer = setTimeout(() => { started = true; setTbDrag(id); tbSuppress.current = true; }, 1000); const move = e2 => { if (!started) return; const els = [].slice.call(rootRef.current.querySelectorAll("[data-tbid]")); let t = tbOrder.length - 1; for (let k = 0; k < els.length; k++) { const rc = els[k].getBoundingClientRect(); if (e2.clientX < rc.left + rc.width / 2) { t = k; break; } } st.to = t; }; const up = () => { clearTimeout(timer); document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); if (started) { if (st.from != null && st.to != null && st.from !== st.to) { const no = tbOrder.slice(); const it = no.splice(st.from, 1)[0]; no.splice(st.to, 0, it); setTbOrder(no); try { localStorage.setItem("ddb_tb_order", JSON.stringify(no)); } catch {} } setTbDrag(null); setTimeout(() => { tbSuppress.current = false; }, 60); } }; document.addEventListener("mousemove", move); document.addEventListener("mouseup", up); }
     const altLabel = idx => idx <= 8 ? String(idx + 1) : (idx === 9 ? "0" : "");
-    const toolbar = o.jsxs("div", { className: "sticky top-0 z-10", style: { background: "rgba(12,16,26,0.97)" }, children: [
-        o.jsx("div", { className: "flex items-center gap-1 flex-wrap py-1", style: { paddingLeft: 13 }, children: [o.jsx("button", { onClick: () => ddbSpellCheck(ddbBlocksToMd(blocks)), title: "맞춤법 검사 (검사기 열고 붙여넣기)", className: iconBtn, children: "🔤" }, "spell"), ...tbOrder.map((id, idx) => o.jsxs("button", { "data-tbid": id, onMouseDown: e => tbDown(id, e), onClick: e => { if (tbSuppress.current) { tbSuppress.current = false; return; } tbAct(id, e.currentTarget.getBoundingClientRect()); }, title: tbTitle[id] + (altLabel(idx) ? " (Alt+" + altLabel(idx) + ")" : "") + " · 1초 눌러 위치 이동", className: iconBtn + (tbDrop[id] ? mOn(id) : "") + (tbDrag === id ? " opacity-40 ring-1 ring-blue-400" : ""), style: { position: "relative", minWidth: id === "fs" ? 28 : void 0 }, children: tbContent(id) }, id))] }),
+    const _curTbl = sel ? sel.bi : blocks.findIndex(b => b && b.t === "table");
+    const _rbFmt = id => o.jsxs("button", { "data-tbid": id, onClick: e => tbAct(id, e.currentTarget.getBoundingClientRect()), title: tbTitle[id], className: "h-[24px] px-1.5 rounded border cursor-pointer inline-flex items-center justify-center gap-0.5 text-[11px] " + (menu && menu.id === id ? "bg-blue-500/30 border-blue-400/50 text-white" : "bg-white/5 border-white/10 text-white/85 hover:bg-white/15"), children: [tbContent(id), tbDrop[id] ? o.jsx("span", { className: "text-[8px] text-white/40", children: "▾" }) : null] }, id);
+    const _rbAct = (label, fn, title, danger) => o.jsx("button", { onClick: fn, title: title, className: "h-[24px] px-2 rounded border cursor-pointer inline-flex items-center justify-center text-[11px] whitespace-nowrap " + (danger ? "bg-rose-500/12 border-rose-400/25 text-rose-200 hover:bg-rose-500/22" : "bg-white/5 border-white/10 text-white/85 hover:bg-white/15"), children: label });
+    const _rbGrp = (label, kids) => o.jsxs("div", { className: "flex flex-col items-center justify-between px-2 py-1 flex-shrink-0", style: { borderRight: "1px solid rgba(255,255,255,0.08)" }, children: [o.jsx("div", { className: "flex items-center gap-1", children: kids }), o.jsx("div", { className: "text-[9px] text-white/30 mt-1 leading-none", children: label })] });
+    const toolbar = o.jsxs("div", { className: "sticky top-0 z-10", style: { background: "linear-gradient(#232b3d,#161c28)", borderBottom: "1px solid rgba(255,255,255,0.14)" }, children: [
+        o.jsxs("div", { className: "flex items-stretch overflow-x-auto thin-scroll", children: [
+            _rbGrp("글꼴", [_rbFmt("ff"), _rbFmt("fs"), _rbFmt("b"), _rbFmt("u"), _rbFmt("fg"), _rbFmt("bg")]),
+            _rbGrp("맞춤", [_rbFmt("al"), _rbFmt("ac"), _rbFmt("ar")]),
+            _rbGrp("테두리", [_rbFmt("bw"), _rbFmt("bs")]),
+            _rbGrp("행·열", [_rbAct("행+", () => { if (_curTbl >= 0) addRow(_curTbl); }, "행(가로줄) 추가"), _rbAct("행−", () => { if (_curTbl >= 0) delRow(_curTbl); }, "마지막 행 삭제", true), _rbAct("열+", () => { if (_curTbl >= 0) addCol(_curTbl); }, "열(세로줄) 추가"), _rbAct("열−", () => { if (_curTbl >= 0) delCol(_curTbl); }, "마지막 열 삭제", true)]),
+            _rbGrp("함수", [_rbAct("ƒ 함수", () => setHelp(""), "함수 예제·도움말 보기")]),
+            _rbGrp("도구", [_rbAct("📋 복사", () => { if (_curTbl >= 0) { copySel(_curTbl, false); setCopied("복사됨! 메모·엑셀에 붙여넣기(Ctrl+V)"); setTimeout(() => setCopied(""), 1600); } }, "선택 영역/표 전체 복사"), _rbAct("🔤 맞춤법", () => ddbSpellCheck(ddbBlocksToMd(blocks)), "맞춤법 검사기 열기")])
+        ] }),
         menuPortal
     ] });
     function renderTable(b, bi) {
@@ -17124,9 +17135,13 @@ function DDBDocViewer({ panel }) {
     const [sheets, setSheets] = O.useState(null);
     const [act, setAct] = O.useState(0);
     const [showF, setShowF] = O.useState(false);
+    const [edit, setEdit] = O.useState(false);
+    const [rbTab, setRbTab] = O.useState("edit");
+    const [pg, setPg] = O.useState({ orient: "portrait", fit: true, scale: 100, margin: 10 });
     const [html, setHtml] = O.useState("");
     const [pdfUrl, setPdfUrl] = O.useState("");
     const [dragOver, setDragOver] = O.useState(false);
+    const [, setTick] = O.useState(0);
     const fileRef = O.useRef(null);
     const hwpRef = O.useRef(null);
     O.useEffect(() => { const h = e => { const f = e && e.detail && e.detail.file; if (f) openFile(f); }; window.addEventListener("ddb-open-doc", h); return () => window.removeEventListener("ddb-open-doc", h); }, []);
@@ -17137,7 +17152,7 @@ function DDBDocViewer({ panel }) {
         try {
             if (["xlsx", "xls", "xlsm", "csv"].includes(ext)) {
                 const buf = await f.arrayBuffer(); const wb = _d(buf, { type: "array", cellFormula: true, cellNF: true, cellText: true });
-                setSheets(wb.SheetNames.map(n => ({ name: n, ws: wb.Sheets[n] }))); setAct(0); setShowF(false);
+                setSheets(wb.SheetNames.map(n => ({ name: n, ws: wb.Sheets[n] }))); setAct(0); setShowF(false); setEdit(false); setRbTab("edit");
             } else if (ext === "pdf") { setPdfUrl(URL.createObjectURL(f)); }
             else if (ext === "docx") {
                 const M = await ddbEnsureScript("https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js", "mammoth");
@@ -17151,16 +17166,40 @@ function DDBDocViewer({ panel }) {
     }
     const pick = () => { if (fileRef.current) { fileRef.current.value = ""; fileRef.current.click(); } };
     const pdfRef = O.useRef(null);
-    const printCur = () => { try { if (pdfUrl && pdfRef.current) { try { pdfRef.current.contentWindow.focus(); pdfRef.current.contentWindow.print(); return; } catch (e0) {} } let inner = ""; if (sheets) inner = "<style>@page{size:A4 landscape;margin:7mm}table{border-collapse:collapse;table-layout:auto}td,th{border:1px solid #999;padding:1px 4px;font-size:9px;white-space:nowrap}</style>" + ddbXlsxSheetHtml((sheets[act] || {}).ws, showF); else if (html && html !== "__HWP__") inner = html; else if (html === "__HWP__" && hwpRef.current) inner = hwpRef.current.innerHTML; if (!inner) { flashLike("인쇄할 내용이 없습니다"); return; } const pf = document.createElement("iframe"); pf.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;"; document.body.appendChild(pf); const d = pf.contentDocument || pf.contentWindow.document; d.open(); d.write("<html><head><meta charset='utf-8'><title>" + (name || "print") + "</title></head><body style='margin:14mm;color:#000;background:#fff;font-size:13px;line-height:1.55;font-family:sans-serif'>" + inner + "</body></html>"); d.close(); setTimeout(() => { try { pf.contentWindow.focus(); pf.contentWindow.print(); } catch (e1) {} setTimeout(() => { try { pf.remove(); } catch (e2) {} }, 1500); }, 300); } catch (e) {} };
+    // 셀 직접 수정: "=…"는 수식, 숫자는 숫자값, 그 외는 글자. (수식 재계산은 안 되고 입력한 그대로 저장)
+    const setCellRaw = (addr, text) => { try { const w = (sheets[act] || {}).ws; if (!w) return; const tx = text == null ? "" : String(text); const cur = Object.assign({}, w[addr]); if (tx === "") { delete w[addr]; } else if (tx[0] === "=") { cur.f = tx.slice(1); cur.t = "n"; delete cur.w; if (cur.v == null) cur.v = 0; w[addr] = cur; } else if (tx.trim() !== "" && !isNaN(tx)) { cur.t = "n"; cur.v = Number(tx); cur.w = tx; delete cur.f; w[addr] = cur; } else { cur.t = "s"; cur.v = tx; cur.w = tx; delete cur.f; w[addr] = cur; } } catch (e) {} };
+    const sheetNode = ws => { try { const ref = ws && ws["!ref"]; if (!ref) return o.jsx("table", {}); const rng = f2.decode_range(ref); const rows = []; for (let R = rng.s.r; R <= rng.e.r; R++) { const cells = []; for (let C = rng.s.c; C <= rng.e.c; C++) { const addr = f2.encode_cell({ r: R, c: C }); const cell = ws[addr]; let disp = ""; let mark = false; if (cell) { const val = (cell.w != null ? cell.w : (cell.v != null ? cell.v : "")); if (cell.f && showF) disp = "=" + cell.f; else { disp = String(val); mark = !!cell.f && !edit; } } cells.push(o.jsx("td", { contentEditable: edit, suppressContentEditableWarning: true, onBlur: edit ? (e => { setCellRaw(addr, e.currentTarget.textContent); }) : void 0, title: cell && cell.f ? ("=" + cell.f) : void 0, style: { border: "1px solid #cfcfcf", padding: "2px 7px", minWidth: 52, color: "#111", background: edit ? "#fffdf5" : "#fff", fontSize: 12, whiteSpace: "nowrap", outline: "none", cursor: edit ? "text" : "default" }, children: mark ? [disp, o.jsx("sup", { style: { color: "#2563eb", fontWeight: 700 }, children: "ƒ" }, "f")] : disp }, addr)); } rows.push(o.jsx("tr", { children: cells }, R)); } return o.jsx("table", { style: { borderCollapse: "collapse" }, children: o.jsx("tbody", { children: rows }) }); } catch (e) { return o.jsx("table", {}); } };
+    const saveXlsx = () => { try { if (!sheets) return; const wb = { SheetNames: sheets.map(s => s.name), Sheets: {} }; sheets.forEach(s => { wb.Sheets[s.name] = s.ws; }); const base = (name || "표").replace(/\.(xlsx|xls|xlsm|csv)$/i, ""); XLSX.writeFile(wb, base + "_수정.xlsx"); flashLike("저장했습니다 (" + base + "_수정.xlsx)"); } catch (e) { flashLike("저장 실패: " + ((e && e.message) || e)); } };
+    const pgInner = () => { const land = pg.orient === "landscape"; const sc = Math.max(10, Math.min(400, pg.scale || 100)); const mm = Math.max(0, Math.min(40, pg.margin == null ? 10 : pg.margin)); let body = ""; if (sheets) body = ddbXlsxSheetHtml((sheets[act] || {}).ws, showF); else if (html && html !== "__HWP__") body = html; else if (html === "__HWP__" && hwpRef.current) body = hwpRef.current.innerHTML; const scaleWrap = pg.fit ? body : ("<div style='transform:scale(" + (sc / 100) + ");transform-origin:top left'>" + body + "</div>"); return { land: land, mm: mm, html: "<style>@page{size:A4 " + (land ? "landscape" : "portrait") + ";margin:" + mm + "mm}table{border-collapse:collapse;table-layout:auto}td,th{border:1px solid #999;padding:1px 4px;font-size:9px;white-space:nowrap}sup{font-size:7px}</style>" + scaleWrap }; };
+    const printCur = () => { try { if (pdfUrl && pdfRef.current) { try { pdfRef.current.contentWindow.focus(); pdfRef.current.contentWindow.print(); return; } catch (e0) {} } const pi = pgInner(); if (!pi.html || (!sheets && !html)) { flashLike("인쇄할 내용이 없습니다"); return; } const pf = document.createElement("iframe"); pf.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;"; document.body.appendChild(pf); const d = pf.contentDocument || pf.contentWindow.document; d.open(); d.write("<html><head><meta charset='utf-8'><title>" + (name || "print") + "</title></head><body style='margin:0;color:#000;background:#fff;font-size:13px;line-height:1.55;font-family:sans-serif'>" + pi.html + "</body></html>"); d.close(); setTimeout(() => { try { pf.contentWindow.focus(); pf.contentWindow.print(); } catch (e1) {} setTimeout(() => { try { pf.remove(); } catch (e2) {} }, 1500); }, 300); } catch (e) {} };
     const flashLike = m => { setErr("__msg__" + m); setTimeout(() => setErr(x => x === "__msg__" + m ? "" : x), 2500); };
+    const _lb = on => "px-2 py-1 rounded text-[11px] cursor-pointer border " + (on ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70");
+    const _sb = "w-6 h-6 rounded bg-white/10 text-white/80 border-none cursor-pointer text-[12px]";
     const empty = !sheets && !html && !pdfUrl && !err && !busy;
     return o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }, onDragOver: e => { e.preventDefault(); if (!dragOver) setDragOver(true); }, onDragLeave: () => setDragOver(false), onDrop: e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) openFile(f); }, children: [
-        o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 6px", borderBottom: "1px solid rgba(255,255,255,0.1)" }, children: [
-            o.jsx("button", { onClick: pick, className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#2563eb" }, children: "📂 파일 열기" }),
-            o.jsx("span", { style: { flex: 1, minWidth: 0, fontSize: 11, color: "rgba(255,255,255,0.7)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: name || "엑셀·PDF·워드·한글 파일" }),
-            (sheets || (html && html !== "__HWP__")) && o.jsx("button", { onClick: () => { try { const inner = sheets ? ddbXlsxSheetHtml((sheets[act] || {}).ws, showF) : (html || ""); window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: name || "문서", html: inner, landscape: !!sheets } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤 · 가로/세로)", className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#2563eb" }, children: "🔍 미리보기" }),
-            sheets && o.jsx("button", { onClick: () => setShowF(v => !v), title: showF ? "계산된 값 보기로 전환" : "수식(=…) 그대로 보기로 전환", className: "px-2 py-1 rounded text-[11px] cursor-pointer border flex-shrink-0 " + (showF ? "bg-amber-500/30 border-amber-400/60 text-amber-100" : "bg-white/8 border-white/20 text-white/75"), children: showF ? "ƒ 수식 보기" : "🔢 값 보기" }),
-            (sheets || (html && html !== "__HWP__") || pdfUrl) && o.jsx("button", { onClick: printCur, title: "바로 인쇄 / PDF로 저장", className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#16a34a" }, children: "🖨 인쇄" }),
+        o.jsxs("div", { style: { borderBottom: "1px solid rgba(255,255,255,0.12)", background: "linear-gradient(#222a3a,#161c28)" }, children: [
+            o.jsxs("div", { className: "flex items-center gap-2 px-2 pt-1.5", children: [
+                o.jsx("button", { onClick: pick, className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#2563eb" }, children: "📂 파일 열기" }),
+                o.jsx("span", { style: { flex: 1, minWidth: 0, fontSize: 11, color: "rgba(255,255,255,0.7)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: name || "엑셀·PDF·워드·한글 파일" }),
+                sheets && o.jsx("button", { onClick: () => setRbTab("edit"), className: "px-2.5 py-1 rounded-t text-[11px] cursor-pointer border " + (rbTab === "edit" ? "bg-white/15 text-white border-white/20" : "bg-transparent text-white/55 border-transparent"), children: "표 편집" }),
+                (sheets || (html && html !== "__HWP__") || pdfUrl) && o.jsx("button", { onClick: () => setRbTab("layout"), className: "px-2.5 py-1 rounded-t text-[11px] cursor-pointer border " + (rbTab === "layout" ? "bg-white/15 text-white border-white/20" : "bg-transparent text-white/55 border-transparent"), children: "페이지 레이아웃" })
+            ] }),
+            o.jsx("div", { className: "flex items-center gap-1.5 px-2 py-1.5 flex-wrap", children: (rbTab === "layout") ? [
+                o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("span", { className: "text-white/45 text-[10px]", children: "방향" }), o.jsx("button", { onClick: () => setPg(p => ({ ...p, orient: "portrait" })), className: _lb(pg.orient === "portrait"), children: "세로" }), o.jsx("button", { onClick: () => setPg(p => ({ ...p, orient: "landscape" })), className: _lb(pg.orient === "landscape"), children: "가로" })] }, "o"),
+                o.jsx("div", { style: { width: 1, height: 18, background: "rgba(255,255,255,0.12)" } }, "d1"),
+                o.jsx("button", { onClick: () => setPg(p => ({ ...p, fit: !p.fit })), className: _lb(pg.fit), title: "용지 한 장에 맞춰 자동 축소", children: "한 페이지 맞춤" }, "fit"),
+                o.jsxs("div", { className: "flex items-center gap-1", style: { opacity: pg.fit ? 0.4 : 1 }, children: [o.jsx("span", { className: "text-white/45 text-[10px]", children: "배율" }), o.jsx("button", { onClick: () => { if (!pg.fit) setPg(p => ({ ...p, scale: Math.max(10, (p.scale || 100) - 10) })); }, className: _sb, children: "－" }), o.jsxs("span", { className: "text-white/80 text-[11px] w-10 text-center", children: [pg.scale || 100, "%"] }), o.jsx("button", { onClick: () => { if (!pg.fit) setPg(p => ({ ...p, scale: Math.min(400, (p.scale || 100) + 10) })); }, className: _sb, children: "＋" })] }, "sc"),
+                o.jsx("div", { style: { width: 1, height: 18, background: "rgba(255,255,255,0.12)" } }, "d2"),
+                o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("span", { className: "text-white/45 text-[10px]", children: "여백" }), o.jsx("button", { onClick: () => setPg(p => ({ ...p, margin: Math.max(0, (p.margin == null ? 10 : p.margin) - 1) })), className: _sb, children: "－" }), o.jsxs("span", { className: "text-white/80 text-[11px] w-10 text-center", children: [(pg.margin == null ? 10 : pg.margin), "mm"] }), o.jsx("button", { onClick: () => setPg(p => ({ ...p, margin: Math.min(40, (p.margin == null ? 10 : p.margin) + 1) })), className: _sb, children: "＋" })] }, "mg"),
+                o.jsx("span", { className: "flex-1" }, "sp"),
+                o.jsx("button", { onClick: () => { try { window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: name || "문서", html: (sheets ? ddbXlsxSheetHtml((sheets[act] || {}).ws, showF) : (html || "")), landscape: pg.orient === "landscape" } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤 · 가로/세로)", className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white", style: { background: "#2563eb" }, children: "🔍 미리보기" }, "pv"),
+                o.jsx("button", { onClick: printCur, title: "바로 인쇄 / PDF로 저장", className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white", style: { background: "#16a34a" }, children: "🖨 인쇄" }, "pr")
+            ] : (sheets ? [
+                o.jsx("button", { onClick: () => setEdit(v => !v), className: "px-2 py-1 rounded text-[11px] cursor-pointer border " + (edit ? "bg-emerald-500/30 border-emerald-400/60 text-emerald-100" : "bg-white/8 border-white/20 text-white/80"), title: "셀을 눌러 값·수식을 직접 고칩니다", children: edit ? "✏️ 편집 켜짐" : "✏️ 편집" }, "e"),
+                o.jsx("button", { onClick: () => setShowF(v => !v), className: "px-2 py-1 rounded text-[11px] cursor-pointer border " + (showF ? "bg-amber-500/30 border-amber-400/60 text-amber-100" : "bg-white/8 border-white/20 text-white/75"), title: showF ? "계산된 값 보기로 전환" : "수식(=…) 그대로 보기로 전환", children: showF ? "ƒ 수식 보기" : "🔢 값 보기" }, "f"),
+                o.jsx("button", { onClick: saveXlsx, className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white", style: { background: "#16a34a" }, title: "수정 내용을 새 .xlsx로 저장", children: "💾 .xlsx 저장" }, "s"),
+                o.jsx("span", { className: "text-white/35 text-[10px] ml-1", children: edit ? "셀 클릭→수정 · '='로 시작하면 수식 · 저장 시 값·수식 보존(색·서식 제외)" : "편집을 켜면 셀을 직접 고칠 수 있어요" }, "h")
+            ] : [o.jsx("span", { className: "text-white/40 text-[11px]", children: "엑셀 파일을 열면 편집·저장이 가능합니다" }, "h0")]) }),
             o.jsx("input", { ref: fileRef, type: "file", accept: ".xlsx,.xls,.xlsm,.csv,.pdf,.docx,.hwp", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) openFile(f); }, style: { display: "none" } })
         ] }),
         sheets && sheets.length > 1 && o.jsx("div", { className: "flex items-center gap-1 px-2 py-1 overflow-x-auto", style: { borderBottom: "1px solid rgba(255,255,255,0.08)" }, children: sheets.map((s, i) => o.jsx("button", { onClick: () => setAct(i), className: "px-2 py-0.5 rounded text-[11px] cursor-pointer border flex-shrink-0 " + (act === i ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: s.name }, i)) }),
@@ -17171,7 +17210,7 @@ function DDBDocViewer({ panel }) {
             err && err.indexOf("__msg__") === 0 && o.jsx("div", { style: { padding: 20, color: "rgba(255,255,255,0.75)", fontSize: 12 }, children: err.slice(7) }),
             err && err !== "hwp" && err.indexOf("__msg__") !== 0 && o.jsx("div", { style: { padding: 20, color: "#fca5a5", fontSize: 12 }, children: "열지 못했습니다. (" + err + ")" }),
             empty && o.jsx("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "rgba(255,255,255,0.45)", fontSize: 12, lineHeight: 1.7, whiteSpace: "pre-line" }, children: "여기로 파일을 끌어다 놓거나 '파일 열기'를 누르세요.\n지원: 엑셀(xlsx·xls·csv) · PDF · 워드(docx) · 한글(hwp)\n엑셀은 계산된 값 + 수식(ƒ 표시·토글)까지 그대로 보여줍니다." }),
-            sheets && o.jsx("div", { className: "ddbxls", style: { padding: 4 }, dangerouslySetInnerHTML: { __html: ddbXlsxSheetHtml((sheets[act] || {}).ws, showF) } }),
+            sheets && o.jsx("div", { className: "ddbxls", style: { padding: 4 }, children: sheetNode((sheets[act] || {}).ws) }, "grid-" + act + "-" + (showF ? 1 : 0) + "-" + (edit ? 1 : 0)),
             html && html !== "__HWP__" && o.jsx("div", { className: "ddbdocx", dangerouslySetInnerHTML: { __html: html } }),
             o.jsx("div", { ref: hwpRef, style: { display: html === "__HWP__" ? "block" : "none", background: "#fff" } }),
             pdfUrl && o.jsx("iframe", { ref: pdfRef, src: pdfUrl, title: "pdf", style: { width: "100%", height: "100%", border: "none", background: "#fff" } }),
