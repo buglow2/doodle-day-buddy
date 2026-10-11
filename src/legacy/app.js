@@ -2801,7 +2801,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.69";
+const DDB_VERSION = "0.99.70";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4351,7 +4351,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v406"
+                children: "v407"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -17092,12 +17092,38 @@ function DDBAiPanel({ panel }) {
     ] });
 }
 function ddbEnsureScript(src, glob) { return new Promise((res, rej) => { try { if (glob && window[glob]) return res(window[glob]); const ex = document.querySelector('script[data-ddb-lib="' + src + '"]'); if (ex) { ex.addEventListener("load", () => res(window[glob])); ex.addEventListener("error", () => rej(new Error("load"))); if (glob && window[glob]) res(window[glob]); return; } const s = document.createElement("script"); s.src = src; s.setAttribute("data-ddb-lib", src); s.onload = () => res(glob ? window[glob] : true); s.onerror = () => rej(new Error("load")); document.head.appendChild(s); } catch (e) { rej(e); } }); }
+// 엑셀 시트 → HTML 표. showF=true면 수식(=…) 글자 그대로, 아니면 계산된 값 + 수식셀에 ƒ 표시(마우스 올리면 수식 툴팁)
+function ddbXlsxSheetHtml(ws, showF) {
+    try {
+        const ref = ws && ws["!ref"]; if (!ref) return "<table></table>";
+        const esc = s => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const rng = f2.decode_range(ref);
+        let html = "<table>";
+        for (let R = rng.s.r; R <= rng.e.r; R++) {
+            html += "<tr>";
+            for (let C = rng.s.c; C <= rng.e.c; C++) {
+                const addr = f2.encode_cell({ r: R, c: C });
+                const cell = ws[addr];
+                let disp = "", title = "";
+                if (cell) {
+                    const val = (cell.w != null ? cell.w : (cell.v != null ? cell.v : ""));
+                    if (cell.f) { title = " title=\"=" + esc(cell.f) + "\""; disp = showF ? ("=" + esc(cell.f)) : (esc(val) + "<sup style='color:#2563eb;font-weight:700'>ƒ</sup>"); }
+                    else disp = esc(val);
+                }
+                html += "<td" + title + ">" + disp + "</td>";
+            }
+            html += "</tr>";
+        }
+        return html + "</table>";
+    } catch (e) { return "<table></table>"; }
+}
 function DDBDocViewer({ panel }) {
     const [name, setName] = O.useState("");
     const [err, setErr] = O.useState("");
     const [busy, setBusy] = O.useState(false);
     const [sheets, setSheets] = O.useState(null);
     const [act, setAct] = O.useState(0);
+    const [showF, setShowF] = O.useState(false);
     const [html, setHtml] = O.useState("");
     const [pdfUrl, setPdfUrl] = O.useState("");
     const [dragOver, setDragOver] = O.useState(false);
@@ -17110,9 +17136,8 @@ function DDBDocViewer({ panel }) {
         const ext = (f.name.split(".").pop() || "").toLowerCase();
         try {
             if (["xlsx", "xls", "xlsm", "csv"].includes(ext)) {
-                const X = await ddbEnsureScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js", "XLSX");
-                const buf = await f.arrayBuffer(); const wb = X.read(buf, { type: "array" });
-                setSheets(wb.SheetNames.map(n => ({ name: n, html: X.utils.sheet_to_html(wb.Sheets[n]) }))); setAct(0);
+                const buf = await f.arrayBuffer(); const wb = _d(buf, { type: "array", cellFormula: true, cellNF: true, cellText: true });
+                setSheets(wb.SheetNames.map(n => ({ name: n, ws: wb.Sheets[n] }))); setAct(0); setShowF(false);
             } else if (ext === "pdf") { setPdfUrl(URL.createObjectURL(f)); }
             else if (ext === "docx") {
                 const M = await ddbEnsureScript("https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js", "mammoth");
@@ -17126,14 +17151,15 @@ function DDBDocViewer({ panel }) {
     }
     const pick = () => { if (fileRef.current) { fileRef.current.value = ""; fileRef.current.click(); } };
     const pdfRef = O.useRef(null);
-    const printCur = () => { try { if (pdfUrl && pdfRef.current) { try { pdfRef.current.contentWindow.focus(); pdfRef.current.contentWindow.print(); return; } catch (e0) {} } let inner = ""; if (sheets) inner = "<style>@page{size:A4 landscape;margin:7mm}table{border-collapse:collapse;table-layout:auto}td,th{border:1px solid #999;padding:1px 4px;font-size:9px;white-space:nowrap}</style>" + ((sheets[act] || {}).html || ""); else if (html && html !== "__HWP__") inner = html; else if (html === "__HWP__" && hwpRef.current) inner = hwpRef.current.innerHTML; if (!inner) { flashLike("인쇄할 내용이 없습니다"); return; } const pf = document.createElement("iframe"); pf.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;"; document.body.appendChild(pf); const d = pf.contentDocument || pf.contentWindow.document; d.open(); d.write("<html><head><meta charset='utf-8'><title>" + (name || "print") + "</title></head><body style='margin:14mm;color:#000;background:#fff;font-size:13px;line-height:1.55;font-family:sans-serif'>" + inner + "</body></html>"); d.close(); setTimeout(() => { try { pf.contentWindow.focus(); pf.contentWindow.print(); } catch (e1) {} setTimeout(() => { try { pf.remove(); } catch (e2) {} }, 1500); }, 300); } catch (e) {} };
+    const printCur = () => { try { if (pdfUrl && pdfRef.current) { try { pdfRef.current.contentWindow.focus(); pdfRef.current.contentWindow.print(); return; } catch (e0) {} } let inner = ""; if (sheets) inner = "<style>@page{size:A4 landscape;margin:7mm}table{border-collapse:collapse;table-layout:auto}td,th{border:1px solid #999;padding:1px 4px;font-size:9px;white-space:nowrap}</style>" + ddbXlsxSheetHtml((sheets[act] || {}).ws, showF); else if (html && html !== "__HWP__") inner = html; else if (html === "__HWP__" && hwpRef.current) inner = hwpRef.current.innerHTML; if (!inner) { flashLike("인쇄할 내용이 없습니다"); return; } const pf = document.createElement("iframe"); pf.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;"; document.body.appendChild(pf); const d = pf.contentDocument || pf.contentWindow.document; d.open(); d.write("<html><head><meta charset='utf-8'><title>" + (name || "print") + "</title></head><body style='margin:14mm;color:#000;background:#fff;font-size:13px;line-height:1.55;font-family:sans-serif'>" + inner + "</body></html>"); d.close(); setTimeout(() => { try { pf.contentWindow.focus(); pf.contentWindow.print(); } catch (e1) {} setTimeout(() => { try { pf.remove(); } catch (e2) {} }, 1500); }, 300); } catch (e) {} };
     const flashLike = m => { setErr("__msg__" + m); setTimeout(() => setErr(x => x === "__msg__" + m ? "" : x), 2500); };
     const empty = !sheets && !html && !pdfUrl && !err && !busy;
     return o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }, onDragOver: e => { e.preventDefault(); if (!dragOver) setDragOver(true); }, onDragLeave: () => setDragOver(false), onDrop: e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) openFile(f); }, children: [
         o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 6px", borderBottom: "1px solid rgba(255,255,255,0.1)" }, children: [
             o.jsx("button", { onClick: pick, className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#2563eb" }, children: "📂 파일 열기" }),
             o.jsx("span", { style: { flex: 1, minWidth: 0, fontSize: 11, color: "rgba(255,255,255,0.7)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: name || "엑셀·PDF·워드·한글 파일" }),
-            (sheets || (html && html !== "__HWP__")) && o.jsx("button", { onClick: () => { try { const inner = sheets ? ((sheets[act] || {}).html || "") : (html || ""); window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: name || "문서", html: inner, landscape: !!sheets } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤 · 가로/세로)", className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#2563eb" }, children: "🔍 미리보기" }),
+            (sheets || (html && html !== "__HWP__")) && o.jsx("button", { onClick: () => { try { const inner = sheets ? ddbXlsxSheetHtml((sheets[act] || {}).ws, showF) : (html || ""); window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: name || "문서", html: inner, landscape: !!sheets } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤 · 가로/세로)", className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#2563eb" }, children: "🔍 미리보기" }),
+            sheets && o.jsx("button", { onClick: () => setShowF(v => !v), title: showF ? "계산된 값 보기로 전환" : "수식(=…) 그대로 보기로 전환", className: "px-2 py-1 rounded text-[11px] cursor-pointer border flex-shrink-0 " + (showF ? "bg-amber-500/30 border-amber-400/60 text-amber-100" : "bg-white/8 border-white/20 text-white/75"), children: showF ? "ƒ 수식 보기" : "🔢 값 보기" }),
             (sheets || (html && html !== "__HWP__") || pdfUrl) && o.jsx("button", { onClick: printCur, title: "바로 인쇄 / PDF로 저장", className: "px-2 py-1 rounded text-[11px] cursor-pointer border-none text-white flex-shrink-0", style: { background: "#16a34a" }, children: "🖨 인쇄" }),
             o.jsx("input", { ref: fileRef, type: "file", accept: ".xlsx,.xls,.xlsm,.csv,.pdf,.docx,.hwp", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) openFile(f); }, style: { display: "none" } })
         ] }),
@@ -17144,8 +17170,8 @@ function DDBDocViewer({ panel }) {
             err === "hwp" && o.jsxs("div", { style: { padding: 20, color: "rgba(255,255,255,0.78)", fontSize: 12, lineHeight: 1.8 }, children: ["한글(.hwp) 파일은 앱 안에서 안정적으로 열기 어렵습니다.", o.jsx("br", {}), "(브라우저용 한글 렌더러가 제한적이고 .hwpx는 미지원)", o.jsx("br", {}), o.jsx("b", { style: { color: "#fde68a" }, children: "→ 한글에서 '다른 이름으로 저장 → PDF'로 내보낸 뒤 그 PDF를 열면 화면·인쇄가 정상입니다." })] }),
             err && err.indexOf("__msg__") === 0 && o.jsx("div", { style: { padding: 20, color: "rgba(255,255,255,0.75)", fontSize: 12 }, children: err.slice(7) }),
             err && err !== "hwp" && err.indexOf("__msg__") !== 0 && o.jsx("div", { style: { padding: 20, color: "#fca5a5", fontSize: 12 }, children: "열지 못했습니다. (" + err + ")" }),
-            empty && o.jsx("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "rgba(255,255,255,0.45)", fontSize: 12, lineHeight: 1.7 }, children: "여기로 파일을 끌어다 놓거나 '파일 열기'를 누르세요.\n지원: 엑셀(xlsx·xls·csv) · PDF · 워드(docx) · 한글(hwp)" }),
-            sheets && o.jsx("div", { className: "ddbxls", style: { padding: 4 }, dangerouslySetInnerHTML: { __html: (sheets[act] || {}).html || "" } }),
+            empty && o.jsx("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "rgba(255,255,255,0.45)", fontSize: 12, lineHeight: 1.7, whiteSpace: "pre-line" }, children: "여기로 파일을 끌어다 놓거나 '파일 열기'를 누르세요.\n지원: 엑셀(xlsx·xls·csv) · PDF · 워드(docx) · 한글(hwp)\n엑셀은 계산된 값 + 수식(ƒ 표시·토글)까지 그대로 보여줍니다." }),
+            sheets && o.jsx("div", { className: "ddbxls", style: { padding: 4 }, dangerouslySetInnerHTML: { __html: ddbXlsxSheetHtml((sheets[act] || {}).ws, showF) } }),
             html && html !== "__HWP__" && o.jsx("div", { className: "ddbdocx", dangerouslySetInnerHTML: { __html: html } }),
             o.jsx("div", { ref: hwpRef, style: { display: html === "__HWP__" ? "block" : "none", background: "#fff" } }),
             pdfUrl && o.jsx("iframe", { ref: pdfRef, src: pdfUrl, title: "pdf", style: { width: "100%", height: "100%", border: "none", background: "#fff" } }),
