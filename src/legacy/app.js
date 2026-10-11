@@ -607,7 +607,7 @@ function DDBImageEditor() {
         const openH = e => { setOpen(true); ensureFabric().then(() => setReady(true)).catch(() => setLoadErr("그리기 엔진을 불러오지 못했습니다.")); if (e && e.detail && e.detail.url) loadUrl(e.detail.url); };
         const over = e => { try { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") >= 0) e.preventDefault(); } catch {} };
         const drop = e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f && f.type && f.type.indexOf("image") === 0) { e.preventDefault(); const r = new FileReader(); r.onload = () => loadUrl(r.result); r.readAsDataURL(f); } };
-        const gPaste = e => { const ae = document.activeElement; const editable = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable); const items = e.clipboardData && e.clipboardData.items; if (!items) return; let file = null; for (let i = 0; i < items.length; i++) { const it = items[i]; if (it.type && it.type.indexOf("image") === 0) { file = it.getAsFile(); break; } } if (!file) return; const types = (e.clipboardData && e.clipboardData.types) || []; const hasText = Array.prototype.some.call(types, ty => ty === "text/html" || ty === "text/plain"); if (hasText && (editable || (ae && ae.closest && ae.closest("[data-ddb-doc]")))) return; e.preventDefault(); const r = new FileReader(); r.onload = () => { if (openRef.current && hasImgRef.current) addPageWithUrl(r.result); else loadUrl(r.result); }; r.readAsDataURL(file); };
+        const gPaste = e => { const ae = document.activeElement; const editable = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable); const items = e.clipboardData && e.clipboardData.items; if (!items) return; let file = null; for (let i = 0; i < items.length; i++) { const it = items[i]; if (it.type && it.type.indexOf("image") === 0) { file = it.getAsFile(); break; } } if (!file) return; const types = (e.clipboardData && e.clipboardData.types) || []; const hasText = Array.prototype.some.call(types, ty => ty === "text/html" || ty === "text/plain"); try { const _h = e.clipboardData.getData("text/html"); if (_h && /<table[\s>]/i.test(_h)) return; } catch (er) {} const _plain = (() => { try { return e.clipboardData.getData("text/plain"); } catch (er) { return ""; } })(); if (_plain && _plain.indexOf("\t") >= 0 && (ae && ae.closest && ae.closest("[data-ddb-doc]"))) return; if (hasText && (editable || (ae && ae.closest && ae.closest("[data-ddb-doc]")))) return; e.preventDefault(); const r = new FileReader(); r.onload = () => { if (openRef.current && hasImgRef.current) addPageWithUrl(r.result); else loadUrl(r.result); }; r.readAsDataURL(file); };
         window.addEventListener("ddb-image-edit", openH);
         window.addEventListener("dragover", over);
         window.addEventListener("drop", drop);
@@ -2801,7 +2801,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.68";
+const DDB_VERSION = "0.99.69";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4351,7 +4351,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v405"
+                children: "v406"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9490,8 +9490,11 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
         if (simpleTables) {
             const PREV = 2; const more = Math.max(0, b.rows.length - PREV);
             return o.jsxs("div", { "data-block": bi, className: "mb-1.5", style: { position: "relative", display: "inline-block", maxWidth: "100%" }, children: [
-                !readOnly ? o.jsx("button", { onClick: e => { e.stopPropagation(); const hasSel = sel && sel.bi === bi; copySel(bi, false); setCopied(hasSel ? "선택 영역 복사됨! 붙여넣기" : "표 전체 복사됨! 붙여넣기"); setTimeout(() => setCopied(""), 1600); }, title: "셀을 드래그로 선택하면 그 부분만, 아니면 표 전체 복사", style: { position: "absolute", top: -7, right: 16, zIndex: 3, width: 18, height: 18, lineHeight: "16px", textAlign: "center", borderRadius: 999, background: "rgba(59,130,246,0.9)", color: "#fff", border: "1px solid rgba(255,255,255,0.5)", fontSize: 10, cursor: "pointer", padding: 0 }, children: "📋" }) : null,
-                !readOnly ? o.jsx("button", { onClick: e => { e.stopPropagation(); if (window.confirm("이 표를 삭제할까요?")) delBlock(bi); }, title: "표 삭제", style: { position: "absolute", top: -7, right: -7, zIndex: 3, width: 18, height: 18, lineHeight: "16px", textAlign: "center", borderRadius: 999, background: "rgba(244,63,94,0.9)", color: "#fff", border: "1px solid rgba(255,255,255,0.5)", fontSize: 11, cursor: "pointer", padding: 0 }, children: "✕" }) : null,
+                !readOnly ? o.jsxs("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 5, flexWrap: "wrap" }, children: [
+                    o.jsx("button", { onClick: e => { e.stopPropagation(); const hasSel = sel && sel.bi === bi; copySel(bi, false); setCopied(hasSel ? "선택 영역 복사됨! 붙여넣기" : "표 전체 복사됨! 붙여넣기"); setTimeout(() => setCopied(""), 1600); }, title: "셀을 드래그로 선택하면 그 부분만, 아니면 표 전체 복사", style: { display: "inline-flex", alignItems: "center", gap: 3, height: 20, padding: "0 8px", borderRadius: 999, background: "rgba(59,130,246,0.9)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", fontSize: 10, cursor: "pointer" }, children: "📋 복사" }),
+                    o.jsx("button", { onClick: e => { e.stopPropagation(); if (window.confirm("이 표를 삭제할까요?")) delBlock(bi); }, title: "표 삭제", style: { display: "inline-flex", alignItems: "center", gap: 3, height: 20, padding: "0 8px", borderRadius: 999, background: "rgba(244,63,94,0.9)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", fontSize: 10, cursor: "pointer" }, children: "✕ 삭제" }),
+                    o.jsx("span", { style: { fontSize: 9, color: "rgba(255,255,255,0.35)" }, children: "셀 드래그=부분복사 · 더블클릭=편집" })
+                ] }) : null,
                 o.jsxs("div", { onDoubleClick: () => { if (!readOnly) setEditTbl(bi); }, title: "더블클릭하면 표 편집창이 열립니다", style: { cursor: "pointer", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 6, overflow: "auto", display: "inline-block", maxWidth: "100%" }, children: [
                     o.jsxs("table", { style: { borderCollapse: "collapse", fontSize: 12 }, children: [
                         o.jsx("thead", { children: o.jsx("tr", { children: b.headers.map((_h, c) => o.jsx("th", { "data-cell": bi + ":-1:" + c, onMouseDown: ev => { if (readOnly) return; ev.stopPropagation(); cellDown(bi, -1, c, ev); }, style: { border: "1px solid rgba(255,255,255,0.16)", padding: "3px 8px", background: "rgba(255,255,255,0.08)", color: "#fff", fontWeight: 600, textAlign: "left", whiteSpace: "pre-wrap", verticalAlign: "top", outline: inRange(bi, -1, c) ? "2px solid #60a5fa" : void 0, outlineOffset: "-2px" }, children: ddbCellDisp(b, -1, c) }, c)) }) }),
