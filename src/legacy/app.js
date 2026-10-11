@@ -607,7 +607,7 @@ function DDBImageEditor() {
         const openH = e => { setOpen(true); ensureFabric().then(() => setReady(true)).catch(() => setLoadErr("그리기 엔진을 불러오지 못했습니다.")); if (e && e.detail && e.detail.url) loadUrl(e.detail.url); };
         const over = e => { try { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") >= 0) e.preventDefault(); } catch {} };
         const drop = e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f && f.type && f.type.indexOf("image") === 0) { e.preventDefault(); const r = new FileReader(); r.onload = () => loadUrl(r.result); r.readAsDataURL(f); } };
-        const gPaste = e => { const ae = document.activeElement; const editable = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable); const items = e.clipboardData && e.clipboardData.items; if (!items) return; let file = null; for (let i = 0; i < items.length; i++) { const it = items[i]; if (it.type && it.type.indexOf("image") === 0) { file = it.getAsFile(); break; } } if (!file) return; const types = (e.clipboardData && e.clipboardData.types) || []; const hasText = Array.prototype.some.call(types, ty => ty === "text/html" || ty === "text/plain"); if (editable && hasText) return; e.preventDefault(); const r = new FileReader(); r.onload = () => { if (openRef.current && hasImgRef.current) addPageWithUrl(r.result); else loadUrl(r.result); }; r.readAsDataURL(file); };
+        const gPaste = e => { const ae = document.activeElement; const editable = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable); const items = e.clipboardData && e.clipboardData.items; if (!items) return; let file = null; for (let i = 0; i < items.length; i++) { const it = items[i]; if (it.type && it.type.indexOf("image") === 0) { file = it.getAsFile(); break; } } if (!file) return; const types = (e.clipboardData && e.clipboardData.types) || []; const hasText = Array.prototype.some.call(types, ty => ty === "text/html" || ty === "text/plain"); if (hasText && (editable || (ae && ae.closest && ae.closest("[data-ddb-doc]")))) return; e.preventDefault(); const r = new FileReader(); r.onload = () => { if (openRef.current && hasImgRef.current) addPageWithUrl(r.result); else loadUrl(r.result); }; r.readAsDataURL(file); };
         window.addEventListener("ddb-image-edit", openH);
         window.addEventListener("dragover", over);
         window.addEventListener("drop", drop);
@@ -2801,7 +2801,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.67";
+const DDB_VERSION = "0.99.68";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4351,7 +4351,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v404"
+                children: "v405"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8325,7 +8325,7 @@ function fd({
                                     gr.stopPropagation(), P(_e, J)
                                 },
                                 onMouseEnter: gr => {
-                                    clearTimeout(de.current), clearTimeout(Fe.current);
+                                    clearTimeout(de.current), clearTimeout(Fe.current), he(null);
                                     const ps = gr.currentTarget.getBoundingClientRect();
                                     ue({
                                         ev: _e,
@@ -8411,7 +8411,7 @@ function fd({
                                     v(_e), p(J), y(""), _(!0)
                                 },
                                 onMouseEnter: Et => {
-                                    clearTimeout(de.current), clearTimeout(Fe.current);
+                                    clearTimeout(de.current), clearTimeout(Fe.current), he(null);
                                     const gr = Et.currentTarget.getBoundingClientRect();
                                     ue({
                                         ev: _e,
@@ -9522,7 +9522,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
             o.jsx("textarea", { value: b.s == null ? "" : b.s, "data-tb": bi, readOnly: !!readOnly, onMouseDown: ev => ev.stopPropagation(), onFocus: () => { if (readOnly) return; if (onSolo && !soloOn) onSolo(); }, onKeyDown: ev => readOnly ? null : textNav(ev, bi), onPaste: ev => { if (readOnly) return; try { const html = ev.clipboardData.getData("text/html"); const plain = ev.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (!md) return; const g = GT(md); if (!g || !g.headers) return; ev.preventDefault(); const tbl = { t: "table", headers: g.headers, rows: g.rows || [] }; const cur = String(b.s || "").trim(); const ins = []; if (cur) ins.push(b); ins.push(tbl); if (g.trail && g.trail.trim()) ins.push({ t: "text", s: g.trail.trim() }); else ins.push({ t: "text", s: "" }); const nb0 = blocks.slice(); nb0.splice(bi, 1, ...ins); const added = ins.length - 1; const nf0 = remapFmt(fmt, x => x > bi ? x + added : x); const z = normalizeBlocks(nb0, nf0); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } catch (e) {} }, onChange: ev => setText(bi, ev.target.value), placeholder: "메모 입력…", rows: Math.max(2, (String(b.s || "").match(/\n/g) || []).length + 1), className: "w-full px-1 py-0.5 text-white/90 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "transparent", border: "none" } })
         ] }, "b" + bi);
     }
-    return o.jsxs("div", { ref: rootRef, tabIndex: -1, onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false), onKeyDown: ev => { ev.stopPropagation(); if (ev.altKey && !ev.ctrlKey && !ev.metaKey && /^[0-9]$/.test(ev.key)) { ev.preventDefault(); const num = +ev.key; const idx = num === 0 ? 9 : num - 1; const id = tbOrder[idx]; if (id) tbAct(id); return; } const ae = document.activeElement; const editingNow = !!(ae && rootRef.current && rootRef.current.contains(ae) && (ae.tagName === "TEXTAREA" || ae.tagName === "INPUT")); if (ev.key === "Escape") { ev.preventDefault(); if (editingNow) { try { ae.blur(); } catch {} setSel(null); setEditKey(null); try { rootRef.current && rootRef.current.focus(); } catch {} } else if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && ev.key === "ArrowLeft") { ev.preventDefault(); if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && (ev.key === "z" || ev.key === "Z")) { ev.preventDefault(); undo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "x" || ev.key === "X"))) { const ae2 = document.activeElement; const hasSel = ae2 && typeof ae2.selectionStart === "number" && ae2.selectionStart !== ae2.selectionEnd; if (hasSel) return; ev.preventDefault(); redo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "y" || ev.key === "Y")) || ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === "z" || ev.key === "Z"))) { ev.preventDefault(); redo(); return; } }, onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: maxH || "400px", maxWidth: "100%" }, children: [
+    return o.jsxs("div", { ref: rootRef, tabIndex: -1, "data-ddb-doc": "1", onPasteCapture: ev => { if (readOnly) return; try { const ae = document.activeElement; if (ae && ae.tagName === "TEXTAREA" && ae.getAttribute("data-tb") != null) return; const html = ev.clipboardData.getData("text/html"); const plain = ev.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (!md) return; const g = GT(md); if (!g || !g.headers) return; ev.preventDefault(); ev.stopPropagation(); const tbl = { t: "table", headers: g.headers, rows: g.rows || [] }; const ins = [tbl]; if (g.trail && g.trail.trim()) ins.push({ t: "text", s: g.trail.trim() }); const nb0 = blocks.concat(ins); const z = normalizeBlocks(nb0, fmt); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } catch (e) {} }, onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false), onKeyDown: ev => { ev.stopPropagation(); if (ev.altKey && !ev.ctrlKey && !ev.metaKey && /^[0-9]$/.test(ev.key)) { ev.preventDefault(); const num = +ev.key; const idx = num === 0 ? 9 : num - 1; const id = tbOrder[idx]; if (id) tbAct(id); return; } const ae = document.activeElement; const editingNow = !!(ae && rootRef.current && rootRef.current.contains(ae) && (ae.tagName === "TEXTAREA" || ae.tagName === "INPUT")); if (ev.key === "Escape") { ev.preventDefault(); if (editingNow) { try { ae.blur(); } catch {} setSel(null); setEditKey(null); try { rootRef.current && rootRef.current.focus(); } catch {} } else if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && ev.key === "ArrowLeft") { ev.preventDefault(); if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && (ev.key === "z" || ev.key === "Z")) { ev.preventDefault(); undo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "x" || ev.key === "X"))) { const ae2 = document.activeElement; const hasSel = ae2 && typeof ae2.selectionStart === "number" && ae2.selectionStart !== ae2.selectionEnd; if (hasSel) return; ev.preventDefault(); redo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "y" || ev.key === "Y")) || ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === "z" || ev.key === "Z"))) { ev.preventDefault(); redo(); return; } }, onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: maxH || "400px", maxWidth: "100%" }, children: [
         active ? toolbar : null,
         fxPortal,
         cmenuPortal,
