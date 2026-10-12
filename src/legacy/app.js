@@ -1036,7 +1036,7 @@ function DDBTableWindow() {
     const _dh = ddbDragH(() => geo, setGeo);
     O.useEffect(() => { try { localStorage.setItem("ddb_table_geo", JSON.stringify(geo)); } catch {} }, [geo]);
     O.useEffect(() => { const h = () => { try { snapRef.current = JSON.parse(JSON.stringify(tablesRef.current)); } catch (e) { snapRef.current = null; } setAskClose(false); setOpen(true); }; window.addEventListener("ddb-open-table", h); return () => window.removeEventListener("ddb-open-table", h); }, []);
-    O.useEffect(() => { if (!open) return; const k = e => { if (e.altKey && (e.key === "F4" || e.key === "ß")) { e.preventDefault(); e.stopPropagation(); setAskClose(true); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, [open]);
+    O.useEffect(() => { if (!open) return; const k = e => { if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "x" || e.key === "X" || e.key === "ㅌ" || e.code === "KeyX")) { e.preventDefault(); e.stopPropagation(); setAskClose(true); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, [open]);
     const saveTables = t => { setTables(t); try { localStorage.setItem("ddb_tables", JSON.stringify(t)); } catch {} };
     const tab = tables[Math.min(ti, tables.length - 1)] || tables[0];
     const _blank = () => ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]);
@@ -1053,7 +1053,7 @@ function DDBTableWindow() {
             o.jsx("button", { onClick: newTable, title: "새 표", className: "px-2 py-0.5 rounded text-xs bg-white/10 text-white/70 hover:bg-white/20 cursor-pointer border-none", children: "＋" }),
             o.jsx("button", { onClick: () => { try { window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: tab.name || "표", html: ddbBlocksToPrintHtml(tab.content), landscape: true } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤)", className: "px-2 py-0.5 rounded text-xs bg-green-600/70 text-white hover:bg-green-600 cursor-pointer border-none", children: "🖨 인쇄" }),
             o.jsx("button", { onClick: delTable, title: "이 표 삭제", className: "px-1.5 py-0.5 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none", children: "🗑" }),
-            o.jsx("button", { onClick: () => setAskClose(true), title: "닫기 (저장 확인)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
+            o.jsx("button", { onClick: () => setAskClose(true), title: "닫기 (Alt+X · 저장 확인)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
         ] }),
         o.jsx("div", { className: "flex-1 overflow-auto p-2", children: o.jsx(DDBDocEditor, { content: tab.content, fontSize: 13, onCommit: saveContent, itemId: "tblwin-" + tab.id, soloOn: true, maxH: "none" }, tab.id) }),
         o.jsx("div", { onMouseDown: resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) }),
@@ -2814,7 +2814,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.86";
+const DDB_VERSION = "0.99.87";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4364,7 +4364,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v423"
+                children: "v424"
             }), (() => {
                 const S = [{
                     k: "cal",
