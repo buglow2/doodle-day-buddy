@@ -899,6 +899,11 @@ function DDBImageEditor() {
     const _sbGrp = (label, kids) => o.jsxs("div", { style: { display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "1px 8px", borderRight: "1px solid #dcdbda", flexShrink: 0 }, children: [o.jsx("div", { style: { display: "flex", alignItems: "center", gap: 7, flex: 1, flexWrap: "wrap" }, children: kids }), o.jsx("div", { style: { color: "#8a8886", fontSize: 9, fontWeight: 600, textAlign: "center", marginTop: 1 }, children: label })] });
     const _sbLbl = (txt, node) => o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 4, color: "#444", fontSize: 11 }, children: [txt, node] });
     const _sbColor = (val, onCh) => o.jsx("input", { type: "color", value: val, onChange: e => onCh(e.target.value), style: { width: 24, height: 22, borderRadius: 3, cursor: "pointer", border: "1px solid #c8c6c4", padding: 0, background: "#fff" } });
+    const toggleTextStyle = (prop, onVal, offVal) => { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (!a) return; const objs = a.type === "activeSelection" ? a.getObjects() : [a]; let any = false; objs.forEach(o2 => { if (o2.type === "i-text" || o2.type === "text") { any = true; const cur = o2[prop]; o2.set(prop, (cur === onVal) ? offVal : onVal); } }); if (!any) return; a.setCoords && a.setCoords(); c.requestRenderAll(); try { pushHist(); } catch (e) {} };
+    const _tf = (fo0 && (fo0.type === "i-text" || fo0.type === "text")) ? fo0 : null;
+    const _curFsz = _tf ? (_tf.fontSize || fsz) : fsz;
+    const sizeStep = d => setFsz(Math.max(6, Math.min(400, Math.round(_curFsz) + d)));
+    const _tfb = (label, active, onClick, title, extraStyle) => o.jsx("button", { onClick: onClick, title: title, className: "ddbsb-btn" + (active ? " on" : ""), style: Object.assign({ width: 24, height: 22, fontSize: 13 }, extraStyle || {}), children: label });
     const ppRibbon = o.jsxs("div", { style: { display: "flex", alignItems: "stretch" }, children: [
         _pgrp("클립보드", [_pbig("copy", "복사", doCopy, false, !hasImg), _pcol([_pibL("matchprop", "서식 복사", () => setTool("matchprop"), tool === "matchprop"), _pibL("save", "저장", doSave, false, !hasImg)])]),
         _pgrp("삽입", [_pbig("imgbg", "이미지", () => openFilePick("bg")), _pcol([_pibL("imgobj", "이미지 삽입", () => openFilePick("obj")), _pibL("blank", "새 페이지", addPage), _pibL("imgset", "이미지 설정", () => { setIset({ w: Math.round(natRef.current.w || 800), h: Math.round(natRef.current.h || 600) }); setShowImgSet(true); })]), _pcol([_pibL("text", "텍스트", () => setTool("text"), tool === "text"), _pibL("ocr", "글자 추출", runOcr, false, !hasImg)])]),
@@ -943,13 +948,26 @@ function DDBImageEditor() {
                 o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 3, color: "#444", fontSize: 11 }, children: ["두께", o.jsx("button", { onClick: () => bumpLw(-1), title: "얇게", className: "ddbsb-btn", style: { width: 20, height: 20 }, children: "−" }), o.jsx("input", { type: "range", min: 1, max: 40, value: lw, onChange: e => { const v = Number(e.target.value); setLw(v); saveToolLw(v); }, style: { width: 90 } }), o.jsx("button", { onClick: () => bumpLw(1), title: "두껍게", className: "ddbsb-btn", style: { width: 20, height: 20 }, children: "+" }), o.jsx("span", { style: { width: 18, textAlign: "center", color: "#666" }, children: lw })] }),
                 (tool === "arrow" || shapeActive || (tool || "").indexOf("s:") === 0) ? o.jsx("select", { value: dash, onChange: e => setDash(e.target.value), className: "ddbsb-sel", title: "선 종류", children: DASHOPTS.map(d => o.jsx("option", { value: d[0], children: d[1].split(" ")[1] || d[1] }, d[0])) }) : null
             ]),
-            (tool === "text" || textActive) ? _sbGrp("글꼴", [
-                o.jsx("select", { value: fontFam, onChange: e => setFontFam(e.target.value), className: "ddbsb-sel", title: "글꼴", children: IMG_FONTS.map(f => o.jsx("option", { value: f[1], children: f[0] }, f[1])) }),
-                o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 3, color: "#444", fontSize: 11 }, children: ["크기", o.jsx("input", { type: "range", min: 10, max: 120, value: fsz, onChange: e => setFsz(Number(e.target.value)), style: { width: 70 } }), o.jsx("span", { style: { width: 20, color: "#666" }, children: fsz })] }),
-                _sbLbl("글씨색", _sbColor(color, v => setColor(v))),
-                o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 4, color: "#444", fontSize: 11 }, children: ["배경", _sbColor(textBg || "#ffff00", v => setTextBg(v)), o.jsx("button", { onClick: () => setTextBg(""), style: { fontSize: 10, color: "#888", textDecoration: "underline", background: "transparent", border: "none", cursor: "pointer" }, children: textBg ? "끄기" : "없음" })] }),
-                (() => { const alignIco = { left: '<line x1="3" y1="5" x2="17" y2="5"/><line x1="3" y1="10" x2="12" y2="10"/><line x1="3" y1="15" x2="15" y2="15"/>', center: '<line x1="4" y1="5" x2="16" y2="5"/><line x1="6" y1="10" x2="14" y2="10"/><line x1="5" y1="15" x2="15" y2="15"/>', right: '<line x1="3" y1="5" x2="17" y2="5"/><line x1="8" y1="10" x2="17" y2="10"/><line x1="5" y1="15" x2="17" y2="15"/>' }; const vIco = { top: '<rect x="4" y="3" width="12" height="4"/>', middle: '<rect x="4" y="8" width="12" height="4"/>', bottom: '<rect x="4" y="13" width="12" height="4"/>' }; const ib = (on, ic, fm, cb, tt) => o.jsx("button", { onClick: cb, title: tt, className: "ddbsb-btn" + (on ? " on" : ""), style: { width: 24, height: 22 }, children: o.jsx("svg", { viewBox: "0 0 20 20", width: 14, height: 14, fill: fm ? "currentColor" : "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", dangerouslySetInnerHTML: { __html: fm ? ('<rect x="2" y="2" width="16" height="16" rx="2" opacity="0.25" fill="currentColor" stroke="none"/>' + ic) : ic } }) }); return o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 1 }, children: [["left", "center", "right"].map(a => ib(talign === a, alignIco[a], false, () => applyTextAlign(a), "가로 " + a)), o.jsx("span", { style: { width: 4 } }), ["top", "middle", "bottom"].map(a => ib(tvalign === a, vIco[a], true, () => applyTextV(a), "세로 " + a))] }); })()
-            ]) : null
+            (tool === "text" || textActive) ? _sbGrp("글꼴", o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: [
+                o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 2 }, children: [
+                    o.jsx("select", { value: fontFam, onChange: e => setFontFam(e.target.value), className: "ddbsb-sel", title: "글꼴", style: { minWidth: 92 }, children: IMG_FONTS.map(f => o.jsx("option", { value: f[1], children: f[0] }, f[1])) }),
+                    o.jsx("input", { type: "number", min: 6, max: 400, value: Math.round(_curFsz), onChange: e => { const v = Number(e.target.value); if (v) setFsz(Math.max(6, Math.min(400, v))); }, className: "ddbsb-sel", title: "글씨 크기", style: { width: 42 } }),
+                    _tfb("A⁺", false, () => sizeStep(2), "크게"),
+                    _tfb("A⁻", false, () => sizeStep(-2), "작게")
+                ] }),
+                o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 1 }, children: [
+                    _tfb(o.jsx("b", { children: "B" }), _tf && _tf.fontWeight === "bold", () => toggleTextStyle("fontWeight", "bold", "normal"), "굵게"),
+                    _tfb(o.jsx("i", { style: { fontFamily: "serif" }, children: "I" }), _tf && _tf.fontStyle === "italic", () => toggleTextStyle("fontStyle", "italic", "normal"), "기울임"),
+                    _tfb(o.jsx("span", { style: { textDecoration: "underline" }, children: "U" }), _tf && !!_tf.underline, () => toggleTextStyle("underline", true, false), "밑줄"),
+                    _tfb(o.jsx("span", { style: { textDecoration: "line-through" }, children: "S" }), _tf && !!_tf.linethrough, () => toggleTextStyle("linethrough", true, false), "취소선"),
+                    o.jsx("div", { style: { width: 1, height: 18, background: "#dcdbda", margin: "0 2px" } }),
+                    o.jsx("input", { type: "color", value: color, onChange: e => setColor(e.target.value), title: "글씨색", style: { width: 22, height: 20, borderRadius: 3, cursor: "pointer", border: "1px solid #c8c6c4", padding: 0, background: "#fff" } }),
+                    o.jsx("input", { type: "color", value: textBg || "#ffff00", onChange: e => setTextBg(e.target.value), title: "글씨 배경색", style: { width: 22, height: 20, borderRadius: 3, cursor: "pointer", border: "1px solid #c8c6c4", padding: 0, background: "#fff" } }),
+                    o.jsx("button", { onClick: () => setTextBg(""), title: "배경 없음", className: "ddbsb-btn", style: { width: 20, height: 20, fontSize: 10 }, children: "⌫" }),
+                    o.jsx("div", { style: { width: 1, height: 18, background: "#dcdbda", margin: "0 2px" } }),
+                    (() => { const alignIco = { left: '<line x1="3" y1="5" x2="17" y2="5"/><line x1="3" y1="10" x2="12" y2="10"/><line x1="3" y1="15" x2="15" y2="15"/>', center: '<line x1="4" y1="5" x2="16" y2="5"/><line x1="6" y1="10" x2="14" y2="10"/><line x1="5" y1="15" x2="15" y2="15"/>', right: '<line x1="3" y1="5" x2="17" y2="5"/><line x1="8" y1="10" x2="17" y2="10"/><line x1="5" y1="15" x2="17" y2="15"/>' }; const vIco = { top: '<rect x="4" y="3" width="12" height="4"/>', middle: '<rect x="4" y="8" width="12" height="4"/>', bottom: '<rect x="4" y="13" width="12" height="4"/>' }; const ib = (on, ic, fm, cb, tt) => o.jsx("button", { onClick: cb, title: tt, className: "ddbsb-btn" + (on ? " on" : ""), style: { width: 22, height: 20 }, children: o.jsx("svg", { viewBox: "0 0 20 20", width: 13, height: 13, fill: fm ? "currentColor" : "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", dangerouslySetInnerHTML: { __html: fm ? ('<rect x="2" y="2" width="16" height="16" rx="2" opacity="0.25" fill="currentColor" stroke="none"/>' + ic) : ic } }) }); return [["left", "center", "right"].map(a => ib(talign === a, alignIco[a], false, () => applyTextAlign(a), "가로 " + a)), o.jsx("span", { style: { width: 3 } }, "sp"), ["top", "middle", "bottom"].map(a => ib(tvalign === a, vIco[a], true, () => applyTextV(a), "세로 " + a))]; })()
+                ] })
+            ] })) : null
         ] }),
         o.jsxs("div", { className: "flex-1 overflow-hidden flex relative", onMouseDown: e => e.stopPropagation(), children: [
             hasImg && o.jsxs("div", { className: "flex-shrink-0 overflow-y-auto thin-scroll", style: { width: leftW, background: "rgba(8,10,16,0.6)", borderRight: "1px solid rgba(255,255,255,0.08)", padding: 6 }, children: [o.jsx("div", { style: { color: "rgba(255,255,255,0.5)", fontSize: 10.5, fontWeight: 700, padding: "0 2px 5px" }, children: "🖼 이미지" }), o.jsxs("div", { className: "flex flex-col gap-1.5", children: [
@@ -2837,7 +2855,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.94";
+const DDB_VERSION = "0.99.95";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4387,7 +4405,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v431"
+                children: "v432"
             }), (() => {
                 const S = [{
                     k: "cal",
