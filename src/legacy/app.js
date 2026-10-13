@@ -409,7 +409,7 @@ function DDBImageEditor() {
     const [zoomPct, setZoomPct] = O.useState(100);
     const [hasImg, setHasImg] = O.useState(false);
     const [hasSel, setHasSel] = O.useState(false);
-    const [iconMode, setIconMode] = O.useState(() => { try { return localStorage.getItem("ddb_img_iconmode") || "large"; } catch { return "large"; } });
+    const [iconMode, setIconMode] = O.useState(() => { try { return localStorage.getItem("ddb_img_iconmode") || "small"; } catch { return "small"; } });
     const labels = iconMode === "large", small = iconMode === "small";
     const [smallLabel, setSmallLabel] = O.useState(() => { try { return localStorage.getItem("ddb_img_smalllabel") === "1"; } catch { return false; } });
     const toggleSmallLabel = () => setSmallLabel(v => { const nv = !v; try { localStorage.setItem("ddb_img_smalllabel", nv ? "1" : "0"); } catch {} return nv; });
@@ -828,7 +828,7 @@ function DDBImageEditor() {
     const saveGrpDims = o2 => { setGrpDims(o2); try { localStorage.setItem("ddb_img_grpdims", JSON.stringify(o2)); } catch {} };
     const saveGrpPos = o2 => { setGrpPos(o2); try { localStorage.setItem("ddb_img_grppos", JSON.stringify(o2)); } catch {} };
     const saveCustom = arr => { setCustomTiles(arr); try { localStorage.setItem("ddb_img_customtiles", JSON.stringify(arr)); } catch {} };
-    const grpDimOf = (k, n) => { const d = grpDims[k]; if (d && d.r >= 1 && d.c >= 1) return { r: d.r, c: Math.max(d.c, Math.ceil(Math.max(1, n || 1) / d.r)) }; const r = k === "__all__" ? 3 : (small ? 2 : 1); const cnt = Math.max(1, n || 1); return { r, c: Math.max(1, Math.ceil(cnt / r)) }; };
+    const grpDimOf = (k, n) => { const d = grpDims[k]; if (d && d.r >= 1 && d.c >= 1) return { r: d.r, c: Math.max(d.c, Math.ceil(Math.max(1, n || 1) / d.r)) }; const r = k === "__all__" ? 3 : (small ? 3 : 1); const cnt = Math.max(1, n || 1); return { r, c: Math.max(1, Math.ceil(cnt / r)) }; };
     const addCustomTile = (grp, cell, kind, sub) => { const id = "cst" + Date.now().toString(36) + Math.floor(Math.random() * 1e4); const arr = (customTiles || []).concat([{ id, kind, sub }]); saveCustom(arr); saveTileGroups({ ...tileGroups, [id]: grp }); const gp = { ...(grpPos || {}) }; gp[grp] = { ...(gp[grp] || {}), [id]: cell }; saveGrpPos(gp); setCellPick(null); setCellPickCat(null); };
     const delCustomTile = id => { saveCustom((customTiles || []).filter(x => x.id !== id)); const tg = { ...tileGroups }; delete tg[id]; saveTileGroups(tg); };
     const grpOrdered = (grpOrder && grpOrder.length ? grpOrder.filter(k => gmap[k]) : GROUPS.map(g => g.key));
@@ -836,7 +836,7 @@ function DDBImageEditor() {
     const idsFor = g => { const members = ALLT.map(t => t.id).filter(id => grpOf(id) === g.key); const saved = tileOrd[g.key]; if (!Array.isArray(saved)) return members; const arr = saved.filter(id => members.includes(id)); members.forEach(id => { if (!arr.includes(id)) arr.push(id); }); return arr; };
     const saveGrp = arr => { setGrpOrder(arr); try { localStorage.setItem("ddb_img_grporder", JSON.stringify(arr)); } catch {} };
     const saveTileOrd = o2 => { setTileOrd(o2); try { localStorage.setItem("ddb_img_tileord", JSON.stringify(o2)); } catch {} };
-    const grpRowCount = k => { const r = grpRows[k]; if (r >= 1 && r <= 6) return r; return k === "__all__" ? 3 : (small ? 2 : 1); };
+    const grpRowCount = k => { const r = grpRows[k]; if (r >= 1 && r <= 6) return r; return k === "__all__" ? 3 : (small ? 3 : 1); };
     const setGrpRowCount = (k, n) => { n = Math.max(1, Math.min(6, n)); const o2 = { ...grpRows, [k]: n }; setGrpRows(o2); try { localStorage.setItem("ddb_img_grprows", JSON.stringify(o2)); } catch {} };
     const reorderGrp = toKey => { const from = dragG.current; dragG.current = null; if (!from || from === toKey) return; const arr = grpOrdered.slice(); const fi = arr.indexOf(from); arr.splice(fi, 1); const ti = arr.indexOf(toKey); arr.splice(ti < 0 ? arr.length : ti, 0, from); saveGrp(arr); };
     const flatBar = !!imgKeys.flatBar;
@@ -2857,7 +2857,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.96";
+const DDB_VERSION = "0.99.97";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4407,7 +4407,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v433"
+                children: "v434"
             }), (() => {
                 const S = [{
                     k: "cal",
