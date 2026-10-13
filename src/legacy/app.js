@@ -929,16 +929,15 @@ function DDBImageEditor() {
         ctxMenu && o.jsx("div", { style: { position: "fixed", left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 320), zIndex: 82 }, onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { className: "flex flex-col rounded-lg overflow-hidden shadow-2xl py-1", style: { minWidth: 158, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: (ctxMenu.crop ? CROPCTX : (() => { const _a = fcRef.current && fcRef.current.getActiveObject(); return (_a && _a.ddbPoly) ? [["polyedit", (_a.ddbPoly.star ? "⭐ 꼭짓점 수 변경" : "🔢 각 수 변경"), () => { polyEditRef.current = _a; setSides(_a.ddbPoly.n || 6); setPolyErr(""); setPolyModal(true); }], ["_", ""], ...CTX] : CTX; })()).map((it, i) => it[0] === "_" ? o.jsx("div", { className: "my-1 border-t border-white/10" }, "d" + i) : o.jsx("button", { onClick: () => { setCtxMenu(null); it[2] && it[2](); }, className: "text-left px-3 py-1.5 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap text-white/85", children: it[1] }, it[0])) }) }),
         o.jsxs("div", { className: "flex items-center gap-1.5 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.98)" }, onMouseDown: e => { e.stopPropagation(); if (grpMenu) setGrpMenu(null); }, children: [
             o.jsx("span", { className: "text-white font-bold text-sm mr-1", children: "🖼 이미지 편집" }),
-            o.jsx("span", { className: "text-white/35 text-[11px]", children: "그룹·아이콘을 드래그해 위치 변경 · 설정에서 초기화" }),
+            null,
             cropReady && o.jsx("button", { onClick: applyCrop, className: "px-2.5 py-1 rounded-lg text-[13px] bg-emerald-500/40 border border-emerald-400/60 text-emerald-50 cursor-pointer whitespace-nowrap", children: "잘라내기 적용" }),
             cropReady && o.jsx("button", { onClick: cancelCrop, title: "취소(ESC)", className: "px-2 py-1 rounded-lg text-[13px] bg-white/8 border border-white/15 text-white/80 cursor-pointer", children: "✕" }),
             o.jsx("div", { className: "flex-1" }),
-            o.jsxs("div", { className: "flex items-center gap-1 mr-1", children: [o.jsx("button", { onClick: () => setMode("large"), title: "큰 아이콘 + 이름", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (iconMode === "large" ? "bg-emerald-500/40 border-emerald-400/70 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "🔲 큰" }), o.jsx("button", { onClick: () => setMode("small"), title: "작은 아이콘 (커서 올리면 이름 표시)", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (iconMode === "small" ? "bg-amber-500/40 border-amber-400/70 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "▪ 작은" }), small && o.jsx("button", { onClick: toggleSmallLabel, title: "작은 아이콘 밑에 이름 표시", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (smallLabel ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: smallLabel ? "이름 ✓" : "이름" })] }),
             o.jsx("button", { onClick: () => setShowCfg(true), title: "설정", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "⚙" }),
             o.jsx("button", { onClick: () => { try { const c = fcRef.current; if (hasImg && c) { try { savePageState(pageIdxRef.current); } catch (e0) {} const day = ddbLocalDay(); const pgs = pagesRef.current || []; let saved = 0; pgs.forEach(pg => { if (pg && pg.thumb && (pg.json || pg.url)) { Dp({ type: "AI_DAILY_ADD", day: day, kind: "images", item: pg.thumb }); saved++; } }); if (!saved && c.getObjects().length > 0) { const u = flatten(); if (u) { const im0 = new Image(); im0.onload = () => { try { let tw = 120, th = Math.max(1, Math.round(im0.height * (tw / im0.width))); th = Math.min(th, 160); const cv = document.createElement("canvas"); cv.width = tw; cv.height = th; cv.getContext("2d").drawImage(im0, 0, 0, tw, th); Dp({ type: "AI_DAILY_ADD", day: day, kind: "images", item: cv.toDataURL("image/jpeg", 0.45) }); } catch (e2) {} }; im0.src = u; } } } } catch (e) {} setOpen(false); }, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "✕ 닫기" : "✕" }),
             o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", multiple: true, onChange: onFile, style: { display: "none" } })
         ] }),
-        o.jsxs("div", { className: "flex-shrink-0 overflow-x-auto thin-scroll", style: { backgroundColor: "#f3f2f1", borderBottom: "1px solid #c8c6c4" }, onMouseDown: e => e.stopPropagation(), children: [o.jsx("style", { dangerouslySetInnerHTML: { __html: ".ddbimg-tile:hover{background:#e3e3e2 !important;border-color:#c8c6c4 !important;}" } }), o.jsxs("div", { style: { display: "flex", gap: flatBar ? 3 : 0, alignItems: "stretch", flexWrap: flatBar ? "wrap" : "nowrap" }, children: [...grpOrdered.map(k => { const g = gmap[k]; if (!g) return null; return grpBox(g, flatBar); }), etcBox] })] }),
+        o.jsxs("div", { className: "flex-shrink-0 overflow-x-auto thin-scroll", style: { backgroundColor: "#f3f2f1", borderBottom: "1px solid #c8c6c4" }, onMouseDown: e => e.stopPropagation(), children: [o.jsx("style", { dangerouslySetInnerHTML: { __html: ".ddbimg-tile:hover{background:#e3e3e2 !important;border-color:#c8c6c4 !important;}" } }), ppRibbon] }),
         o.jsxs("div", { className: "flex items-stretch flex-wrap flex-shrink-0 overflow-x-auto thin-scroll", style: { backgroundColor: "#f3f2f1", borderBottom: "1px solid #c8c6c4" }, onMouseDown: e => { e.stopPropagation(); if (grpMenu) setGrpMenu(null); }, children: [
             o.jsx("style", { dangerouslySetInnerHTML: { __html: ".ddbsb-btn{height:22px;min-width:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:3px;border:1px solid #c8c6c4;background:#fff;color:#333;cursor:pointer;font-size:11px;padding:0 5px}.ddbsb-btn:hover{background:#e8e8e7}.ddbsb-btn.on{background:#cfe3ff;border-color:#2f6fe0;color:#143a7a}.ddbsb-sel{height:22px;border:1px solid #c8c6c4;border-radius:3px;background:#fff;color:#1a1a1a;font-size:11px;padding:0 4px}" } }),
             _sbGrp("도형 서식", [
@@ -2857,7 +2856,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "0.99.97";
+const DDB_VERSION = "0.99.98";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4407,7 +4406,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v434"
+                children: "v435"
             }), (() => {
                 const S = [{
                     k: "cal",
