@@ -950,14 +950,13 @@ function DDBImageEditor() {
             cropReady && o.jsx("button", { onClick: applyCrop, className: "px-2.5 py-1 rounded-lg text-[13px] bg-emerald-500/40 border border-emerald-400/60 text-emerald-50 cursor-pointer whitespace-nowrap", children: "잘라내기 적용" }),
             cropReady && o.jsx("button", { onClick: cancelCrop, title: "취소(ESC)", className: "px-2 py-1 rounded-lg text-[13px] bg-white/8 border border-white/15 text-white/80 cursor-pointer", children: "✕" }),
             o.jsx("div", { className: "flex-1" }),
-            o.jsxs("div", { className: "flex items-center gap-1 mr-1", children: [o.jsx("button", { onClick: () => setMode("large"), title: "큰 아이콘 + 이름", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (iconMode === "large" ? "bg-emerald-500/40 border-emerald-400/70 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "🔲 큰" }), o.jsx("button", { onClick: () => setMode("small"), title: "작은 아이콘", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (iconMode === "small" ? "bg-amber-500/40 border-amber-400/70 text-white" : "bg-white/8 border-white/15 text-white/70"), children: "▪ 작은" }), small && o.jsx("button", { onClick: toggleSmallLabel, title: "작은 아이콘 밑에 이름 표시", className: "px-2 py-1 rounded-lg text-[12px] cursor-pointer border " + (smallLabel ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/70"), children: smallLabel ? "이름 ✓" : "이름" })] }),
             o.jsx("button", { onClick: () => setShowCfg(true), title: "설정", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "⚙" }),
             o.jsx("button", { onClick: () => { try { const c = fcRef.current; if (hasImg && c) { try { savePageState(pageIdxRef.current); } catch (e0) {} const day = ddbLocalDay(); const pgs = pagesRef.current || []; let saved = 0; pgs.forEach(pg => { if (pg && pg.thumb && (pg.json || pg.url)) { Dp({ type: "AI_DAILY_ADD", day: day, kind: "images", item: pg.thumb }); saved++; } }); if (!saved && c.getObjects().length > 0) { const u = flatten(); if (u) { const im0 = new Image(); im0.onload = () => { try { let tw = 120, th = Math.max(1, Math.round(im0.height * (tw / im0.width))); th = Math.min(th, 160); const cv = document.createElement("canvas"); cv.width = tw; cv.height = th; cv.getContext("2d").drawImage(im0, 0, 0, tw, th); Dp({ type: "AI_DAILY_ADD", day: day, kind: "images", item: cv.toDataURL("image/jpeg", 0.45) }); } catch (e2) {} }; im0.src = u; } } } } catch (e) {} setOpen(false); }, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "✕ 닫기" : "✕" }),
             o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", multiple: true, onChange: onFile, style: { display: "none" } })
         ] }),
-        o.jsxs("div", { className: "flex-shrink-0 overflow-x-auto thin-scroll", style: { backgroundColor: "#f3f2f1", borderBottom: "1px solid #c8c6c4" }, onMouseDown: e => e.stopPropagation(), children: [o.jsx("style", { dangerouslySetInnerHTML: { __html: ".ddbimg-tile:hover{background:#e3e3e2 !important;border-color:#c8c6c4 !important;}" } }), o.jsxs("div", { style: { display: "flex", gap: flatBar ? 3 : 0, alignItems: "stretch", flexWrap: flatBar ? "wrap" : "nowrap" }, children: [...grpOrdered.map(k => { const g = gmap[k]; if (!g) return null; return grpBox(g, flatBar); }), etcBox] })] }),
+        o.jsxs("div", { className: "flex-shrink-0 overflow-x-auto thin-scroll", style: { backgroundColor: "#f3f2f1", borderBottom: "1px solid #c8c6c4" }, onMouseDown: e => e.stopPropagation(), children: [o.jsx("style", { dangerouslySetInnerHTML: { __html: ".ddbimg-tile:hover{background:#e3e3e2 !important;border-color:#c8c6c4 !important;}" } }), ppRibbon] }),
         o.jsx("style", { dangerouslySetInnerHTML: { __html: ".ddbsb-btn{height:22px;min-width:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:3px;border:1px solid #c8c6c4;background:#fff;color:#333;cursor:pointer;font-size:11px;padding:0 5px}.ddbsb-btn:hover{background:#e8e8e7}.ddbsb-btn.on{background:#cfe3ff;border-color:#2f6fe0;color:#143a7a}.ddbsb-sel{height:22px;border:1px solid #c8c6c4;border-radius:3px;background:#fff;color:#1a1a1a;font-size:11px;padding:0 4px}" } }),
-        o.jsxs("div", { className: "flex items-stretch flex-wrap flex-shrink-0 overflow-x-auto thin-scroll", style: { backgroundColor: "#f3f2f1", borderBottom: "1px solid #c8c6c4" }, onMouseDown: e => { e.stopPropagation(); if (grpMenu) setGrpMenu(null); }, children: [
+        false && o.jsxs("div", { className: "flex items-stretch flex-wrap flex-shrink-0 overflow-x-auto thin-scroll", style: { backgroundColor: "#f3f2f1", borderBottom: "1px solid #c8c6c4" }, onMouseDown: e => { e.stopPropagation(); if (grpMenu) setGrpMenu(null); }, children: [
             o.jsx("style", { dangerouslySetInnerHTML: { __html: ".ddbsb-btn{height:22px;min-width:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:3px;border:1px solid #c8c6c4;background:#fff;color:#333;cursor:pointer;font-size:11px;padding:0 5px}.ddbsb-btn:hover{background:#e8e8e7}.ddbsb-btn.on{background:#cfe3ff;border-color:#2f6fe0;color:#143a7a}.ddbsb-sel{height:22px;border:1px solid #c8c6c4;border-radius:3px;background:#fff;color:#1a1a1a;font-size:11px;padding:0 4px}" } }),
             _sbGrp("도형 서식", [
                 _sbLbl("선색", _sbColor(color, v => setColor(v))),
@@ -2876,7 +2875,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.01";
+const DDB_VERSION = "1.00.02";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4426,7 +4425,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v438"
+                children: "v439"
             }), (() => {
                 const S = [{
                     k: "cal",
