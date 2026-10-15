@@ -2918,7 +2918,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.07";
+const DDB_VERSION = "1.00.08";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4468,7 +4468,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v444"
+                children: "v445"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9186,14 +9186,14 @@ function jw({
             const it = i.items.find(z => z.id === editId);
             const base = (l != null ? l : (it ? it.content : "")) || "";
             const content = (base.trim() ? base.trim() + "\n\n" : "") + snip;
-            if (it) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, content: content } });
-            c(""); setEditId(null); setMo("list"); setFocusId(editId);
+            if (it) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, content: content, expanded: true } });
+            c(""); setEditId(null); setMo("list"); setFocusId(null);
         } else {
             const base = (l || "").trim();
             const content = (base ? base + "\n\n" : "") + snip;
             const _nid = Ft();
-            r({ type: "ADD_MEMO_ITEM", tabId: i.id, item: { id: _nid, content: content, createdAt: new Date().toISOString() } });
-            c(""); setMo("list"); setFocusId(_nid);
+            r({ type: "ADD_MEMO_ITEM", tabId: i.id, item: { id: _nid, content: content, expanded: true, createdAt: new Date().toISOString() } });
+            c(""); setMo("list"); setFocusId(null);
         }
         setTimeout(() => ml.current && (ml.current.scrollTop = 0), 30);
     }
@@ -9487,7 +9487,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     const toggleXl = () => setXlMode(v => { const nv = !v; try { localStorage.setItem("ddb_xlmode_" + itemId, nv ? "1" : "0"); } catch {} return nv; });
     const effSimple = simpleTables;
     O.useEffect(() => { if (xlMode && !readOnly && !simpleTables && !blocks.some(b => b && b.t === "table")) { const NC = 26; const empty = () => Array.from({ length: NC }, () => ""); const grid = { t: "table", headers: empty(), rows: Array.from({ length: 99 }, empty) }; const base = blocks.filter(b => !(b && b.t === "text" && !String(b.s || "").trim())); const nb = base.concat([grid]); const z = normalizeBlocks(nb, fmt); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } }, [xlMode]);
-    O.useEffect(() => { if (!simpleTables || readOnly) return; const isEmptyTbl = b => b && b.t === "table" && (b.headers || []).every(h => !String(h == null ? "" : h).trim()) && (b.rows || []).every(r => (r || []).every(c => !String(c == null ? "" : c).trim())); if (blocks.some(isEmptyTbl)) { const nb = blocks.filter(b => !isEmptyTbl(b)); const z = normalizeBlocks(nb, fmt); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } }, []);
+    O.useEffect(() => { if (readOnly) return; if (xlMode && !simpleTables) return; const isEmptyTbl = b => b && b.t === "table" && (b.headers || []).every(h => !String(h == null ? "" : h).trim()) && (b.rows || []).every(r => (r || []).every(c => !String(c == null ? "" : c).trim())); if (blocks.some(isEmptyTbl)) { const nb = blocks.filter(b => !isEmptyTbl(b)); const z = normalizeBlocks(nb, fmt); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } }, [xlMode]);
     const cfrKey = "ddb_cfr_" + itemId;
     const [cfr, setCfr] = O.useState(() => { try { return JSON.parse(localStorage.getItem("ddb_cfr_" + itemId) || "{}") || {}; } catch { return {}; } });
     const saveCfr = v => { setCfr(v); try { localStorage.setItem(cfrKey, JSON.stringify(v)); } catch {} };
