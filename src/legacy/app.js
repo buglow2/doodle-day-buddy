@@ -2918,7 +2918,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.05";
+const DDB_VERSION = "1.00.06";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4468,7 +4468,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v442"
+                children: "v443"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9179,12 +9179,23 @@ function jw({
         }), setFocusId(_nid), d(!1), setMo("list"), setTimeout(() => ml.current && (ml.current.scrollTop = 0), 30)
     }
 
+    function insDraft(snippet) {
+        const ta = u.current; const cur = l || ""; let s = cur.length, ee = cur.length;
+        if (ta && typeof ta.selectionStart === "number") { s = ta.selectionStart; ee = ta.selectionEnd; }
+        const pre = cur.slice(0, s), post = cur.slice(ee);
+        const sep1 = (pre && !/\n\s*$/.test(pre)) ? "\n\n" : "";
+        const sep2 = (post && !/^\s*\n/.test(post)) ? "\n\n" : "";
+        const nv = pre + sep1 + snippet + sep2 + post;
+        c(nv); setMo("input");
+        const caret = (pre + sep1 + snippet + sep2).length;
+        setTimeout(() => { try { if (u.current) { u.current.focus(); u.current.setSelectionRange(caret, caret); } } catch (e) {} }, 20);
+    }
     function _(R) {
         const K = R.clipboardData.getData("text/html"),
             se = R.clipboardData.getData("text/plain");
         let z = null;
         K && (z = YT(K)), !z && se.includes("	") && (z = KT(se));
-        if (z) { R.preventDefault(); setMo("list"); const _nid = Ft(); i && r({ type: "ADD_MEMO_ITEM", tabId: i.id, item: { id: _nid, content: z.trim(), createdAt: new Date().toISOString() } }); setFocusId(_nid); setTimeout(() => ml.current && (ml.current.scrollTop = 0), 30); }
+        if (z) { R.preventDefault(); insDraft(String(z).trim()); }
     }
     const k = O.useRef({
             dragging: !1,
@@ -9321,7 +9332,7 @@ function jw({
                                     children: [o.jsx("p", { className: "text-white/60 text-[11px] mb-1.5 text-center font-medium", children: f[0] > 0 ? `${f[0]} \u00d7 ${f[1]}` : DDBTR("표 크기 선택") }),
                                     o.jsx("div", { className: "grid gap-0.5", style: { gridTemplateColumns: `repeat(${_gc},1fr)` }, children: Array.from({ length: _gc * _gr }, (R, K) => {
                                         const z = K % _gc + 1, se = Math.floor(K / _gc) + 1, G = se <= f[0] && z <= f[1];
-                                        return o.jsx("div", { className: `w-5 h-5 rounded-sm border cursor-pointer transition-colors ${G?"bg-blue-500/60 border-blue-400/80":"bg-white/5 border-white/15 hover:bg-white/15"}`, onMouseEnter: () => x([se, z]), onMouseDown: e0 => { e0.preventDefault(); e0.stopPropagation(); const _nid = Ft(); if (i) r({ type: "ADD_MEMO_ITEM", tabId: i.id, item: { id: _nid, content: VT(se, z).trim(), createdAt: new Date().toISOString() } }); setFocusId(_nid); setMo("list"); d(!1); x([0, 0]); setTimeout(() => ml.current && (ml.current.scrollTop = 0), 30); } }, K)
+                                        return o.jsx("div", { className: `w-5 h-5 rounded-sm border cursor-pointer transition-colors ${G?"bg-blue-500/60 border-blue-400/80":"bg-white/5 border-white/15 hover:bg-white/15"}`, onMouseEnter: () => x([se, z]), onMouseDown: e0 => { e0.preventDefault(); e0.stopPropagation(); insDraft(VT(se, z).trim()); d(!1); x([0, 0]); } }, K)
                                     }) }),
                                     o.jsx("p", { className: "text-white/25 text-[9px] mt-1.5 text-center", children: DDBTR("끝으로 갈수록 칸이 늘어납니다") })]
                                 })]
@@ -9340,7 +9351,7 @@ function jw({
                     },
                     onPaste: _,
                     placeholder: `내용 입력 (Ctrl+Enter 추가)
-엑셀/웹 표 붙여넣기 → 자동 저장`,
+엑셀/웹 표를 붙여넣으면 이 메모 안에 바로 들어갑니다 · 표 위아래로 글도 자유롭게`,
                     className: "flex-1 w-full bg-transparent text-white/80 placeholder-white/25 text-xs resize-none focus:outline-none min-h-0",
                     style: {
                         fontSize: Math.max(10, t.fontSize - 1)
