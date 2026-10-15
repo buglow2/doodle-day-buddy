@@ -2918,7 +2918,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.06";
+const DDB_VERSION = "1.00.07";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4468,7 +4468,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v443"
+                children: "v444"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9180,15 +9180,22 @@ function jw({
     }
 
     function insDraft(snippet) {
-        const ta = u.current; const cur = l || ""; let s = cur.length, ee = cur.length;
-        if (ta && typeof ta.selectionStart === "number") { s = ta.selectionStart; ee = ta.selectionEnd; }
-        const pre = cur.slice(0, s), post = cur.slice(ee);
-        const sep1 = (pre && !/\n\s*$/.test(pre)) ? "\n\n" : "";
-        const sep2 = (post && !/^\s*\n/.test(post)) ? "\n\n" : "";
-        const nv = pre + sep1 + snippet + sep2 + post;
-        c(nv); setMo("input");
-        const caret = (pre + sep1 + snippet + sep2).length;
-        setTimeout(() => { try { if (u.current) { u.current.focus(); u.current.setSelectionRange(caret, caret); } } catch (e) {} }, 20);
+        if (!i) return;
+        const snip = String(snippet).trim(); if (!snip) return;
+        if (editId) {
+            const it = i.items.find(z => z.id === editId);
+            const base = (l != null ? l : (it ? it.content : "")) || "";
+            const content = (base.trim() ? base.trim() + "\n\n" : "") + snip;
+            if (it) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, content: content } });
+            c(""); setEditId(null); setMo("list"); setFocusId(editId);
+        } else {
+            const base = (l || "").trim();
+            const content = (base ? base + "\n\n" : "") + snip;
+            const _nid = Ft();
+            r({ type: "ADD_MEMO_ITEM", tabId: i.id, item: { id: _nid, content: content, createdAt: new Date().toISOString() } });
+            c(""); setMo("list"); setFocusId(_nid);
+        }
+        setTimeout(() => ml.current && (ml.current.scrollTop = 0), 30);
     }
     function _(R) {
         const K = R.clipboardData.getData("text/html"),
@@ -9351,7 +9358,7 @@ function jw({
                     },
                     onPaste: _,
                     placeholder: `내용 입력 (Ctrl+Enter 추가)
-엑셀/웹 표를 붙여넣으면 이 메모 안에 바로 들어갑니다 · 표 위아래로 글도 자유롭게`,
+엑셀/웹 표를 붙여넣으면 표로 정리되어 열립니다 · 그 안에서 글·표 자유롭게`,
                     className: "flex-1 w-full bg-transparent text-white/80 placeholder-white/25 text-xs resize-none focus:outline-none min-h-0",
                     style: {
                         fontSize: Math.max(10, t.fontSize - 1)
@@ -9478,8 +9485,9 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     const [tgrid, setTgrid] = O.useState(null);
     const [xlMode, setXlMode] = O.useState(() => { try { return localStorage.getItem("ddb_xlmode_" + itemId) === "1"; } catch { return false; } });
     const toggleXl = () => setXlMode(v => { const nv = !v; try { localStorage.setItem("ddb_xlmode_" + itemId, nv ? "1" : "0"); } catch {} return nv; });
-    const effSimple = simpleTables && !xlMode;
-    O.useEffect(() => { if (xlMode && !readOnly && !blocks.some(b => b && b.t === "table")) { const NC = 26; const empty = () => Array.from({ length: NC }, () => ""); const grid = { t: "table", headers: empty(), rows: Array.from({ length: 99 }, empty) }; const base = blocks.filter(b => !(b && b.t === "text" && !String(b.s || "").trim())); const nb = base.concat([grid]); const z = normalizeBlocks(nb, fmt); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } }, [xlMode]);
+    const effSimple = simpleTables;
+    O.useEffect(() => { if (xlMode && !readOnly && !simpleTables && !blocks.some(b => b && b.t === "table")) { const NC = 26; const empty = () => Array.from({ length: NC }, () => ""); const grid = { t: "table", headers: empty(), rows: Array.from({ length: 99 }, empty) }; const base = blocks.filter(b => !(b && b.t === "text" && !String(b.s || "").trim())); const nb = base.concat([grid]); const z = normalizeBlocks(nb, fmt); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } }, [xlMode]);
+    O.useEffect(() => { if (!simpleTables || readOnly) return; const isEmptyTbl = b => b && b.t === "table" && (b.headers || []).every(h => !String(h == null ? "" : h).trim()) && (b.rows || []).every(r => (r || []).every(c => !String(c == null ? "" : c).trim())); if (blocks.some(isEmptyTbl)) { const nb = blocks.filter(b => !isEmptyTbl(b)); const z = normalizeBlocks(nb, fmt); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } }, []);
     const cfrKey = "ddb_cfr_" + itemId;
     const [cfr, setCfr] = O.useState(() => { try { return JSON.parse(localStorage.getItem("ddb_cfr_" + itemId) || "{}") || {}; } catch { return {}; } });
     const saveCfr = v => { setCfr(v); try { localStorage.setItem(cfrKey, JSON.stringify(v)); } catch {} };
@@ -9806,7 +9814,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     }
     return o.jsxs("div", { ref: rootRef, tabIndex: -1, "data-ddb-doc": "1", onPasteCapture: ev => { if (readOnly) return; try { const ae = document.activeElement; if (ae && ae.tagName === "TEXTAREA" && ae.getAttribute("data-tb") != null) return; const html = ev.clipboardData.getData("text/html"); const plain = ev.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (!md) return; const g = GT(md); if (!g || !g.headers) return; ev.preventDefault(); ev.stopPropagation(); const tbl = { t: "table", headers: g.headers, rows: g.rows || [] }; const ins = [tbl]; if (g.trail && g.trail.trim()) ins.push({ t: "text", s: g.trail.trim() }); const nb0 = blocks.concat(ins); const z = normalizeBlocks(nb0, fmt); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } catch (e) {} }, onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false), onKeyDown: ev => { ev.stopPropagation(); if (ev.altKey && !ev.ctrlKey && !ev.metaKey && /^[0-9]$/.test(ev.key)) { ev.preventDefault(); const num = +ev.key; const idx = num === 0 ? 9 : num - 1; const id = tbOrder[idx]; if (id) tbAct(id); return; } const ae = document.activeElement; const editingNow = !!(ae && rootRef.current && rootRef.current.contains(ae) && (ae.tagName === "TEXTAREA" || ae.tagName === "INPUT")); if (ev.key === "Escape") { ev.preventDefault(); if (editingNow) { try { ae.blur(); } catch {} setSel(null); setEditKey(null); try { rootRef.current && rootRef.current.focus(); } catch {} } else if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && ev.key === "ArrowLeft") { ev.preventDefault(); if (onExit) onExit(); return; } if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && (ev.key === "z" || ev.key === "Z")) { ev.preventDefault(); undo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "x" || ev.key === "X"))) { const ae2 = document.activeElement; const hasSel = ae2 && typeof ae2.selectionStart === "number" && ae2.selectionStart !== ae2.selectionEnd; if (hasSel) return; ev.preventDefault(); redo(); return; } if (((ev.ctrlKey || ev.metaKey) && (ev.key === "y" || ev.key === "Y")) || ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === "z" || ev.key === "Z"))) { ev.preventDefault(); redo(); return; } }, onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: maxH || "400px", maxWidth: "100%" }, children: [
         (!readOnly && !effSimple) ? o.jsxs("div", { style: { position: "sticky", top: 0, zIndex: 12 }, children: [toolbar, formulaBar] }, "topbar") : null,
-        (!readOnly && effSimple) ? o.jsxs("div", { className: "flex items-center justify-end gap-0 sticky top-0 z-10", style: { background: "#f3f2f1", borderBottom: "1px solid #c8c6c4", padding: "2px 6px" }, children: [o.jsx("style", { dangerouslySetInnerHTML: { __html: ".ddbrb-tog{height:20px;padding:0 10px;font-size:11px;border:1px solid #c8c6c4;background:#fff;color:#555;cursor:pointer}.ddbrb-tog.on{background:#217346;color:#fff;border-color:#217346;font-weight:700}" } }), o.jsx("span", { style: { flex: 1, color: "#8a8886", fontSize: 10 }, children: "메모 모드" }), o.jsx("button", { onClick: () => { if (xlMode) toggleXl(); }, title: "일반 모드", className: "ddbrb-tog" + (xlMode ? "" : " on"), style: { borderRadius: "4px 0 0 4px" }, children: "일반" }), o.jsx("button", { onClick: () => { if (!xlMode) toggleXl(); }, title: "엑셀 모드", className: "ddbrb-tog" + (xlMode ? " on" : ""), style: { borderRadius: "0 4px 4px 0", borderLeft: "none" }, children: "엑셀" })] }) : null,
+        null,
         fxPortal,
         cmenuPortal,
         copiedPortal,
