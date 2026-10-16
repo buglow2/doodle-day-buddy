@@ -2918,7 +2918,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.10";
+const DDB_VERSION = "1.00.11";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4468,7 +4468,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v447"
+                children: "v448"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9597,7 +9597,7 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
     const btnDel = "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/60 hover:bg-red-500/25 border-none cursor-pointer";
     const mini = "px-1 py-0.5 rounded text-[10px] bg-white/5 text-white/50 hover:text-white border-none cursor-pointer";
     const addB = "px-2 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer";
-    const ctrl = bi => [o.jsx("button", { onMouseDown: ev => startBlockDrag(bi, ev), title: "잡고 드래그해서 이동", className: mini + " cursor-grab", style: { touchAction: "none" }, children: "⠿" }, "g"), o.jsx("button", { onClick: () => moveBlock(bi, -1), className: mini, title: "위로", children: "▲" }, "u"), o.jsx("button", { onClick: () => moveBlock(bi, 1), className: mini, title: "아래로", children: "▼" }, "d"), o.jsx("button", { onClick: () => delBlock(bi), className: mini, title: "이 블록 삭제", children: "✕" }, "x")];
+    const ctrl = bi => [o.jsx("button", { onMouseDown: ev => startBlockDrag(bi, ev), title: "끌어서 위치 이동 (글 사이로 드래그)", className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/70 hover:bg-white/20 border-none cursor-grab select-none", style: { touchAction: "none" }, children: "⠿ 이동" }, "g")];
     const selOpt = (ph, opts, cb) => o.jsxs("select", { onChange: ev => { const v = ev.target.value; ev.target.value = ""; if (v !== "") cb(v); }, defaultValue: "", className: "text-[10px] bg-white/10 text-white/80 rounded px-1 py-0.5 border-none", style: { outline: "none" }, children: [o.jsx("option", { value: "", children: ph }, "ph"), ...opts.map(op => o.jsx("option", { value: op[0], children: op[1] }, op[0]))] });
     const iconBtn = "p-1 rounded bg-white/10 text-white/75 hover:bg-white/20 border-none cursor-pointer flex items-center justify-center";
     const svgWrap = kids => o.jsx("svg", { viewBox: "0 0 24 24", width: 13, height: 13, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", children: kids });
@@ -9960,14 +9960,14 @@ function qT({
     soloOn: soloOn,
     onExitSolo: onExitSolo
 }) {
-    const [c, u] = O.useState(!1), [h, d] = O.useState(e.content), f = O.useRef(), x = O.useRef(!1), [p, m] = O.useState(!1), [y, w] = O.useState(!1), v = O.useRef(), g = GT(e.content), _ = e.content.split(`
+    const [c, u] = O.useState(!1), [h, d] = O.useState(e.content), f = O.useRef(), x = O.useRef(!1), [p, m] = O.useState(!1), [y, w] = O.useState(!1), v = O.useRef(), g = GT(ddbSplitFmt(e.content).body), _ = e.content.split(`
 `), k = _[0], E = _.slice(1).join(`
 `).trim(), b = E.length > 0, T = !!e.expanded;
     const isDoc = ddbHasTable(ddbSplitFmt(e.content).body);
     const [grid, setGrid] = O.useState(() => g || { headers: [], rows: [] });
     const [trail, setTrail] = O.useState(() => (g && g.trail) || "");
     const lastMd = O.useRef(e.content);
-    O.useEffect(() => { if (e.content !== lastMd.current) { const pp = GT(e.content); if (pp) { setGrid(pp); setTrail(pp.trail || ""); lastMd.current = e.content; } } }, [e.content]);
+    O.useEffect(() => { if (e.content !== lastMd.current) { const pp = GT(ddbSplitFmt(e.content).body); if (pp) { setGrid(pp); setTrail(pp.trail || ""); lastMd.current = e.content; } } }, [e.content]);
     function gMd(hd, rw, tl) { return ddbGridToMd(hd, rw) + ((tl && tl.trim()) ? "\n" + tl : ""); }
     function gCommit(ng) { const md = gMd(ng.headers, ng.rows, trail); lastMd.current = md; a(md); }
     function trailCommit(v) { setTrail(v); const md = gMd(grid.headers, grid.rows, v); lastMd.current = md; a(md); }
