@@ -1145,7 +1145,8 @@ function ddbMdToFortune(content) {
 }
 function DDBLibGrid({ content }) {
     const data = O.useMemo(() => ddbMdToFortune(content), []);
-    return o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx("div", { style: { height: "100%", width: "100%" }, children: o.jsx(FSWorkbook, { data: data, lang: "en" }) }) });
+    const toolbarItems = ["undo", "redo", "format-painter", "clear-format", "font", "font-size", "bold", "italic", "font-color", "background", "border", "horizontal-align", "vertical-align", "text-wrap", "merge-cell", "currency-format", "percentage-format", "freeze", "filter", "sort", "conditionFormat", "chart", "comment", "image", "link"];
+    return o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx("div", { style: { height: "100%", width: "100%" }, children: o.jsx(FSWorkbook, { data: data, lang: "en", toolbarItems: toolbarItems, defaultFontSize: 11 }) }) });
 }
 function DDBTableWindow() {
     const [open, setOpen] = O.useState(false);
@@ -2941,7 +2942,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.15";
+const DDB_VERSION = "1.00.16";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4491,7 +4492,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v452"
+                children: "v453"
             }), (() => {
                 const S = [{
                     k: "cal",
