@@ -1159,7 +1159,7 @@ function DDBTableWindow() {
             o.jsx("button", { onClick: delTable, title: "이 표 삭제", className: "px-1.5 py-0.5 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none", children: "🗑" }),
             o.jsx("button", { onClick: () => setAskClose(true), title: "닫기 (Alt+X · 저장 확인)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
         ] }),
-        o.jsx("div", { className: "flex-1 overflow-auto p-2", children: o.jsx(DDBDocEditor, { content: tab.content, fontSize: 13, onCommit: saveContent, itemId: "tblwin-" + tab.id, soloOn: true, maxH: "none", forceXl: true }, tab.id) }),
+        o.jsx("div", { className: "flex-1 overflow-hidden p-2", style: { minHeight: 0 }, children: o.jsx(DDBDocEditor, { content: tab.content, fontSize: 13, onCommit: saveContent, itemId: "tblwin-" + tab.id, soloOn: true, maxH: "100%", forceXl: true }, tab.id) }),
         o.jsx("div", { onMouseDown: resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) }),
         askClose ? o.jsxs("div", { className: "absolute inset-0 flex items-center justify-center", style: { zIndex: 20, background: "rgba(0,0,0,0.5)" }, children: [o.jsxs("div", { className: "rounded-xl p-4 flex flex-col gap-3", style: { background: "#1e2432", border: "1px solid rgba(255,255,255,0.2)", width: 300 }, children: [
             o.jsx("div", { className: "text-white text-sm font-semibold", children: "표 창을 닫을까요?" }),
@@ -2918,7 +2918,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.13";
+const DDB_VERSION = "1.00.14";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4468,7 +4468,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v450"
+                children: "v451"
             }), (() => {
                 const S = [{
                     k: "cal",
