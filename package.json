@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fortune-sheet/react": "^1.0.4",
     "@supabase/supabase-js": "^2.45.4",
     "jsdom": "^29.1.1",
     "korean-lunar-calendar": "^0.3.1",

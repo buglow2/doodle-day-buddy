@@ -9,6 +9,8 @@ import * as o from 'react/jsx-runtime';
 import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import { CircleAlert as Ec, Trash2 as Gr, TriangleAlert as Of, Maximize2 as Ql, Square as Rf, RefreshCw as Sc, ChevronDown as Si, Plus as Vr, X as Zt, Info as aT, CircleCheckBig as ad, Download as am, Upload as au, UserPlus as bT, Settings2 as bw, LoaderCircle as cT, Search as cd, Pause as dT, CalendarDays as eT, Pencil as fT, Shuffle as gT, Cloud as gw, Menu as hT, KeyRound as iT, Minus as id, Landmark as im, ChevronUp as jf, Wallet as kT, List as lT, Pin as ld, Sparkles as lm, Repeat as mT, ExternalLink as nT, Link as oT, Music as od, Settings as om, Repeat1 as pT, CloudOff as rT, SquareCheckBig as rl, Eye as sT, Calculator as sd, BookOpen as sm, Check as su, Calendar as tT, ChevronLeft as tl, LogIn as uT, SkipBack as vT, EyeOff as vw, SkipForward as wT, GripVertical as ww, Play as xT, Table2 as yT, LogOut as yw, PanelLeft as F0, PanelRight as I0 , ChevronRight as $n } from 'lucide-react';
+import '@fortune-sheet/react/dist/index.css';
+const FSWorkbook = O.lazy(() => import('@fortune-sheet/react').then(m => ({ default: m.Workbook })));
 const F2 = O;
 const fw = createClient;
 const f2 = XLSX.utils, _d = XLSX.read, Gw = XLSX.SSF;
@@ -1129,11 +1131,28 @@ function DDBImageEditor() {
     ] }), document.body);
 }
 
+function ddbMdToFortune(content) {
+    try {
+        const body = ddbSplitFmt(content).body; const blocks = ddbToBlocks(body); const tb = blocks.find(b => b && b.t === "table");
+        const celldata = [];
+        if (tb) {
+            (tb.headers || []).forEach((h, c) => { if (h != null && String(h) !== "") celldata.push({ r: 0, c: c, v: { v: String(h), m: String(h), bl: 1, bg: "#f2f2f2" } }); });
+            (tb.rows || []).forEach((row, ri) => { (row || []).forEach((val, c) => { if (val != null && String(val) !== "") celldata.push({ r: ri + 1, c: c, v: { v: String(val), m: String(val) } }); }); });
+        }
+        const nr = Math.max(60, tb ? (tb.rows.length + 10) : 60); const nc = Math.max(26, tb && tb.headers ? (tb.headers.length + 5) : 26);
+        return [{ name: "표", celldata: celldata, row: nr, column: nc }];
+    } catch (e) { return [{ name: "표", celldata: [], row: 60, column: 26 }]; }
+}
+function DDBLibGrid({ content }) {
+    const data = O.useMemo(() => ddbMdToFortune(content), []);
+    return o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx("div", { style: { height: "100%", width: "100%" }, children: o.jsx(FSWorkbook, { data: data, lang: "en" }) }) });
+}
 function DDBTableWindow() {
     const [open, setOpen] = O.useState(false);
     const [tables, setTables] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_tables") || "null"); if (Array.isArray(v) && v.length) return v.map(t => (t.content != null) ? t : { id: t.id || ("t" + Date.now() + Math.random()), name: t.name || "표", content: ddbGridToMd((t.cells && t.cells[0]) || ["열1", "열2", "열3"], (t.cells || []).slice(1)) }); } catch {} return [{ id: "t" + Date.now(), name: "표 1", content: ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]) }]; });
     const [ti, setTi] = O.useState(0);
     const [askClose, setAskClose] = O.useState(false);
+    const [libMode, setLibMode] = O.useState(false);
     const tablesRef = O.useRef(tables); tablesRef.current = tables;
     const snapRef = O.useRef(null);
     const [geo, setGeo] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_table_geo") || "null"); if (v && typeof v.x === "number") return v; } catch {} return { x: 140, y: 90, w: 640, h: 470 }; });
@@ -1155,11 +1174,15 @@ function DDBTableWindow() {
             o.jsx("span", { className: "text-white font-semibold text-sm", children: "▦ 표" }),
             o.jsx("div", { className: "flex items-center gap-1 overflow-x-auto flex-1", children: tables.map((tb, i) => o.jsx("button", { onClick: () => setTi(i), onDoubleClick: () => { if (i === ti) renameTable(); }, title: "더블클릭: 이름 변경", className: "px-2 py-0.5 rounded text-xs whitespace-nowrap cursor-pointer border " + (i === ti ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"), children: tb.name }, tb.id)) }),
             o.jsx("button", { onClick: newTable, title: "새 표", className: "px-2 py-0.5 rounded text-xs bg-white/10 text-white/70 hover:bg-white/20 cursor-pointer border-none", children: "＋" }),
+            o.jsx("button", { onClick: () => setLibMode(v => !v), title: "FortuneSheet 오픈소스 그리드로 열기 (실험용 · 저장 안 됨)", className: "px-2 py-0.5 rounded text-xs cursor-pointer border " + (libMode ? "bg-amber-500/30 border-amber-400/60 text-amber-100" : "bg-white/5 border-white/15 text-white/60 hover:bg-white/10"), children: libMode ? "🧪 라이브러리 ✓" : "🧪 라이브러리" }),
             o.jsx("button", { onClick: () => { try { window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: tab.name || "표", html: ddbBlocksToPrintHtml(tab.content), landscape: true } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤)", className: "px-2 py-0.5 rounded text-xs bg-green-600/70 text-white hover:bg-green-600 cursor-pointer border-none", children: "🖨 인쇄" }),
             o.jsx("button", { onClick: delTable, title: "이 표 삭제", className: "px-1.5 py-0.5 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none", children: "🗑" }),
             o.jsx("button", { onClick: () => setAskClose(true), title: "닫기 (Alt+X · 저장 확인)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
         ] }),
-        o.jsx("div", { className: "flex-1 overflow-hidden p-2", style: { minHeight: 0 }, children: o.jsx(DDBDocEditor, { content: tab.content, fontSize: 13, onCommit: saveContent, itemId: "tblwin-" + tab.id, soloOn: true, maxH: "100%", forceXl: true }, tab.id) }),
+        libMode ? o.jsxs("div", { className: "flex-1 flex flex-col overflow-hidden", style: { minHeight: 0 }, children: [
+            o.jsx("div", { className: "px-2.5 py-1 text-[11px] text-amber-200/80 bg-amber-500/10 border-b border-amber-400/20 flex-shrink-0", children: "🧪 실험용 FortuneSheet(오픈소스 MIT) — 현재 ‘" + (tab.name || "표") + "’ 내용을 불러왔습니다. 여기 수정은 저장되지 않아요(비교용). 커스텀으로 돌아가려면 라이브러리 버튼을 다시 누르세요." }),
+            o.jsx("div", { className: "flex-1", style: { minHeight: 0, position: "relative" }, children: o.jsx(DDBLibGrid, { content: tab.content }, "lib-" + tab.id) })
+        ] }) : o.jsx("div", { className: "flex-1 overflow-hidden p-2", style: { minHeight: 0 }, children: o.jsx(DDBDocEditor, { content: tab.content, fontSize: 13, onCommit: saveContent, itemId: "tblwin-" + tab.id, soloOn: true, maxH: "100%", forceXl: true }, tab.id) }),
         o.jsx("div", { onMouseDown: resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) }),
         askClose ? o.jsxs("div", { className: "absolute inset-0 flex items-center justify-center", style: { zIndex: 20, background: "rgba(0,0,0,0.5)" }, children: [o.jsxs("div", { className: "rounded-xl p-4 flex flex-col gap-3", style: { background: "#1e2432", border: "1px solid rgba(255,255,255,0.2)", width: 300 }, children: [
             o.jsx("div", { className: "text-white text-sm font-semibold", children: "표 창을 닫을까요?" }),
@@ -2918,7 +2941,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.14";
+const DDB_VERSION = "1.00.15";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4468,7 +4491,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v451"
+                children: "v452"
             }), (() => {
                 const S = [{
                     k: "cal",
