@@ -1143,17 +1143,37 @@ function ddbMdToFortune(content) {
         return [{ name: "표", celldata: celldata, row: nr, column: nc }];
     } catch (e) { return [{ name: "표", celldata: [], row: 60, column: 26 }]; }
 }
-function DDBLibGrid({ content }) {
-    const data = O.useMemo(() => ddbMdToFortune(content), []);
+function ddbFortuneToMd(sheets) {
+    try {
+        const sh = (Array.isArray(sheets) ? sheets[0] : sheets) || null; if (!sh) return null;
+        let mat = sh.data;
+        if (!mat && sh.celldata) { mat = []; sh.celldata.forEach(c => { if (c.r == null || c.c == null) return; mat[c.r] = mat[c.r] || []; mat[c.r][c.c] = c.v; }); }
+        if (!mat) return null;
+        const cv = cell => { if (cell == null) return ""; if (typeof cell !== "object") return String(cell); const v = (cell.f != null && cell.f !== "") ? cell.f : (cell.m != null ? cell.m : (cell.v != null ? cell.v : "")); return String(v); };
+        let maxR = -1, maxC = -1;
+        for (let r = 0; r < mat.length; r++) { const row = mat[r]; if (!row) continue; for (let c = 0; c < row.length; c++) { if (cv(row[c]).trim() !== "") { if (r > maxR) maxR = r; if (c > maxC) maxC = c; } } }
+        if (maxR < 0) return ddbGridToMd(["열1"], []);
+        const headers = []; for (let c = 0; c <= maxC; c++) headers.push(cv((mat[0] || [])[c]));
+        const rows = []; for (let r = 1; r <= maxR; r++) { const row = []; for (let c = 0; c <= maxC; c++) row.push(cv((mat[r] || [])[c])); rows.push(row); }
+        return ddbGridToMd(headers, rows);
+    } catch (e) { return null; }
+}
+function ddbLoadFortune(content) { const s = String(content || ""); if (s.startsWith("DDBFS:")) { try { const sheets = JSON.parse(s.slice(6)); if (Array.isArray(sheets) && sheets.length) return sheets; } catch (e) {} } return ddbMdToFortune(content); }
+function ddbTabToMd(content) { const s = String(content || ""); if (s.startsWith("DDBFS:")) { try { return ddbFortuneToMd(JSON.parse(s.slice(6))) || ddbGridToMd(["열1"], []); } catch (e) { return ddbGridToMd(["열1"], []); } } return content; }
+function DDBLibGrid({ content, onCommit }) {
+    const data = O.useMemo(() => ddbLoadFortune(content), []);
+    const tmr = O.useRef(null);
+    const onCh = O.useCallback(sheets => { if (!onCommit) return; if (tmr.current) clearTimeout(tmr.current); tmr.current = setTimeout(() => { try { onCommit("DDBFS:" + JSON.stringify(sheets)); } catch (e) {} }, 500); }, [onCommit]);
+    O.useEffect(() => () => { if (tmr.current) clearTimeout(tmr.current); }, []);
     const toolbarItems = ["undo", "redo", "format-painter", "clear-format", "font", "font-size", "bold", "italic", "font-color", "background", "border", "horizontal-align", "vertical-align", "text-wrap", "merge-cell", "currency-format", "percentage-format", "freeze", "filter", "sort", "conditionFormat", "chart", "comment", "image", "link"];
-    return o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx("div", { style: { height: "100%", width: "100%" }, children: o.jsx(FSWorkbook, { data: data, lang: "en", toolbarItems: toolbarItems, defaultFontSize: 11 }) }) });
+    return o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx("div", { style: { height: "100%", width: "100%" }, children: o.jsx(FSWorkbook, { data: data, lang: "en", toolbarItems: toolbarItems, defaultFontSize: 11, onChange: onCommit ? onCh : void 0 }) }) });
 }
 function DDBTableWindow() {
     const [open, setOpen] = O.useState(false);
     const [tables, setTables] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_tables") || "null"); if (Array.isArray(v) && v.length) return v.map(t => (t.content != null) ? t : { id: t.id || ("t" + Date.now() + Math.random()), name: t.name || "표", content: ddbGridToMd((t.cells && t.cells[0]) || ["열1", "열2", "열3"], (t.cells || []).slice(1)) }); } catch {} return [{ id: "t" + Date.now(), name: "표 1", content: ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]) }]; });
     const [ti, setTi] = O.useState(0);
     const [askClose, setAskClose] = O.useState(false);
-    const [libMode, setLibMode] = O.useState(false);
+    const [libMode, setLibMode] = O.useState(() => { try { return localStorage.getItem("ddb_tbl_custom") !== "1"; } catch { return true; } });
     const tablesRef = O.useRef(tables); tablesRef.current = tables;
     const snapRef = O.useRef(null);
     const [geo, setGeo] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_table_geo") || "null"); if (v && typeof v.x === "number") return v; } catch {} return { x: 140, y: 90, w: 640, h: 470 }; });
@@ -1175,15 +1195,12 @@ function DDBTableWindow() {
             o.jsx("span", { className: "text-white font-semibold text-sm", children: "▦ 표" }),
             o.jsx("div", { className: "flex items-center gap-1 overflow-x-auto flex-1", children: tables.map((tb, i) => o.jsx("button", { onClick: () => setTi(i), onDoubleClick: () => { if (i === ti) renameTable(); }, title: "더블클릭: 이름 변경", className: "px-2 py-0.5 rounded text-xs whitespace-nowrap cursor-pointer border " + (i === ti ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"), children: tb.name }, tb.id)) }),
             o.jsx("button", { onClick: newTable, title: "새 표", className: "px-2 py-0.5 rounded text-xs bg-white/10 text-white/70 hover:bg-white/20 cursor-pointer border-none", children: "＋" }),
-            o.jsx("button", { onClick: () => setLibMode(v => !v), title: "FortuneSheet 오픈소스 그리드로 열기 (실험용 · 저장 안 됨)", className: "px-2 py-0.5 rounded text-xs cursor-pointer border " + (libMode ? "bg-amber-500/30 border-amber-400/60 text-amber-100" : "bg-white/5 border-white/15 text-white/60 hover:bg-white/10"), children: libMode ? "🧪 라이브러리 ✓" : "🧪 라이브러리" }),
-            o.jsx("button", { onClick: () => { try { window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: tab.name || "표", html: ddbBlocksToPrintHtml(tab.content), landscape: true } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤)", className: "px-2 py-0.5 rounded text-xs bg-green-600/70 text-white hover:bg-green-600 cursor-pointer border-none", children: "🖨 인쇄" }),
+            o.jsx("button", { onClick: () => { const nv = !libMode; try { localStorage.setItem("ddb_tbl_custom", nv ? "0" : "1"); } catch (e) {} setLibMode(nv); }, title: libMode ? "커스텀 편집기로 전환" : "엑셀 그리드(FortuneSheet)로 전환", className: "px-2 py-0.5 rounded text-xs cursor-pointer border " + (libMode ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100" : "bg-white/5 border-white/15 text-white/60 hover:bg-white/10"), children: libMode ? "⊞ 엑셀그리드" : "✏️ 커스텀" }),
+            o.jsx("button", { onClick: () => { try { window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: tab.name || "표", html: ddbBlocksToPrintHtml(ddbTabToMd(tab.content)), landscape: true } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤)", className: "px-2 py-0.5 rounded text-xs bg-green-600/70 text-white hover:bg-green-600 cursor-pointer border-none", children: "🖨 인쇄" }),
             o.jsx("button", { onClick: delTable, title: "이 표 삭제", className: "px-1.5 py-0.5 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none", children: "🗑" }),
             o.jsx("button", { onClick: () => setAskClose(true), title: "닫기 (Alt+X · 저장 확인)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
         ] }),
-        libMode ? o.jsxs("div", { className: "flex-1 flex flex-col overflow-hidden", style: { minHeight: 0 }, children: [
-            o.jsx("div", { className: "px-2.5 py-1 text-[11px] text-amber-200/80 bg-amber-500/10 border-b border-amber-400/20 flex-shrink-0", children: "🧪 실험용 FortuneSheet(오픈소스 MIT) — 현재 ‘" + (tab.name || "표") + "’ 내용을 불러왔습니다. 여기 수정은 저장되지 않아요(비교용). 커스텀으로 돌아가려면 라이브러리 버튼을 다시 누르세요." }),
-            o.jsx("div", { className: "flex-1", style: { minHeight: 0, position: "relative" }, children: o.jsx(DDBLibGrid, { content: tab.content }, "lib-" + tab.id) })
-        ] }) : o.jsx("div", { className: "flex-1 overflow-hidden p-2", style: { minHeight: 0 }, children: o.jsx(DDBDocEditor, { content: tab.content, fontSize: 13, onCommit: saveContent, itemId: "tblwin-" + tab.id, soloOn: true, maxH: "100%", forceXl: true }, tab.id) }),
+        libMode ? o.jsx("div", { className: "flex-1 overflow-hidden", style: { minHeight: 0, position: "relative" }, children: o.jsx(DDBLibGrid, { content: tab.content, onCommit: saveContent }, "lib-" + tab.id) }) : o.jsx("div", { className: "flex-1 overflow-hidden p-2", style: { minHeight: 0 }, children: o.jsx(DDBDocEditor, { content: ddbTabToMd(tab.content), fontSize: 13, onCommit: saveContent, itemId: "tblwin-" + tab.id, soloOn: true, maxH: "100%", forceXl: true }, tab.id) }),
         o.jsx("div", { onMouseDown: resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) }),
         askClose ? o.jsxs("div", { className: "absolute inset-0 flex items-center justify-center", style: { zIndex: 20, background: "rgba(0,0,0,0.5)" }, children: [o.jsxs("div", { className: "rounded-xl p-4 flex flex-col gap-3", style: { background: "#1e2432", border: "1px solid rgba(255,255,255,0.2)", width: 300 }, children: [
             o.jsx("div", { className: "text-white text-sm font-semibold", children: "표 창을 닫을까요?" }),
@@ -1573,6 +1590,8 @@ function DDBFeedbackLog() {
 }
 function ddbLocalDay(d) { d = d || new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function ddbAiLines(txt) { let body = String(txt || ""); try { body = ddbSplitFmt(txt).body; } catch (e) {} return body.split("\n").map(s => s.replace(/^\s*[*\-•·]\s*/, "").trim()).filter(l => l && l.charAt(0) !== "|"); }
+const DDB_QT_ORDER = ["pink", "green", "blue", "yellow", "purple", "orange", "red", "teal"];
+function ddbLineColor(line) { const m = /^\s*(\d{1,2})\*\s*/.exec(String(line || "")); if (m) { const c = DDB_QT_ORDER[parseInt(m[1], 10) - 1]; if (c) return { color: c, title: String(line).slice(m[0].length).trim() }; } return { color: null, title: String(line) }; }
 function ddbShiftDay(s, d) { const p = String(s).split("-").map(Number); const dt = new Date(p[0] || 2000, (p[1] || 1) - 1, p[2] || 1); dt.setDate(dt.getDate() + d); return ddbLocalDay(dt); }
 function DDBAiDigest() {
     const { state, dispatch } = vt();
@@ -1620,7 +1639,7 @@ function ddbAiFlush(tab, dispatch) {
     const tc = ddbTeamWriteCtx();
     if (tc && !(tc.caps && tc.caps.event)) return 0; // 팀 읽기전용이면 정리 보류
     const lines = ddbAiLines(tab.aiText);
-    lines.forEach((ln, ix) => ddbAddCalEvent({ id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: ln.slice(0, 200), date: tab.aiDate, color: tab.aiColorName || "green", customColor: (!tab.aiColorName && tab.aiCustom) ? tab.aiCustom : void 0, isAllDay: true }, dispatch));
+    lines.forEach((ln, ix) => { const lc = ddbLineColor(ln); const color = lc.color || tab.aiColorName || "green"; const customColor = lc.color ? void 0 : ((!tab.aiColorName && tab.aiCustom) ? tab.aiCustom : void 0); ddbAddCalEvent({ id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: lc.title.slice(0, 200), date: tab.aiDate, color: color, customColor: customColor, isAllDay: true }, dispatch); });
     dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "", aiDate: today } });
     return lines.length;
 }
@@ -1653,7 +1672,7 @@ function DDBAiMemoCard({ tab }) {
     const save = v => { setTxt(v); dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: v, aiDate: tab.aiDate || today } }); };
     const setColor = nm => dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiColorName: nm, color: qt[nm] || tab.color } });
     const cnt = ddbAiLines(txt).length;
-    const fileNow = () => { const ls = ddbAiLines(txt); if (!ls.length) return; const tc = ddbTeamWriteCtx(); if (tc && !(tc.caps && tc.caps.event)) { alert("팀 캘린더에 쓰기 권한이 없어 일정을 추가할 수 없어요. (읽기 전용 멤버)\n팀 관리에서 운영자에게 권한을 요청하세요."); return; } ls.forEach((ln, ix) => ddbAddCalEvent({ id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: ln.slice(0, 200), date: today, color: colorName, isAllDay: true }, dispatch)); dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "", aiDate: today } }); setTxt(""); setResetN(n => n + 1); };
+    const fileNow = () => { const ls = ddbAiLines(txt); if (!ls.length) return; const tc = ddbTeamWriteCtx(); if (tc && !(tc.caps && tc.caps.event)) { alert("팀 캘린더에 쓰기 권한이 없어 일정을 추가할 수 없어요. (읽기 전용 멤버)\n팀 관리에서 운영자에게 권한을 요청하세요."); return; } ls.forEach((ln, ix) => { const lc = ddbLineColor(ln); ddbAddCalEvent({ id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: lc.title.slice(0, 200), date: today, color: lc.color || colorName, isAllDay: true }, dispatch); }); dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "", aiDate: today } }); setTxt(""); setResetN(n => n + 1); };
     const chipHex = qt[colorName] || tab.color || "#22c55e";
     const rec = (state.aiDaily || {})[today] || {};
     const tCnt = (rec.tables || []).length, iCnt = (rec.images || []).length;
@@ -1662,7 +1681,7 @@ function DDBAiMemoCard({ tab }) {
         o.jsxs("div", { className: "flex items-center gap-1.5 px-2.5 py-1.5 border-b border-white/10 flex-shrink-0", children: [
             o.jsxs("div", { className: "relative flex-shrink-0", onMouseEnter: () => setTip(true), onMouseLeave: () => setTip(false), children: [
                 o.jsx("div", { className: "w-4 h-4 rounded-full bg-white/10 border border-white/25 text-white/70 text-[10px] flex items-center justify-center cursor-help select-none", children: "i" }),
-                o.jsx("div", { className: "absolute left-0 top-5 z-[60] px-2.5 py-2 rounded-lg border border-white/20 text-white/90 text-[11px] leading-relaxed shadow-2xl pointer-events-none", style: { opacity: tip ? 1 : 0, transition: "opacity 0.3s ease", visibility: tip ? "visible" : "hidden", width: 240, maxWidth: "none", whiteSpace: "normal", background: "#14181f" }, children: "🤖 한 줄 = 일정 1개 (자정에 그날 날짜로 자동 정리) · 표를 붙여넣으면 메모 안에 표로 바로 들어갑니다 · 이미지 저장 시 자동 보관" })
+                o.jsx("div", { className: "absolute left-0 top-5 z-[60] px-2.5 py-2 rounded-lg border border-white/20 text-white/90 text-[11px] leading-relaxed shadow-2xl pointer-events-none", style: { opacity: tip ? 1 : 0, transition: "opacity 0.3s ease", visibility: tip ? "visible" : "hidden", width: 250, maxWidth: "none", whiteSpace: "normal", background: "#14181f" }, children: "🤖 한 줄 = 일정 1개 (자정에 그날 날짜로 자동 정리) · 줄 맨 앞에 색 번호를 붙이면 그 색으로: 1*분홍 2*연두 3*파랑 4*노랑 5*보라 6*주황 7*빨강 8*청록 (예: 1*회의) · 표를 붙여넣으면 표로 바로 들어갑니다" })
             ] }),
             o.jsxs("div", { className: "relative flex-shrink-0", children: [
                 o.jsxs("button", { onClick: () => setPalOpen(v => !v), title: "일정 색 선택", className: "flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/8 border border-white/15 hover:bg-white/15 cursor-pointer", children: [
@@ -2942,7 +2961,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.16";
+const DDB_VERSION = "1.00.17";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4492,7 +4511,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v453"
+                children: "v454"
             }), (() => {
                 const S = [{
                     k: "cal",
