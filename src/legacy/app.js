@@ -1178,21 +1178,41 @@ function DDBLibGrid({ content, onCommit }) {
     const delRC = type => { const r = sel(); if (r && wbRef.current) try { if (type === "row") wbRef.current.deleteRowOrColumn("row", r.row[0], r.row[1]); else wbRef.current.deleteRowOrColumn("column", r.column[0], r.column[1]); } catch (e) {} };
     const undo = () => { try { wbRef.current && wbRef.current.handleUndo(); } catch (e) {} };
     const redo = () => { try { wbRef.current && wbRef.current.handleRedo(); } catch (e) {} };
-    const _rb = "height:22px;min-width:24px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #d6d5d4;background:#fff;color:#222;border-radius:3px;cursor:pointer;font-size:12px;padding:0 5px";
-    const B = (label, onClick, title, extra) => o.jsx("button", { onClick: onClick, title: title || "", style: { height: 22, minWidth: 24, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid #d6d5d4", background: "#fff", color: "#222", borderRadius: 3, cursor: "pointer", fontSize: 12, padding: "0 5px", ...(extra || {}) }, children: label });
-    const Grp = (label, kids) => o.jsxs("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", padding: "2px 7px", borderRight: "1px solid #e1dfdd" }, children: [o.jsx("div", { style: { display: "flex", alignItems: "center", gap: 2, flex: 1 }, children: kids }), o.jsx("div", { style: { fontSize: 9, color: "#8a8886", marginTop: 1 }, children: label })] });
-    const colorBtn = (label, attr, title) => o.jsxs("label", { title: title, style: { height: 22, display: "inline-flex", alignItems: "center", gap: 2, border: "1px solid #d6d5d4", background: "#fff", borderRadius: 3, cursor: "pointer", padding: "0 4px", fontSize: 11, color: "#222" }, children: [label, o.jsx("input", { type: "color", onChange: e => fmt(attr, e.target.value), style: { width: 16, height: 16, border: "none", background: "none", padding: 0, cursor: "pointer" } })] });
+    const fontStep = d => { const r = sel(); if (!r || !wbRef.current) return; let cur = 11; try { cur = Number(wbRef.current.getCellValue(r.row[0], r.column[0], { type: "fs" })) || 11; } catch (e) {} fmt("fs", Math.max(6, Math.min(96, cur + d))); };
+    const numFmt = fa => fmt("ct", { fa: fa, t: "n" });
+    const doCopy = async () => { const r = sel(); if (!r || !wbRef.current) return; try { const cells = wbRef.current.getCellsByRange(r); const tsv = (cells || []).map(row => (row || []).map(c => c ? (c.m != null ? c.m : (c.v != null ? c.v : "")) : "").join("\t")).join("\n"); await navigator.clipboard.writeText(tsv); } catch (e) {} };
+    const clearRange = () => { const r = sel(); if (!r || !wbRef.current) return; const nr = r.row[1] - r.row[0] + 1, nc = r.column[1] - r.column[0] + 1; const empty = Array.from({ length: nr }, () => Array.from({ length: nc }, () => "")); try { wbRef.current.setCellValuesByRange(empty, r); } catch (e) {} };
+    const doCut = async () => { await doCopy(); clearRange(); };
+    const doPaste = async () => { const r = sel(); if (!r || !wbRef.current) return; try { const txt = await navigator.clipboard.readText(); if (!txt) return; const d = txt.replace(/\r/g, "").split("\n").map(l => l.split("\t")); while (d.length && d[d.length - 1].length === 1 && d[d.length - 1][0] === "") d.pop(); const nr = d.length, nc = d.reduce((m, x) => Math.max(m, x.length), 1); wbRef.current.setCellValuesByRange(d, { row: [r.row[0], r.row[0] + nr - 1], column: [r.column[0], r.column[0] + nc - 1] }); } catch (e) {} };
+    const B = (label, onClick, title, extra) => o.jsx("button", { onClick: onClick, title: title || "", style: { height: 22, minWidth: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid #d6d5d4", background: "#fff", color: "#222", borderRadius: 3, cursor: "pointer", fontSize: 12, padding: "0 5px", ...(extra || {}) }, children: label });
+    const Bbig = (label, sub, onClick, title) => o.jsxs("button", { onClick: onClick, title: title || "", style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, minHeight: 46, padding: "2px 9px", border: "1px solid #d6d5d4", background: "#fff", color: "#222", borderRadius: 3, cursor: "pointer", fontSize: 10 }, children: [o.jsx("span", { style: { fontSize: 17, lineHeight: 1 }, children: label }), o.jsx("span", { children: sub })] });
+    const Grp = (label, kids) => o.jsxs("div", { style: { display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center", padding: "2px 7px", borderRight: "1px solid #e1dfdd" }, children: [o.jsx("div", { style: { display: "flex", alignItems: "center", gap: 2, flex: 1 }, children: kids }), o.jsx("div", { style: { fontSize: 9, color: "#8a8886", marginTop: 1 }, children: label })] });
+    const col2 = kids => o.jsx("div", { style: { display: "flex", flexDirection: "column", gap: 1, justifyContent: "center" }, children: kids });
+    const smL = (label, onClick, title) => o.jsx("button", { onClick: onClick, title: title || "", style: { height: 14, display: "inline-flex", alignItems: "center", gap: 3, border: "1px solid transparent", background: "transparent", color: "#222", borderRadius: 2, cursor: "pointer", fontSize: 10, padding: "0 3px", whiteSpace: "nowrap" }, children: label });
+    const colorBtn = (label, attr, title) => o.jsxs("label", { title: title, style: { height: 22, display: "inline-flex", alignItems: "center", gap: 2, border: "1px solid #d6d5d4", background: "#fff", borderRadius: 3, cursor: "pointer", padding: "0 4px", fontSize: 11, color: "#222" }, children: [label, o.jsx("input", { type: "color", onChange: e => fmt(attr, e.target.value), style: { width: 15, height: 15, border: "none", background: "none", padding: 0, cursor: "pointer" } })] });
     const ribbon = o.jsxs("div", { style: { display: "flex", alignItems: "stretch", background: "#f3f2f1", borderBottom: "1px solid #c8c6c4", padding: "3px 2px", flexWrap: "wrap", flexShrink: 0 }, children: [
-        Grp("편집", [B("↶", undo, "되돌리기"), B("↷", redo, "다시")]),
-        Grp("글꼴", [
-            o.jsx("select", { onChange: e => { if (e.target.value) fmt("ff", e.target.value); e.target.selectedIndex = 0; }, title: "글꼴", style: { height: 22, border: "1px solid #d6d5d4", borderRadius: 3, fontSize: 11, maxWidth: 92 }, children: [o.jsx("option", { value: "", children: "글꼴" }), ...FS_FONTS.map(f => o.jsx("option", { value: f, children: f }, f))] }),
-            o.jsx("select", { onChange: e => { if (e.target.value) fmt("fs", Number(e.target.value)); e.target.selectedIndex = 0; }, title: "크기", style: { height: 22, border: "1px solid #d6d5d4", borderRadius: 3, fontSize: 11, width: 46 }, children: [o.jsx("option", { value: "", children: "pt" }), ...FS_SIZES.map(s => o.jsx("option", { value: s, children: s }, s))] }),
-            B(o.jsx("b", { children: "가" }), () => toggle("bl"), "굵게"), B(o.jsx("i", { children: "가" }), () => toggle("it"), "기울임"), B(o.jsx("span", { style: { textDecoration: "underline" }, children: "가" }), () => toggle("un"), "밑줄"), B(o.jsx("span", { style: { textDecoration: "line-through" }, children: "가" }), () => toggle("cl"), "취소선"),
-            colorBtn("가", "fc", "글자색"), colorBtn("채움", "bg", "채우기 색")
-        ]),
-        Grp("맞춤", [B("⬅", () => fmt("ht", 1), "왼쪽"), B("⬌", () => fmt("ht", 0), "가운데"), B("➡", () => fmt("ht", 2), "오른쪽"), B("⬆", () => fmt("vt", 1), "위"), B("↕", () => fmt("vt", 0), "중간"), B("⬇", () => fmt("vt", 2), "아래")]),
-        Grp("셀", [B("병합", merge, "선택 셀 병합", { fontSize: 11 }), B("해제", unmerge, "병합 해제", { fontSize: 11 }), B("❄틀고정", freeze, "현재 셀 기준 틀 고정", { fontSize: 11 })]),
-        Grp("행·열", [B("＋행", () => insRC("row"), "행 삽입", { fontSize: 11 }), B("＋열", () => insRC("column"), "열 삽입", { fontSize: 11 }), B("－행", () => delRC("row"), "행 삭제", { fontSize: 11 }), B("－열", () => delRC("column"), "열 삭제", { fontSize: 11 })])
+        Grp("클립보드", [Bbig("📋", "붙여넣기", doPaste, "붙여넣기"), col2([smL("✂ 잘라내기", doCut, "잘라내기"), smL("⧉ 복사", doCopy, "복사")])]),
+        Grp("글꼴", o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: [
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 2 }, children: [
+                o.jsx("select", { onChange: e => { if (e.target.value) fmt("ff", e.target.value); e.target.selectedIndex = 0; }, title: "글꼴", style: { height: 20, border: "1px solid #d6d5d4", borderRadius: 3, fontSize: 11, maxWidth: 88 }, children: [o.jsx("option", { value: "", children: "글꼴" }), ...FS_FONTS.map(f => o.jsx("option", { value: f, children: f }, f))] }),
+                o.jsx("select", { onChange: e => { if (e.target.value) fmt("fs", Number(e.target.value)); e.target.selectedIndex = 0; }, title: "크기", style: { height: 20, border: "1px solid #d6d5d4", borderRadius: 3, fontSize: 11, width: 44 }, children: [o.jsx("option", { value: "", children: "pt" }), ...FS_SIZES.map(s => o.jsx("option", { value: s, children: s }, s))] }),
+                B("A⁺", () => fontStep(1), "크게", { minWidth: 20, height: 20 }), B("A⁻", () => fontStep(-1), "작게", { minWidth: 20, height: 20 })
+            ] }),
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 1 }, children: [
+                B(o.jsx("b", { children: "가" }), () => toggle("bl"), "굵게", { minWidth: 20, height: 20 }), B(o.jsx("i", { children: "가" }), () => toggle("it"), "기울임", { minWidth: 20, height: 20 }), B(o.jsx("span", { style: { textDecoration: "underline" }, children: "가" }), () => toggle("un"), "밑줄", { minWidth: 20, height: 20 }), B(o.jsx("span", { style: { textDecoration: "line-through" }, children: "가" }), () => toggle("cl"), "취소선", { minWidth: 20, height: 20 }), colorBtn("가", "fc", "글자색"), colorBtn("채움", "bg", "채우기 색")
+            ] })
+        ] })),
+        Grp("맞춤", o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: [
+            o.jsxs("div", { style: { display: "flex", gap: 1 }, children: [B("⬅", () => fmt("ht", 1), "왼쪽", { height: 20 }), B("⬌", () => fmt("ht", 0), "가운데", { height: 20 }), B("➡", () => fmt("ht", 2), "오른쪽", { height: 20 }), B("↵", () => fmt("tb", 2), "줄 바꿈", { height: 20, minWidth: 20 })] }),
+            o.jsxs("div", { style: { display: "flex", gap: 1 }, children: [B("⬆", () => fmt("vt", 1), "위", { height: 20 }), B("↕", () => fmt("vt", 0), "중간", { height: 20 }), B("⬇", () => fmt("vt", 2), "아래", { height: 20 }), B("병합", merge, "셀 병합", { height: 20, fontSize: 10 }), B("해제", unmerge, "병합 해제", { height: 20, fontSize: 10 })] })
+        ] })),
+        Grp("표시형식", [B("₩", () => numFmt("¤#,##0"), "통화", { fontSize: 13 }), B("%", () => numFmt("0.00%"), "백분율"), B(",", () => numFmt("#,##0"), "천 단위 구분")]),
+        Grp("셀", o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: [
+            o.jsxs("div", { style: { display: "flex", gap: 1 }, children: [B("＋행", () => insRC("row"), "행 삽입", { height: 20, fontSize: 10 }), B("＋열", () => insRC("column"), "열 삽입", { height: 20, fontSize: 10 })] }),
+            o.jsxs("div", { style: { display: "flex", gap: 1 }, children: [B("－행", () => delRC("row"), "행 삭제", { height: 20, fontSize: 10 }), B("－열", () => delRC("column"), "열 삭제", { height: 20, fontSize: 10 })] })
+        ] })),
+        Grp("보기", [B("❄ 틀 고정", freeze, "현재 셀 기준 틀 고정", { fontSize: 11 })]),
+        Grp("편집", [B("↶", undo, "되돌리기"), B("↷", redo, "다시")])
     ] });
     return o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", width: "100%" }, children: [
         ribbon,
@@ -1204,7 +1224,6 @@ function DDBTableWindow() {
     const [tables, setTables] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_tables") || "null"); if (Array.isArray(v) && v.length) return v.map(t => (t.content != null) ? t : { id: t.id || ("t" + Date.now() + Math.random()), name: t.name || "표", content: ddbGridToMd((t.cells && t.cells[0]) || ["열1", "열2", "열3"], (t.cells || []).slice(1)) }); } catch {} return [{ id: "t" + Date.now(), name: "표 1", content: ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]) }]; });
     const [ti, setTi] = O.useState(0);
     const [askClose, setAskClose] = O.useState(false);
-    const [libMode, setLibMode] = O.useState(() => { try { return localStorage.getItem("ddb_tbl_custom") !== "1"; } catch { return true; } });
     const tablesRef = O.useRef(tables); tablesRef.current = tables;
     const snapRef = O.useRef(null);
     const [geo, setGeo] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_table_geo") || "null"); if (v && typeof v.x === "number") return v; } catch {} return { x: 140, y: 90, w: 640, h: 470 }; });
@@ -1226,12 +1245,11 @@ function DDBTableWindow() {
             o.jsx("span", { className: "text-white font-semibold text-sm", children: "▦ 표" }),
             o.jsx("div", { className: "flex items-center gap-1 overflow-x-auto flex-1", children: tables.map((tb, i) => o.jsx("button", { onClick: () => setTi(i), onDoubleClick: () => { if (i === ti) renameTable(); }, title: "더블클릭: 이름 변경", className: "px-2 py-0.5 rounded text-xs whitespace-nowrap cursor-pointer border " + (i === ti ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"), children: tb.name }, tb.id)) }),
             o.jsx("button", { onClick: newTable, title: "새 표", className: "px-2 py-0.5 rounded text-xs bg-white/10 text-white/70 hover:bg-white/20 cursor-pointer border-none", children: "＋" }),
-            o.jsx("button", { onClick: () => { const nv = !libMode; try { localStorage.setItem("ddb_tbl_custom", nv ? "0" : "1"); } catch (e) {} setLibMode(nv); }, title: libMode ? "커스텀 편집기로 전환" : "엑셀 그리드(FortuneSheet)로 전환", className: "px-2 py-0.5 rounded text-xs cursor-pointer border " + (libMode ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100" : "bg-white/5 border-white/15 text-white/60 hover:bg-white/10"), children: libMode ? "⊞ 엑셀그리드" : "✏️ 커스텀" }),
             o.jsx("button", { onClick: () => { try { window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: tab.name || "표", html: ddbBlocksToPrintHtml(ddbTabToMd(tab.content)), landscape: true } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤)", className: "px-2 py-0.5 rounded text-xs bg-green-600/70 text-white hover:bg-green-600 cursor-pointer border-none", children: "🖨 인쇄" }),
             o.jsx("button", { onClick: delTable, title: "이 표 삭제", className: "px-1.5 py-0.5 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none", children: "🗑" }),
             o.jsx("button", { onClick: () => setAskClose(true), title: "닫기 (Alt+X · 저장 확인)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
         ] }),
-        libMode ? o.jsx("div", { className: "flex-1 overflow-hidden", style: { minHeight: 0, position: "relative" }, children: o.jsx(DDBLibGrid, { content: tab.content, onCommit: saveContent }, "lib-" + tab.id) }) : o.jsx("div", { className: "flex-1 overflow-hidden p-2", style: { minHeight: 0 }, children: o.jsx(DDBDocEditor, { content: ddbTabToMd(tab.content), fontSize: 13, onCommit: saveContent, itemId: "tblwin-" + tab.id, soloOn: true, maxH: "100%", forceXl: true }, tab.id) }),
+        o.jsx("div", { className: "flex-1 overflow-hidden", style: { minHeight: 0, position: "relative" }, children: o.jsx(DDBLibGrid, { content: tab.content, onCommit: saveContent }, "lib-" + tab.id) }),
         o.jsx("div", { onMouseDown: resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) }),
         askClose ? o.jsxs("div", { className: "absolute inset-0 flex items-center justify-center", style: { zIndex: 20, background: "rgba(0,0,0,0.5)" }, children: [o.jsxs("div", { className: "rounded-xl p-4 flex flex-col gap-3", style: { background: "#1e2432", border: "1px solid rgba(255,255,255,0.2)", width: 300 }, children: [
             o.jsx("div", { className: "text-white text-sm font-semibold", children: "표 창을 닫을까요?" }),
@@ -2998,7 +3016,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.18";
+const DDB_VERSION = "1.00.19";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4548,7 +4566,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v455"
+                children: "v456"
             }), (() => {
                 const S = [{
                     k: "cal",
