@@ -3016,7 +3016,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.19";
+const DDB_VERSION = "1.00.20";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4566,7 +4566,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v456"
+                children: "v457"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9359,9 +9359,7 @@ function jw({
         const isTbl = it && ddbHasTable(ddbSplitFmt(it.content).body);
         if (R.key === "ArrowDown") { R.preventDefault(); setSelIdx(v => Math.min(A.length - 1, v + 1)) }
         else if (R.key === "ArrowUp") { R.preventDefault(); setSelIdx(v => Math.max(0, v - 1)) }
-        else if ((R.ctrlKey || R.metaKey) && R.key === "ArrowLeft") { R.preventDefault(); ml.current && ml.current.blur(); }
-        else if (R.key === "ArrowRight") { R.preventDefault(); if (it && !it.expanded) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !0 } }); }
-        else if (R.key === "ArrowLeft") { R.preventDefault(); if (it && it.expanded) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !1 } }); }
+        else if (R.key === "Escape" || ((R.ctrlKey || R.metaKey) && R.key === "ArrowLeft")) { R.preventDefault(); ml.current && ml.current.blur(); setListFocused(false); }
         else if (R.key === "Enter") { R.preventDefault(); if (it) { if (isTbl) { setFocusId(it.id) } else { c(it.content); setEditId(it.id); setMo("input"); setTimeout(() => u.current && u.current.focus(), 20) } } }
     }
     O.useEffect(() => { if (mo === "list" && !focusId && ml.current) { ml.current.focus(); const el = ml.current.querySelector('[data-midx="' + Math.min(selIdx, Math.max(0, A.length - 1)) + '"]'); el && el.scrollIntoView({ block: "nearest" }) } }, [mo, selIdx, focusId]);
@@ -10107,7 +10105,7 @@ function qT({
             return
         }
         c || (clearTimeout(v.current), v.current = setTimeout(() => {
-            isDoc ? void 0 : b ? i() : (u(!0), d(e.content))
+            isDoc ? void 0 : (u(!0), d(e.content))
         }, 200))
     }
 
@@ -10176,21 +10174,18 @@ function qT({
             style: {
                 fontSize: Math.max(10, t - 1)
             }
-        }) : isDoc ? (soloOn ? o.jsx(DDBDocEditor, { content: e.content, fontSize: t, onCommit: a, itemId: e.id, maxH: "72vh", onSolo: onSolo, soloOn: soloOn, onExit: onExitSolo }) : g ? gGridEl() : o.jsxs("div", { className: "pr-8", children: [o.jsxs("div", { onClick: re => { re.stopPropagation(); i(); }, onDoubleClick: re => { re.stopPropagation(); onSolo && onSolo(); }, className: "flex items-center gap-1.5 cursor-pointer", children: [o.jsx("span", { className: "text-white/35 text-[8px] flex-shrink-0 leading-none", children: T ? "v" : ">" }), o.jsx("span", { className: "text-white/40 text-[11px] flex-shrink-0 leading-none", children: "▦" }), o.jsx("p", { className: "text-white font-bold leading-snug flex-1 break-all", style: { fontSize: Math.max(11, t) }, children: ddbDocTitle(e.content) }), onSolo ? o.jsx("button", { onClick: re => { re.stopPropagation(); onSolo(); }, title: "상세보기 — 수식·서식 등 전체 편집", className: "px-2 py-0.5 rounded text-[10px] bg-blue-500/30 text-blue-100 hover:bg-blue-500/50 border-none cursor-pointer flex-shrink-0", children: "🔍 상세보기" }) : null] }), T ? o.jsx("div", { className: "mt-1 pl-3.5 border-l border-white/10 thin-scroll", style: { maxHeight: 320, overflow: "auto" }, onMouseDown: re => re.stopPropagation(), children: ddbDocPreviewEl(e.content, t) }) : null] })) : g ? o.jsx("div", { onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: "320px", maxWidth: "100%" }, children: o.jsxs("div", { children: [o.jsxs("div", { className: "flex gap-1 mb-1 flex-wrap", children: [o.jsx("button", { onClick: ev => { ev.stopPropagation(); gAddRow(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer", children: "＋행" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gAddCol(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer", children: "＋열" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gDelRow(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/60 hover:bg-red-500/25 border-none cursor-pointer", children: "행－" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gDelCol(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/60 hover:bg-red-500/25 border-none cursor-pointer", children: "열－" }), o.jsx("span", { className: "text-white/25 text-[9px] self-center ml-1", children: "열경계 드래그·Ctrl+←→ 너비" })] }), o.jsxs("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: "auto" }, children: [o.jsx("thead", { children: o.jsx("tr", { children: grid.headers.map((hh, Y) => o.jsxs("th", { style: { ...z, position: "relative", width: colW(Y), minWidth: colW(Y), maxWidth: colW(Y), padding: "2px 4px" }, children: [o.jsx("input", { value: hh == null ? "" : hh, onFocus: () => setSelCol(Y), onChange: ev => gEdit("h", 0, Y, ev.target.value), onKeyDown: ev => cellKey(ev, Y), onMouseDown: ev => ev.stopPropagation(), className: "bg-transparent text-white text-center outline-none", style: { fontSize: "11px", fontWeight: 600, width: "100%" } }), o.jsx("div", { onMouseDown: ev => colDrag(Y, ev), onClick: ev => ev.stopPropagation(), title: "열 너비 조절", style: { position: "absolute", top: 0, right: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 3 } })] }, Y)) }) }), o.jsx("tbody", { children: grid.rows.map((re, Y) => o.jsx("tr", { children: grid.headers.map((_h, X) => o.jsx("td", { style: { ...G, width: colW(X), minWidth: colW(X), maxWidth: colW(X), padding: "2px 4px" }, children: o.jsx("input", { value: (re && re[X]) == null ? "" : re[X], onFocus: () => setSelCol(X), onChange: ev => gEdit("r", Y, X, ev.target.value), onKeyDown: ev => cellKey(ev, X), onMouseDown: ev => ev.stopPropagation(), className: "bg-transparent text-white/85 outline-none", style: { fontSize: "11px", width: "100%" } }) }, X)) }, Y)) })] }), o.jsx("textarea", { value: trail, onChange: ev => trailCommit(ev.target.value), onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), placeholder: "표 아래에 메모 입력…", rows: Math.max(2, (String(trail).match(/\n/g) || []).length + 1), className: "w-full mt-1.5 rounded px-2 py-1 text-white/85 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)" } })] })}) : o.jsxs("div", {
+        }) : isDoc ? (soloOn ? o.jsx(DDBDocEditor, { content: e.content, fontSize: t, onCommit: a, itemId: e.id, maxH: "72vh", onSolo: onSolo, soloOn: soloOn, onExit: onExitSolo }) : g ? gGridEl() : o.jsxs("div", { className: "pr-8", children: [o.jsxs("div", { onClick: re => { re.stopPropagation(); onSolo && onSolo(); }, className: "flex items-center gap-1.5 cursor-pointer", children: [o.jsx("span", { className: "text-white/40 text-[11px] flex-shrink-0 leading-none", children: "▦" }), o.jsx("p", { className: "text-white font-bold leading-snug flex-1 break-all", style: { fontSize: Math.max(11, t) }, children: ddbDocTitle(e.content) }), onSolo ? o.jsx("button", { onClick: re => { re.stopPropagation(); onSolo(); }, title: "열기 — 수식·서식 등 전체 편집", className: "px-2 py-0.5 rounded text-[10px] bg-blue-500/30 text-blue-100 hover:bg-blue-500/50 border-none cursor-pointer flex-shrink-0", children: "🔍 열기" }) : null] }), o.jsx("div", { className: "mt-1 pl-3.5 border-l border-white/10 thin-scroll", style: { maxHeight: 320, overflow: "auto" }, onMouseDown: re => re.stopPropagation(), children: ddbDocPreviewEl(e.content, t) })] })) : g ? o.jsx("div", { onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), onDoubleClick: ev => ev.stopPropagation(), className: "thin-scroll pr-7", style: { overflowX: "auto", overflowY: "auto", maxHeight: "320px", maxWidth: "100%" }, children: o.jsxs("div", { children: [o.jsxs("div", { className: "flex gap-1 mb-1 flex-wrap", children: [o.jsx("button", { onClick: ev => { ev.stopPropagation(); gAddRow(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer", children: "＋행" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gAddCol(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer", children: "＋열" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gDelRow(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/60 hover:bg-red-500/25 border-none cursor-pointer", children: "행－" }), o.jsx("button", { onClick: ev => { ev.stopPropagation(); gDelCol(); }, className: "px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-white/60 hover:bg-red-500/25 border-none cursor-pointer", children: "열－" }), o.jsx("span", { className: "text-white/25 text-[9px] self-center ml-1", children: "열경계 드래그·Ctrl+←→ 너비" })] }), o.jsxs("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: "auto" }, children: [o.jsx("thead", { children: o.jsx("tr", { children: grid.headers.map((hh, Y) => o.jsxs("th", { style: { ...z, position: "relative", width: colW(Y), minWidth: colW(Y), maxWidth: colW(Y), padding: "2px 4px" }, children: [o.jsx("input", { value: hh == null ? "" : hh, onFocus: () => setSelCol(Y), onChange: ev => gEdit("h", 0, Y, ev.target.value), onKeyDown: ev => cellKey(ev, Y), onMouseDown: ev => ev.stopPropagation(), className: "bg-transparent text-white text-center outline-none", style: { fontSize: "11px", fontWeight: 600, width: "100%" } }), o.jsx("div", { onMouseDown: ev => colDrag(Y, ev), onClick: ev => ev.stopPropagation(), title: "열 너비 조절", style: { position: "absolute", top: 0, right: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 3 } })] }, Y)) }) }), o.jsx("tbody", { children: grid.rows.map((re, Y) => o.jsx("tr", { children: grid.headers.map((_h, X) => o.jsx("td", { style: { ...G, width: colW(X), minWidth: colW(X), maxWidth: colW(X), padding: "2px 4px" }, children: o.jsx("input", { value: (re && re[X]) == null ? "" : re[X], onFocus: () => setSelCol(X), onChange: ev => gEdit("r", Y, X, ev.target.value), onKeyDown: ev => cellKey(ev, X), onMouseDown: ev => ev.stopPropagation(), className: "bg-transparent text-white/85 outline-none", style: { fontSize: "11px", width: "100%" } }) }, X)) }, Y)) })] }), o.jsx("textarea", { value: trail, onChange: ev => trailCommit(ev.target.value), onMouseDown: ev => ev.stopPropagation(), onClick: ev => ev.stopPropagation(), placeholder: "표 아래에 메모 입력…", rows: Math.max(2, (String(trail).match(/\n/g) || []).length + 1), className: "w-full mt-1.5 rounded px-2 py-1 text-white/85 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)" } })] })}) : o.jsxs("div", {
             className: "pr-10",
-            children: [o.jsxs("div", {
+            children: [o.jsx("div", {
                 className: "flex items-center gap-1.5",
-                children: [b && o.jsx("span", {
-                    className: "text-white/35 text-[8px] flex-shrink-0 leading-none",
-                    children: T ? "v" : ">"
-                }), o.jsx("p", {
+                children: o.jsx("p", {
                     className: "text-white font-bold leading-snug flex-1 break-all",
                     style: {
                         fontSize: Math.max(11, t)
                     },
                     children: k
-                })]
-            }), b && T && o.jsx("p", {
+                })
+            }), b && o.jsx("p", {
                 className: "text-white/50 whitespace-pre-wrap leading-relaxed mt-1 pl-3.5 border-l border-white/10",
                 style: {
                     fontSize: Math.max(9, t - 2)
