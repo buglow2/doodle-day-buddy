@@ -1408,12 +1408,16 @@ function DDBHotkeys() {
     const { state } = vt();
     const s = state.settings || {};
     const hot = s.calHotkeys || {}, tabs = s.calTabTargets || [];
+    const tabOn = !!s.memoTabCycle;
     O.useEffect(() => {
         const onKey = e => {
             const ae = document.activeElement; const editable = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable);
-            if (e.key === "Tab" && tabs.length && !editable) {
-                const els = Array.prototype.slice.call(document.querySelectorAll("[data-ddbcalk]")).filter(el => tabs.includes(el.getAttribute("data-ddbcalk")));
-                if (els.length) { e.preventDefault(); const cur = els.indexOf(ae); let ni = cur === -1 ? 0 : (e.shiftKey ? cur - 1 : cur + 1); ni = (ni + els.length) % els.length; try { els[ni].focus(); } catch (e2) {} return; }
+            if (e.key === "Tab" && (tabOn || tabs.length) && !editable) {
+                e.preventDefault();
+                const all = Array.prototype.slice.call(document.querySelectorAll("[data-ddbcalk]"));
+                const els = tabs.length ? all.filter(el => tabs.includes(el.getAttribute("data-ddbcalk"))) : all;
+                if (els.length) { const cur = els.indexOf(ae); let ni = cur === -1 ? 0 : (e.shiftKey ? cur - 1 : cur + 1); ni = (ni + els.length) % els.length; try { els[ni].focus(); } catch (e2) {} }
+                return;
             }
             if (!(e.ctrlKey || e.altKey || e.metaKey)) return;
             const combo = ddbKeyCombo(e); if (!combo) return;
@@ -1422,7 +1426,7 @@ function DDBHotkeys() {
         };
         window.addEventListener("keydown", onKey, true);
         return () => window.removeEventListener("keydown", onKey, true);
-    }, [JSON.stringify(hot), JSON.stringify(tabs)]);
+    }, [JSON.stringify(hot), JSON.stringify(tabs), tabOn]);
     return null;
 }
 function DDBCalBtnMenu() {
@@ -3064,7 +3068,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.24";
+const DDB_VERSION = "1.00.25";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4614,7 +4618,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v461"
+                children: "v462"
             }), (() => {
                 const S = [{
                     k: "cal",
