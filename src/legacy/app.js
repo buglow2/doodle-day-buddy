@@ -1166,6 +1166,20 @@ function DDBLibGrid({ content, onCommit }) {
     const data = O.useMemo(() => ddbLoadFortune(content), []);
     const wbRef = O.useRef(null);
     const tmr = O.useRef(null);
+    const [fxHelp, setFxHelp] = O.useState(null);
+    const onFx = e => {
+        try {
+            const el = e.target; if (!el) { setFxHelp(null); return; }
+            const txt = (el.value != null ? el.value : (el.textContent || ""));
+            if (!txt || String(txt).charAt(0) !== "=") { setFxHelp(null); return; }
+            let pos = String(txt).length; try { if (el.selectionStart != null) pos = el.selectionStart; } catch (e2) {}
+            const sig = ddbFxSig(txt, pos);
+            if (sig) { setFxHelp({ type: "sig", items: [sig] }); return; }
+            const tok = ddbFxToken(txt, pos);
+            if (tok && tok.tok) { const q = tok.tok.toUpperCase(); const m = DDB_FUNCS.filter(f => f[0].startsWith(q)).slice(0, 7); if (m.length) { setFxHelp({ type: "list", items: m }); return; } }
+            setFxHelp(null);
+        } catch (e3) { setFxHelp(null); }
+    };
     const onCh = O.useCallback(sheets => { if (!onCommit) return; if (tmr.current) clearTimeout(tmr.current); tmr.current = setTimeout(() => { try { onCommit("DDBFS:" + JSON.stringify(sheets)); } catch (e) {} }, 500); }, [onCommit]);
     O.useEffect(() => () => { if (tmr.current) clearTimeout(tmr.current); }, []);
     const sel = () => { try { const s = wbRef.current && wbRef.current.getSelection(); return (s && s[0]) || null; } catch (e) { return null; } };
@@ -1214,9 +1228,14 @@ function DDBLibGrid({ content, onCommit }) {
         Grp("보기", [B("❄ 틀 고정", freeze, "현재 셀 기준 틀 고정", { fontSize: 11 })]),
         Grp("편집", [B("↶", undo, "되돌리기"), B("↷", redo, "다시")])
     ] });
+    const fxDesc = d => { const parts = String(d || "").split(/\s{2,}/); return { ko: parts[0] || "", ex: parts[1] || "" }; };
+    const fxPanel = fxHelp ? o.jsx("div", { style: { position: "absolute", top: 6, right: 14, zIndex: 40, width: 300, maxWidth: "70%", background: "#1e293b", color: "#e7ecf3", border: "1px solid #3b4a5e", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", padding: "8px 10px", fontSize: 12 }, children: o.jsx("div", { style: { display: "flex", flexDirection: "column", gap: 5 }, children: fxHelp.items.map((f, idx) => { const dd = fxDesc(f[1]); return o.jsxs("div", { style: { lineHeight: 1.5 }, children: [o.jsxs("div", { children: [o.jsx("span", { style: { fontWeight: 700, color: "#7dd3fc" }, children: f[0] }), o.jsx("span", { style: { color: "#cbd5e1" }, children: " — " + dd.ko })] }), dd.ex ? o.jsx("div", { style: { color: "#94a3b8", fontFamily: "monospace", fontSize: 11 }, children: dd.ex }) : null] }, f[0] + idx); }) }) }) : null;
     return o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", width: "100%" }, children: [
         ribbon,
-        o.jsx("div", { style: { flex: 1, minHeight: 0, position: "relative" }, children: o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx(FSWorkbook, { ref: wbRef, data: data, lang: "en", showToolbar: false, defaultFontSize: 11, onChange: onCommit ? onCh : void 0 }) }) })
+        o.jsxs("div", { style: { flex: 1, minHeight: 0, position: "relative" }, onInput: onFx, onKeyUp: onFx, children: [
+            o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx(FSWorkbook, { ref: wbRef, data: data, lang: "en", showToolbar: false, defaultFontSize: 11, onChange: onCommit ? onCh : void 0 }) }),
+            fxPanel
+        ] })
     ] });
 }
 function DDBTableWindow() {
@@ -3016,7 +3035,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.20";
+const DDB_VERSION = "1.00.21";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4566,7 +4585,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v457"
+                children: "v458"
             }), (() => {
                 const S = [{
                     k: "cal",
