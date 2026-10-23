@@ -1407,27 +1407,27 @@ function ddbComboLabel(c) { return String(c || "").split("+").map(x => x === "ct
 function DDBHotkeys() {
     const { state } = vt();
     const s = state.settings || {};
-    const hot = s.calHotkeys || {}, tabs = s.calTabTargets || [];
+    const hot = s.calHotkeys || {}, tabs = s.calTabTargets || [], qhot = s.quickHotkeys || {};
     const tabOn = !!s.memoTabCycle;
     O.useEffect(() => {
         const onKey = e => {
             const ae = document.activeElement; const editable = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable);
-            if (e.key === "Tab" && (tabOn || tabs.length) && !editable) {
-                e.preventDefault();
+            if (e.key === "Tab" && tabs.length && !editable) {
                 const all = Array.prototype.slice.call(document.querySelectorAll("[data-ddbcalk]"));
-                const els = tabs.length ? all.filter(el => tabs.includes(el.getAttribute("data-ddbcalk"))) : all;
-                if (els.length) { const cur = els.indexOf(ae); let ni = cur === -1 ? 0 : (e.shiftKey ? cur - 1 : cur + 1); ni = (ni + els.length) % els.length; try { els[ni].focus(); } catch (e2) {} }
-                return;
+                const els = all.filter(el => tabs.includes(el.getAttribute("data-ddbcalk")));
+                if (els.length) { e.preventDefault(); const cur = els.indexOf(ae); let ni = cur === -1 ? 0 : (e.shiftKey ? cur - 1 : cur + 1); ni = (ni + els.length) % els.length; try { els[ni].focus(); } catch (e2) {} return; }
             }
             const isFn = /^f([1-9]|1[0-2])$/i.test(e.key || "");
             if (!(e.ctrlKey || e.altKey || e.metaKey) && !isFn) return;
             const combo = ddbKeyCombo(e); if (!combo) return;
+            const qhit = Object.keys(qhot).find(id => String(qhot[id] || "").toLowerCase() === combo);
+            if (qhit) { e.preventDefault(); e.stopPropagation(); try { window.dispatchEvent(new CustomEvent("ddb-run-quick", { detail: { id: qhit } })); } catch (e2) {} return; }
             const hit = Object.keys(hot).find(k => String(hot[k] || "").toLowerCase() === combo);
             if (hit) { const a = (window.__ddbCACT || []).find(x => x.k === hit); if (a && a.act) { e.preventDefault(); e.stopPropagation(); try { a.act(); } catch (e2) {} } }
         };
         window.addEventListener("keydown", onKey, true);
         return () => window.removeEventListener("keydown", onKey, true);
-    }, [JSON.stringify(hot), JSON.stringify(tabs), tabOn]);
+    }, [JSON.stringify(hot), JSON.stringify(tabs), JSON.stringify(qhot), tabOn]);
     return null;
 }
 function DDBCalBtnMenu() {
@@ -1519,6 +1519,9 @@ function DDBTileBar() {
     O.useEffect(() => { const iv = setInterval(() => { try { const now = new Date(); const cur = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0"); const dow = now.getDay(); const acts2 = (stRef.current.settings && stRef.current.settings.quickActions) || []; acts2.forEach(a => { if (a.type !== "pomo" || !a.alarm || !a.alarmTime) return; const days = a.days || []; if (!days.length) return; if (a.alarmTime !== cur || !days.includes(dow)) return; const fk = a.id + "|" + ddbLocalDay() + " " + cur; window.__ddbAlarmFired = window.__ddbAlarmFired || {}; if (window.__ddbAlarmFired[fk]) return; window.__ddbAlarmFired[fk] = true; try { window.dispatchEvent(new CustomEvent("ddb-pomo-start", { detail: { sec: 1, steps: [{ sec: 1, memo: (a.label || "알람") + " · " + a.alarmTime }], loop: false, sound: a.sound, alarm: true, alarmTime: a.alarmTime } })); } catch (e) {} }); } catch (e) {} }, 20000); return () => clearInterval(iv); }, []);
     const [toast, setToast] = O.useState("");
     const [actMenu, setActMenu] = O.useState(null);
+    const [aCap, setACap] = O.useState(false);
+    O.useEffect(() => { if (!aCap || !actMenu || !actMenu.t || !actMenu.t.a) return; const h = e => { e.preventDefault(); e.stopPropagation(); const k = (e.key || "").toLowerCase(); if (["control", "alt", "shift", "meta", "tab", "escape"].includes(k)) { if (k === "escape") setACap(false); return; } const isFn = /^f([1-9]|1[0-2])$/.test(k); if (!(e.ctrlKey || e.altKey || e.metaKey) && !isFn) return; const combo = ddbKeyCombo(e); const cur = (settings.quickHotkeys) || {}; dispatch({ type: "UPDATE_SETTINGS", settings: { quickHotkeys: { ...cur, [actMenu.t.a.id]: combo } } }); setACap(false); }; window.addEventListener("keydown", h, true); return () => window.removeEventListener("keydown", h, true); }, [aCap, actMenu]);
+    O.useEffect(() => { const h = e => { try { const id = e.detail && e.detail.id; if (!id) return; const a = ((stRef.current.settings && stRef.current.settings.quickActions) || []).find(x => x && x.id === id); if (a) doTile({ id: a.id, kind: a.type, a: a }); } catch (er) {} }; window.addEventListener("ddb-run-quick", h); return () => window.removeEventListener("ddb-run-quick", h); }, []);
     const lp = O.useRef(null);
     const mdrag = O.useRef(null);
     O.useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 4000); return () => clearTimeout(id); }, [toast]);
@@ -1570,7 +1573,7 @@ function DDBTileBar() {
     const xy = ci => ({ left: (ci % cols) * (CW + GAP) + "px", top: Math.floor(ci / cols) * (CH + GAP) + "px" });
     return o.jsxs("div", { ref: wrapRef, className: "flex-1 relative self-stretch", style: { minWidth: 0, minHeight: ROWS * (CH + GAP) }, children: [
         drag ? o.jsx("div", { style: { position: "absolute", ...xy(drag.cell), width: CW, height: CH, border: "1px dashed rgba(255,255,255,0.65)", borderRadius: 999, background: "rgba(255,255,255,0.08)", pointerEvents: "none", zIndex: 1 } }) : null,
-        ...tiles.map(t => { const ci = pos[t.id]; if (ci == null || ci < 0) return null; const col = t.kind === "ann" ? (qt[t.d.color] || t.d.color || "#f59e0b") : ((t.a && t.a.color) ? t.a.color : (t.kind === "pomo" ? "#ef4444" : t.kind === "memo" ? "#a78bfa" : "#38bdf8")); const _al = settings.pinAlpha || "40"; const isDrag = drag && drag.id === t.id; return o.jsx("button", { onMouseDown: e => onDown(t, e), onMouseUp: () => onUp(t), onMouseLeave: () => { if (lp.current) { clearTimeout(lp.current); lp.current = null; } }, onContextMenu: e => { e.preventDefault(); if (t.kind !== "ann") setActMenu({ x: e.clientX, y: e.clientY, t: t }); }, title: (t.kind === "ann" ? ddbTT(t.d.title) + " · " + t.d.date : t.kind === "pomo" ? (t.a.alarm ? ("⏰ " + (t.a.alarmTime || "") + " 알람 시작") : pomoLabel(t.a.sec) + " 집중 즉시 시작") : t.kind === "memo" ? "메모 바로가기: " + t.a.label : t.kind === "calc" ? "계산기 열기" : t.kind === "paint" ? "색칠 모드 켜기/끄기 · 일정 클릭 시 이 색으로" : (((t.a.emails && t.a.emails.length > 1) ? (t.a.emails.length + "명 수신") : (t.a.email || (t.a.emails && t.a.emails[0]) || "")) + (t.a.subject ? " · " + t.a.subject : ""))) + " · 길게 눌러 이동" + (t.kind !== "ann" ? " / 우클릭 삭제" : ""), className: "absolute flex items-center gap-1 px-2 " + (settings.uiSkin === "modern" ? "rounded" : settings.uiSkin === "minimal" ? "rounded-md" : "rounded-full") + " border cursor-pointer whitespace-nowrap overflow-hidden" + (isDrag ? " opacity-40" : ""), style: { ...xy(ci), width: CW, height: CH, background: col, borderColor: col, color: ((t.a && t.a.textColor) ? t.a.textColor : (settings.tileTextColor || "#fff")), fontSize: (settings.tileFontSize || 12), textOverflow: "ellipsis", zIndex: isDrag ? 3 : 2, ...(settings.uiSkin === "modern" ? { maskImage: "linear-gradient(90deg,#000 88%,transparent)", WebkitMaskImage: "linear-gradient(90deg,#000 88%,transparent)" } : {}) }, children: t.kind === "ann" ? o.jsxs(o.Fragment, { children: [o.jsx("b", { style: { color: "#fff", fontSize: 12, flexShrink: 0 }, children: mm(t.info.daysLeft) }), o.jsx("span", { style: { color: "rgba(255,255,255,0.95)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }, children: ddbTT(t.d.title) })] }) : t.kind === "pomo" ? (t.a.alarm ? ("⏰ " + (t.a.label ? t.a.label + " " : "") + (t.a.alarmTime || "")) : (t.a.label ? "▶ " + t.a.label : ((t.a.steps && t.a.steps.length > 1) ? ("▶ 루틴 " + t.a.steps.length + "단계" + (t.a.loop ? " 🔁" : "")) : pomoLabel(t.a.sec)))) : t.kind === "memo" ? "📄 " + t.a.label : t.kind === "calc" ? "🔢 " + (t.a.label || "계산기") : t.kind === "paint" ? "🎨 " + (t.a.label || "색칠") : t.kind === "aisearch" ? "🔎 " + (t.a.label || "AI 검색") : t.kind === "websearch" ? "🌐 " + (t.a.label || "웹 검색") : t.kind === "docview" ? "📄 " + (t.a.label || "문서 뷰어") : t.kind === "timeline" ? "🕒 " + (t.a.label || "오늘 활동") : "✉ " + t.a.label }, t.id); }),
+        ...tiles.map(t => { const ci = pos[t.id]; if (ci == null || ci < 0) return null; const col = t.kind === "ann" ? (qt[t.d.color] || t.d.color || "#f59e0b") : ((t.a && t.a.color) ? t.a.color : (t.kind === "pomo" ? "#ef4444" : t.kind === "memo" ? "#a78bfa" : "#38bdf8")); const _al = settings.pinAlpha || "40"; const isDrag = drag && drag.id === t.id; return o.jsx("button", { "data-ddbcalk": "qa-" + t.id, onFocus: j => { try { j.currentTarget.style.outline = "3px solid #fde047"; j.currentTarget.style.outlineOffset = "1px"; j.currentTarget.style.zIndex = "6"; } catch (e) {} }, onBlur: j => { try { j.currentTarget.style.outline = ""; j.currentTarget.style.outlineOffset = ""; } catch (e) {} }, onKeyDown: j => { if (j.key === "Enter" || j.key === " ") { j.preventDefault(); doTile(t); } }, onMouseDown: e => onDown(t, e), onMouseUp: () => onUp(t), onMouseLeave: () => { if (lp.current) { clearTimeout(lp.current); lp.current = null; } }, onContextMenu: e => { e.preventDefault(); if (t.kind !== "ann") { setACap(false); setActMenu({ x: e.clientX, y: e.clientY, t: t }); } }, title: (t.kind === "ann" ? ddbTT(t.d.title) + " · " + t.d.date : t.kind === "pomo" ? (t.a.alarm ? ("⏰ " + (t.a.alarmTime || "") + " 알람 시작") : pomoLabel(t.a.sec) + " 집중 즉시 시작") : t.kind === "memo" ? "메모 바로가기: " + t.a.label : t.kind === "calc" ? "계산기 열기" : t.kind === "paint" ? "색칠 모드 켜기/끄기 · 일정 클릭 시 이 색으로" : (((t.a.emails && t.a.emails.length > 1) ? (t.a.emails.length + "명 수신") : (t.a.email || (t.a.emails && t.a.emails[0]) || "")) + (t.a.subject ? " · " + t.a.subject : ""))) + " · 길게 눌러 이동" + (t.kind !== "ann" ? " / 우클릭 삭제" : ""), className: "absolute flex items-center gap-1 px-2 " + (settings.uiSkin === "modern" ? "rounded" : settings.uiSkin === "minimal" ? "rounded-md" : "rounded-full") + " border cursor-pointer whitespace-nowrap overflow-hidden" + (isDrag ? " opacity-40" : ""), style: { ...xy(ci), width: CW, height: CH, background: col, borderColor: col, color: ((t.a && t.a.textColor) ? t.a.textColor : (settings.tileTextColor || "#fff")), fontSize: (settings.tileFontSize || 12), textOverflow: "ellipsis", zIndex: isDrag ? 3 : 2, ...(settings.uiSkin === "modern" ? { maskImage: "linear-gradient(90deg,#000 88%,transparent)", WebkitMaskImage: "linear-gradient(90deg,#000 88%,transparent)" } : {}) }, children: t.kind === "ann" ? o.jsxs(o.Fragment, { children: [o.jsx("b", { style: { color: "#fff", fontSize: 12, flexShrink: 0 }, children: mm(t.info.daysLeft) }), o.jsx("span", { style: { color: "rgba(255,255,255,0.95)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }, children: ddbTT(t.d.title) })] }) : t.kind === "pomo" ? (t.a.alarm ? ("⏰ " + (t.a.label ? t.a.label + " " : "") + (t.a.alarmTime || "")) : (t.a.label ? "▶ " + t.a.label : ((t.a.steps && t.a.steps.length > 1) ? ("▶ 루틴 " + t.a.steps.length + "단계" + (t.a.loop ? " 🔁" : "")) : pomoLabel(t.a.sec)))) : t.kind === "memo" ? "📄 " + t.a.label : t.kind === "calc" ? "🔢 " + (t.a.label || "계산기") : t.kind === "paint" ? "🎨 " + (t.a.label || "색칠") : t.kind === "aisearch" ? "🔎 " + (t.a.label || "AI 검색") : t.kind === "websearch" ? "🌐 " + (t.a.label || "웹 검색") : t.kind === "docview" ? "📄 " + (t.a.label || "문서 뷰어") : t.kind === "timeline" ? "🕒 " + (t.a.label || "오늘 활동") : "✉ " + t.a.label }, t.id); }),
         o.jsx("button", { onMouseDown: e => e.stopPropagation(), onClick: openAdd, title: "기능 버튼 추가 (포모도로·이메일)", className: "absolute flex items-center justify-center gap-1 px-2 rounded-full border border-dashed border-white/25 text-white/50 hover:text-white/85 hover:border-white/50 cursor-pointer", style: { ...xy(cellsAll - 1), width: CW, height: CH, fontSize: 12, background: "rgba(0,0,0,0.3)", zIndex: 4 }, children: "＋ 기능" }),
         menu ? Rr.createPortal(o.jsxs(o.Fragment, { children: [
             o.jsx("div", { className: "fixed inset-0", style: { zIndex: 2147483400 }, onMouseDown: () => { setMenu(null); setForm(null); } }),
@@ -1611,6 +1614,8 @@ function DDBTileBar() {
                 o.jsxs("div", { className: "px-2 pt-2 pb-1", children: [o.jsx("div", { className: "text-white/40 text-[10px] mb-1", children: "색상" }), o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 4 }, children: [["#ef4444"], ["#f97316"], ["#eab308"], ["#22c55e"], ["#14b8a6"], ["#3b82f6"], ["#6366f1"], ["#a855f7"], ["#ec4899"], ["#64748b"], ["#0ea5e9"], ["#84cc16"]].map(c => o.jsx("button", { onClick: () => { const t = actMenu.t; if (t && t.a) saveActs((settings.quickActions || []).map(a => a.id === t.a.id ? { ...a, color: c[0] } : a)); setActMenu(null); }, title: c[0], style: { width: "100%", height: 18, borderRadius: 4, background: c[0], border: "1px solid rgba(255,255,255,0.25)", cursor: "pointer" } }, c[0])) })] }),
                 o.jsx("div", { style: { height: 1, background: "rgba(255,255,255,0.1)", margin: "4px 0" } }),
                 o.jsx("button", { onClick: () => { const x = actMenu.x, y = actMenu.y; openEdit(actMenu.t); setMenu({ x: Math.min(x, window.innerWidth - 260), y: y }); setActMenu(null); }, className: "block w-full text-left px-3 py-2 text-xs text-white/85 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "✏ 이름·색상 편집" }),
+                (() => { const qh = (settings.quickHotkeys) || {}; const cur = actMenu.t && actMenu.t.a ? qh[actMenu.t.a.id] : null; return o.jsxs("div", { className: "flex items-center", children: [o.jsx("button", { onClick: () => setACap(true), className: "flex-1 text-left px-3 py-2 text-xs border-none bg-transparent cursor-pointer hover:bg-white/10 " + (aCap ? "text-amber-300" : "text-sky-300"), children: aCap ? "⌨ 키를 누르세요… (F1 등, Esc 취소)" : (cur ? ("⌨ 단축키: " + ddbComboLabel(cur)) : "⌨ 단축키 지정") }), cur ? o.jsx("button", { onClick: () => { const n = { ...qh }; delete n[actMenu.t.a.id]; dispatch({ type: "UPDATE_SETTINGS", settings: { quickHotkeys: n } }); }, title: "단축키 지우기", className: "px-2 py-2 text-xs text-white/50 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "✕" }) : null] }); })(),
+                (() => { const key = actMenu.t ? ("qa-" + actMenu.t.id) : ""; const tabs = (settings.calTabTargets) || []; const has = tabs.includes(key); return o.jsx("button", { onClick: () => { dispatch({ type: "UPDATE_SETTINGS", settings: { calTabTargets: has ? tabs.filter(x => x !== key) : tabs.concat([key]) } }); }, className: "block w-full text-left px-3 py-2 text-xs border-none bg-transparent cursor-pointer hover:bg-white/10 " + (has ? "text-emerald-300" : "text-white/70"), children: has ? "⌨ Tab 이동 대상 ✓ (해제)" : "⌨ Tab 이동 대상으로 추가" }); })(),
                 o.jsx("button", { onClick: () => { delAct(actMenu.t); setActMenu(null); }, className: "block w-full text-left px-3 py-2 text-xs text-red-300 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "🗑 삭제" })
             ] })
         ] }), document.body) : null
@@ -3069,7 +3074,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.27";
+const DDB_VERSION = "1.00.28";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4619,7 +4624,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v464"
+                children: "v465"
             }), (() => {
                 const S = [{
                     k: "cal",
