@@ -1402,11 +1402,36 @@ function DDBDesignEditor() {
         o.jsx("div", { onMouseDown: _dh.resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) })
     ] }), document.body);
 }
+function ddbKeyCombo(e) { const p = []; if (e.ctrlKey) p.push("ctrl"); if (e.altKey) p.push("alt"); if (e.shiftKey) p.push("shift"); if (e.metaKey) p.push("meta"); let k = (e.key || "").toLowerCase(); if (k === " ") k = "space"; if (["control", "alt", "shift", "meta"].includes(k)) return p.join("+"); if (k) p.push(k); return p.join("+"); }
+function ddbComboLabel(c) { return String(c || "").split("+").map(x => x === "ctrl" ? "Ctrl" : x === "alt" ? "Alt" : x === "shift" ? "Shift" : x === "meta" ? "Win" : x.length === 1 ? x.toUpperCase() : (x.charAt(0).toUpperCase() + x.slice(1))).join(" + "); }
+function DDBHotkeys() {
+    const { state } = vt();
+    const s = state.settings || {};
+    const hot = s.calHotkeys || {}, tabs = s.calTabTargets || [];
+    O.useEffect(() => {
+        const onKey = e => {
+            const ae = document.activeElement; const editable = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable);
+            if (e.key === "Tab" && tabs.length && !editable) {
+                const els = Array.prototype.slice.call(document.querySelectorAll("[data-ddbcalk]")).filter(el => tabs.includes(el.getAttribute("data-ddbcalk")));
+                if (els.length) { e.preventDefault(); const cur = els.indexOf(ae); let ni = cur === -1 ? 0 : (e.shiftKey ? cur - 1 : cur + 1); ni = (ni + els.length) % els.length; try { els[ni].focus(); } catch (e2) {} return; }
+            }
+            if (!(e.ctrlKey || e.altKey || e.metaKey)) return;
+            const combo = ddbKeyCombo(e); if (!combo) return;
+            const hit = Object.keys(hot).find(k => String(hot[k] || "").toLowerCase() === combo);
+            if (hit) { const a = (window.__ddbCACT || []).find(x => x.k === hit); if (a && a.act) { e.preventDefault(); e.stopPropagation(); try { a.act(); } catch (e2) {} } }
+        };
+        window.addEventListener("keydown", onKey, true);
+        return () => window.removeEventListener("keydown", onKey, true);
+    }, [JSON.stringify(hot), JSON.stringify(tabs)]);
+    return null;
+}
 function DDBCalBtnMenu() {
     const { state, dispatch } = vt();
     const [m, setM] = O.useState(null);
+    const [cap, setCap] = O.useState(false);
     const fileRef = O.useRef(null);
-    O.useEffect(() => { const h = e => setM((e && e.detail) || null); window.addEventListener("ddb-calbtn-menu", h); return () => window.removeEventListener("ddb-calbtn-menu", h); }, []);
+    O.useEffect(() => { const h = e => { setM((e && e.detail) || null); setCap(false); }; window.addEventListener("ddb-calbtn-menu", h); return () => window.removeEventListener("ddb-calbtn-menu", h); }, []);
+    O.useEffect(() => { if (!cap || !m) return; const h = e => { e.preventDefault(); e.stopPropagation(); const k = (e.key || "").toLowerCase(); if (["control", "alt", "shift", "meta", "tab", "escape"].includes(k)) { if (k === "escape") setCap(false); return; } if (!(e.ctrlKey || e.altKey || e.metaKey)) return; const combo = ddbKeyCombo(e); const cur = (state.settings && state.settings.calHotkeys) || {}; dispatch({ type: "UPDATE_SETTINGS", settings: { calHotkeys: { ...cur, [m.k]: combo } } }); setCap(false); }; window.addEventListener("keydown", h, true); return () => window.removeEventListener("keydown", h, true); }, [cap, m]);
     if (!m) return null;
     const chb = (state.settings && state.settings.calHeadBtn) || {};
     const set = patch => dispatch({ type: "UPDATE_SETTINGS", settings: { calHeadBtn: { ...chb, [m.k]: { ...(chb[m.k] || {}), ...patch } } } });
@@ -1424,6 +1449,10 @@ function DDBCalBtnMenu() {
             o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; const rd = new FileReader(); rd.onload = () => { const img = new Image(); img.onload = () => { try { const cv = document.createElement("canvas"); const S = 40; cv.width = S; cv.height = S; const g = cv.getContext("2d"); g.clearRect(0, 0, S, S); const rt = Math.min(S / img.width, S / img.height); const w = img.width * rt, h = img.height * rt; g.drawImage(img, (S - w) / 2, (S - h) / 2, w, h); set({ icon: cv.toDataURL("image/png") }); } catch (err) { set({ icon: String(rd.result) }); } setM(null); }; img.onerror = () => { set({ icon: String(rd.result) }); setM(null); }; img.src = String(rd.result); }; rd.readAsDataURL(f); } }),
             o.jsx("button", { onClick: () => { try { fileRef.current && fileRef.current.click(); } catch (e) {} }, className: "block w-full text-left px-2 py-1.5 rounded text-xs text-sky-300 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "🖼 아이콘 이미지 바꾸기" }),
             (chb[m.k] || {}).icon ? o.jsx("button", { onClick: () => { set({ icon: "" }); setM(null); }, className: "block w-full text-left px-2 py-1.5 rounded text-xs text-white/60 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "↩ 기본 아이콘으로" }) : null,
+            o.jsx("div", { style: { height: 1, background: "rgba(255,255,255,0.1)", margin: "6px 0" } }),
+            (() => { const hot = (state.settings && state.settings.calHotkeys) || {}; const cur = hot[m.k]; return o.jsxs("div", { className: "flex items-center gap-1", children: [o.jsx("button", { onClick: () => setCap(true), className: "flex-1 text-left px-2 py-1.5 rounded text-xs hover:bg-white/10 border-none bg-transparent cursor-pointer " + (cap ? "text-amber-300" : "text-sky-300"), children: cap ? "⌨ 키를 누르세요… (Esc 취소)" : (cur ? ("⌨ 단축키: " + ddbComboLabel(cur)) : "⌨ 단축키 지정") }), cur ? o.jsx("button", { onClick: () => { const n = { ...hot }; delete n[m.k]; dispatch({ type: "UPDATE_SETTINGS", settings: { calHotkeys: n } }); }, title: "단축키 지우기", className: "px-1.5 py-1 rounded text-xs text-white/50 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "✕" }) : null] }); })(),
+            (() => { const tabs = (state.settings && state.settings.calTabTargets) || []; const has = tabs.includes(m.k); return o.jsxs("button", { onClick: () => { dispatch({ type: "UPDATE_SETTINGS", settings: { calTabTargets: has ? tabs.filter(x => x !== m.k) : tabs.concat([m.k]) } }); }, className: "block w-full text-left px-2 py-1.5 rounded text-xs hover:bg-white/10 border-none bg-transparent cursor-pointer " + (has ? "text-emerald-300" : "text-white/70"), children: (has ? "⌨ Tab 이동 대상 ✓ (해제)" : "⌨ Tab 이동 대상으로 추가") }); })(),
+            o.jsx("div", { style: { height: 1, background: "rgba(255,255,255,0.1)", margin: "6px 0" } }),
             o.jsx("button", { onClick: () => { hideThis(); setM(null); }, className: "block w-full text-left px-2 py-1.5 rounded text-xs text-red-300 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: "🚫 이 버튼 숨기기" }),
             hiddenKeys.length ? o.jsxs("button", { onClick: () => { unhideAll(); setM(null); }, className: "block w-full text-left px-2 py-1.5 rounded text-xs text-white/70 hover:bg-white/10 border-none bg-transparent cursor-pointer", children: ["👁 숨긴 버튼 모두 보이기 (", hiddenKeys.length, ")"] }) : null
         ] })
@@ -3035,7 +3064,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.23";
+const DDB_VERSION = "1.00.24";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4585,7 +4614,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v460"
+                children: "v461"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -7744,6 +7773,7 @@ function fd({
                 const _toggleHide = k => { const cur = (c.calBtnHidden) || []; const nx = cur.includes(k) ? cur.filter(z => z !== k) : cur.concat([k]); n({ type: "UPDATE_SETTINGS", settings: { calBtnHidden: nx } }); };
                 const _mkBtn = (S, D) => o.jsx("button", {
                     "data-ddbcal": "1",
+                    "data-ddbcalk": S.k,
                     draggable: Ceo,
                     onContextMenu: J => { J.preventDefault(); J.stopPropagation(); try { window.dispatchEvent(new CustomEvent("ddb-calbtn-menu", { detail: { x: J.clientX, y: J.clientY, k: S.k, label: (typeof S.body === "string" ? S.body : S.title) } })); } catch (e) {} },
                     onDragStart: () => { window.__ddbCDrag = S.k },
@@ -7756,7 +7786,7 @@ function fd({
                     onMouseLeave: () => clearTimeout(window.__ddbCLP),
                     onClick: J => { if (Ceo) { J.preventDefault(); J.stopPropagation(); try { const rc = J.currentTarget.getBoundingClientRect(); window.dispatchEvent(new CustomEvent("ddb-calbtn-menu", { detail: { x: rc.left, y: rc.bottom + 4, k: S.k, label: (typeof S.body === "string" ? S.body : S.title) } })); } catch (e) {} return } S.act() },
                     title: Ceo ? DDBTR("클릭: 색상·아이콘 편집 · 드래그: 순서 변경") : (S.title + " · 우클릭: 색상/숨기기"),
-                    className: S.cls + (Ceo ? " ring-1 ring-amber-400/80 cursor-move" : ""),
+                    className: S.cls + (Ceo ? " ring-1 ring-amber-400/80 cursor-move" : "") + " focus:outline-none focus:ring-2 focus:ring-sky-400",
                     style: { zoom: t.settings.calBtnScale || 1, ...(_hiddenSet.has(S.k) ? { opacity: 0.35 } : {}), ...((((t.settings.calHeadBtn || {})[S.k] || {}).color) ? { background: (t.settings.calHeadBtn[S.k].color), borderColor: (t.settings.calHeadBtn[S.k].color), color: "#fff" } : {}) },
                     children: (((t.settings.calHeadBtn || {})[S.k] || {}).icon) ? o.jsx("img", { src: (t.settings.calHeadBtn[S.k].icon), alt: S.title || S.k, draggable: !1, style: { width: 18, height: 18, objectFit: "contain", display: "block", pointerEvents: "none" } }) : S.body
                 }, S.k);
@@ -18275,7 +18305,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBPaintBanner, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBHotkeys, {}), o.jsx(DDBPaintBanner, {})]
         })
     })
 }
