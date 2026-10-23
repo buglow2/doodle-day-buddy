@@ -1419,7 +1419,8 @@ function DDBHotkeys() {
                 if (els.length) { const cur = els.indexOf(ae); let ni = cur === -1 ? 0 : (e.shiftKey ? cur - 1 : cur + 1); ni = (ni + els.length) % els.length; try { els[ni].focus(); } catch (e2) {} }
                 return;
             }
-            if (!(e.ctrlKey || e.altKey || e.metaKey)) return;
+            const isFn = /^f([1-9]|1[0-2])$/i.test(e.key || "");
+            if (!(e.ctrlKey || e.altKey || e.metaKey) && !isFn) return;
             const combo = ddbKeyCombo(e); if (!combo) return;
             const hit = Object.keys(hot).find(k => String(hot[k] || "").toLowerCase() === combo);
             if (hit) { const a = (window.__ddbCACT || []).find(x => x.k === hit); if (a && a.act) { e.preventDefault(); e.stopPropagation(); try { a.act(); } catch (e2) {} } }
@@ -1435,7 +1436,7 @@ function DDBCalBtnMenu() {
     const [cap, setCap] = O.useState(false);
     const fileRef = O.useRef(null);
     O.useEffect(() => { const h = e => { setM((e && e.detail) || null); setCap(false); }; window.addEventListener("ddb-calbtn-menu", h); return () => window.removeEventListener("ddb-calbtn-menu", h); }, []);
-    O.useEffect(() => { if (!cap || !m) return; const h = e => { e.preventDefault(); e.stopPropagation(); const k = (e.key || "").toLowerCase(); if (["control", "alt", "shift", "meta", "tab", "escape"].includes(k)) { if (k === "escape") setCap(false); return; } if (!(e.ctrlKey || e.altKey || e.metaKey)) return; const combo = ddbKeyCombo(e); const cur = (state.settings && state.settings.calHotkeys) || {}; dispatch({ type: "UPDATE_SETTINGS", settings: { calHotkeys: { ...cur, [m.k]: combo } } }); setCap(false); }; window.addEventListener("keydown", h, true); return () => window.removeEventListener("keydown", h, true); }, [cap, m]);
+    O.useEffect(() => { if (!cap || !m) return; const h = e => { e.preventDefault(); e.stopPropagation(); const k = (e.key || "").toLowerCase(); if (["control", "alt", "shift", "meta", "tab", "escape"].includes(k)) { if (k === "escape") setCap(false); return; } const isFn = /^f([1-9]|1[0-2])$/.test(k); if (!(e.ctrlKey || e.altKey || e.metaKey) && !isFn) return; const combo = ddbKeyCombo(e); const cur = (state.settings && state.settings.calHotkeys) || {}; dispatch({ type: "UPDATE_SETTINGS", settings: { calHotkeys: { ...cur, [m.k]: combo } } }); setCap(false); }; window.addEventListener("keydown", h, true); return () => window.removeEventListener("keydown", h, true); }, [cap, m]);
     if (!m) return null;
     const chb = (state.settings && state.settings.calHeadBtn) || {};
     const set = patch => dispatch({ type: "UPDATE_SETTINGS", settings: { calHeadBtn: { ...chb, [m.k]: { ...(chb[m.k] || {}), ...patch } } } });
@@ -3068,7 +3069,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.26";
+const DDB_VERSION = "1.00.27";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4618,7 +4619,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v463"
+                children: "v464"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -7788,6 +7789,8 @@ function fd({
                     onMouseDown: () => { clearTimeout(window.__ddbCLP), window.__ddbCLP = setTimeout(() => CeoS(!0), 1e3) },
                     onMouseUp: () => clearTimeout(window.__ddbCLP),
                     onMouseLeave: () => clearTimeout(window.__ddbCLP),
+                    onFocus: J => { try { J.currentTarget.style.outline = "3px solid #fde047"; J.currentTarget.style.outlineOffset = "1px"; J.currentTarget.style.position = "relative"; J.currentTarget.style.zIndex = "5"; } catch (e) {} },
+                    onBlur: J => { try { J.currentTarget.style.outline = ""; J.currentTarget.style.outlineOffset = ""; J.currentTarget.style.zIndex = ""; } catch (e) {} },
                     onClick: J => { if (Ceo) { J.preventDefault(); J.stopPropagation(); try { const rc = J.currentTarget.getBoundingClientRect(); window.dispatchEvent(new CustomEvent("ddb-calbtn-menu", { detail: { x: rc.left, y: rc.bottom + 4, k: S.k, label: (typeof S.body === "string" ? S.body : S.title) } })); } catch (e) {} return } S.act() },
                     title: Ceo ? DDBTR("클릭: 색상·아이콘 편집 · 드래그: 순서 변경") : (S.title + " · 우클릭: 색상/숨기기"),
                     className: S.cls + (Ceo ? " ring-1 ring-amber-400/80 cursor-move" : "") + " focus:outline-none focus:ring-2 focus:ring-sky-400",
@@ -12137,24 +12140,24 @@ function c4({
                         className: "grid grid-cols-4 gap-1.5 mb-2",
                         children: [{
                             l: "20대",
-                            z: 1.0,
+                            content: 13, hdr: 20, date: 13, title: 15, tile: 11,
                             e: "🧑"
                         }, {
                             l: "30대",
-                            z: 1.15,
+                            content: 16, hdr: 25, date: 16, title: 18, tile: 13,
                             e: "🧔"
                         }, {
                             l: "40대",
-                            z: 1.35,
+                            content: 19, hdr: 30, date: 19, title: 21, tile: 16,
                             e: "👨‍🦱"
                         }, {
                             l: "50대",
-                            z: 1.6,
+                            content: 23, hdr: 36, date: 23, title: 25, tile: 19,
                             e: "🧓"
                         }].map(k => o.jsxs("button", {
-                            onClick: () => y("uiZoom", k.z),
-                            title: "앱 전체 글씨·버튼을 " + Math.round(k.z * 100) + "% 크기로",
-                            className: "flex flex-col items-center py-2 rounded-lg border transition-colors " + (Math.abs((c.uiZoom || 1) - k.z) < 0.001 ? "bg-blue-500/30 border-blue-400 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"),
+                            onClick: () => { r({ type: "SET_FONT_SIZE", size: k.content }); r({ type: "UPDATE_SETTINGS", settings: { calHeaderFontSize: k.hdr, calDateFontSize: k.date, panelTitleSize: k.title, tileFontSize: k.tile, uiZoom: 1 } }); },
+                            title: "읽는 글씨(내용·헤더·날짜·제목·타일)를 한 번에 키움 — 프레임은 그대로",
+                            className: "flex flex-col items-center py-2 rounded-lg border transition-colors " + (t.fontSize === k.content ? "bg-blue-500/30 border-blue-400 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"),
                             children: [o.jsx("span", {
                                 style: {
                                     fontSize: 18
