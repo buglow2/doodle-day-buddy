@@ -3068,7 +3068,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.25";
+const DDB_VERSION = "1.00.26";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4618,7 +4618,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v462"
+                children: "v463"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -12137,26 +12137,24 @@ function c4({
                         className: "grid grid-cols-4 gap-1.5 mb-2",
                         children: [{
                             l: "20대",
-                            v: 14,
+                            z: 1.0,
                             e: "🧑"
                         }, {
                             l: "30대",
-                            v: 22,
+                            z: 1.15,
                             e: "🧔"
                         }, {
                             l: "40대",
-                            v: 32,
+                            z: 1.35,
                             e: "👨‍🦱"
                         }, {
                             l: "50대",
-                            v: 44,
+                            z: 1.6,
                             e: "🧓"
                         }].map(k => o.jsxs("button", {
-                            onClick: () => r({
-                                type: "SET_FONT_SIZE",
-                                size: k.v
-                            }),
-                            className: "flex flex-col items-center py-2 rounded-lg border transition-colors " + (t.fontSize === k.v ? "bg-blue-500/30 border-blue-400 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"),
+                            onClick: () => y("uiZoom", k.z),
+                            title: "앱 전체 글씨·버튼을 " + Math.round(k.z * 100) + "% 크기로",
+                            className: "flex flex-col items-center py-2 rounded-lg border transition-colors " + (Math.abs((c.uiZoom || 1) - k.z) < 0.001 ? "bg-blue-500/30 border-blue-400 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"),
                             children: [o.jsx("span", {
                                 style: {
                                     fontSize: 18
