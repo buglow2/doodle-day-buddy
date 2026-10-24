@@ -76,7 +76,7 @@ async function createWindow() {
     } catch (e) {}
   });
 
-  // ── 화면 캡처 (알캡처식) ──────────────────────
+  // ── 화면 캡처 ──────────────────────
   async function captureScreenDataUrl() {
     try {
       const d = screen.getPrimaryDisplay();
@@ -110,6 +110,7 @@ async function createWindow() {
     + "<button id='b-region' style='" + OVERLAY_BTN + "' onclick='setMode(\"region\")'><span style='font-size:18px'>▭</span>영역</button>"
     + "<button id='b-fixed' style='" + OVERLAY_BTN + "' onclick='setMode(\"fixed\")'><span style='font-size:18px'>⬚</span>크기지정</button>"
     + "<button id='b-full' style='" + OVERLAY_BTN + "' onclick='setMode(\"full\")'><span style='font-size:18px'>⛶</span>전체화면</button>"
+    + "<button id='b-scroll' style='" + OVERLAY_BTN + "' onclick='setMode(\"scroll\")'><span style='font-size:18px'>📜</span>스크롤</button>"
     + "<button id='b-redo' style='" + OVERLAY_BTN + "' onclick='setMode(\"region\")'><span style='font-size:18px'>⟳</span>새 캡처</button>"
     + "<button id='b-menu' style='" + OVERLAY_BTN + "' onclick='toggleMenu(event)'><span style='font-size:18px'>≡</span>메뉴</button>"
     + "<button id='b-cancel' style='" + OVERLAY_BTN + ";color:#fca5a5' onclick='doCancel()'><span style='font-size:18px'>✕</span>취소</button>"
@@ -132,13 +133,13 @@ async function createWindow() {
     + "function openSet(){ipcRenderer.send('ddb-open-capset');}function showHelp(){var h=document.getElementById('hint');if(h)h.textContent='영역:드래그 · 크기지정:모서리 드래그로 크기·안쪽 잡고 이동·W×H 입력 · 전체화면:즉시 · 새캡처:다시 · Esc:취소';var m=document.getElementById('menu');if(m)m.style.display='none';}"
     + "function hl(){['region','fixed','full','redo','cancel'].forEach(function(k){var b=document.getElementById('b-'+k);if(b)b.style.background='transparent';});var a=document.getElementById('b-'+(mode==='fixed'?'fixed':'region'));if(a)a.style.background='rgba(59,130,246,0.5)';}"
     + "function layout(){bw=Math.max(40,bw);bh=Math.max(40,bh);bx=Math.max(0,Math.min(bx,innerWidth-bw));by=Math.max(0,Math.min(by,innerHeight-bh));fbox.style.left=bx+'px';fbox.style.top=by+'px';fbox.style.width=bw+'px';fbox.style.height=bh+'px';if(fwv)fwv.value=Math.round(bw);if(fhv)fhv.value=Math.round(bh);}"
-    + "function setMode(m){drag=false;ds=null;if(m==='full'){crop(0,0,innerWidth,innerHeight);return;}mode=m;sel.style.display='none';if(m==='fixed'){dim.style.display='none';fbox.style.display='block';bw=Math.min(fw,innerWidth);bh=Math.min(fh,innerHeight);bx=Math.round((innerWidth-bw)/2);by=Math.round((innerHeight-bh)/2);layout();hint.textContent='모서리를 끌어 크기조절 · 안쪽을 끌어 이동 · W×H 입력 후 적용 · [✔캡처] 또는 Enter로 확정';}else{fbox.style.display='none';dim.style.display='block';hint.textContent='드래그해서 영역 선택 · Esc 취소';}hl();}"
+    + "function setMode(m){drag=false;ds=null;if(m==='full'){crop(0,0,innerWidth,innerHeight);return;}mode=m;sel.style.display='none';if(m==='fixed'){dim.style.display='none';fbox.style.display='block';bw=Math.min(fw,innerWidth);bh=Math.min(fh,innerHeight);bx=Math.round((innerWidth-bw)/2);by=Math.round((innerHeight-bh)/2);layout();hint.textContent='모서리를 끌어 크기조절 · 안쪽을 끌어 이동 · W×H 입력 후 적용 · [✔캡처] 또는 Enter로 확정';}else{fbox.style.display='none';dim.style.display='block';hint.textContent=(m==='scroll')?'📜 스크롤 캡처: 캡처할 영역을 드래그로 지정 → 아래로 천천히 스크롤 → 완료':'드래그해서 영역 선택 · Esc 취소';}hl();}"
     + "function applySize(){var w=parseInt(fwv.value,10),h=parseInt(fhv.value,10);if(w>=10)bw=Math.min(w,innerWidth);if(h>=10)bh=Math.min(h,innerHeight);bx=Math.round((innerWidth-bw)/2);by=Math.round((innerHeight-bh)/2);layout();}"
     + "function confirmFixed(){fw=Math.round(bw);fh=Math.round(bh);ipcRenderer.send('ddb-cap-fixed',{w:fw,h:fh});crop(bx,by,bw,bh);}"
     + "function rc(e){return{x:Math.min(sx,e.clientX),y:Math.min(sy,e.clientY),w:Math.abs(e.clientX-sx),h:Math.abs(e.clientY-sy)};}function up(e){var r=rc(e);sel.style.left=r.x+'px';sel.style.top=r.y+'px';sel.style.width=r.w+'px';sel.style.height=r.h+'px';}"
     + "document.addEventListener('mousedown',e=>{var mn=document.getElementById('menu');if(mn&&mn.style.display==='block'&&!(e.target.closest&&(e.target.closest('#menu')||e.target.closest('#b-menu')))){mn.style.display='none';}if(inBar(e.target))return;if(mode==='fixed'){if(inCtrl(e.target))return;var hd=e.target.closest&&e.target.closest('[data-d]');if(hd){ds={t:'rz',d:hd.getAttribute('data-d'),mx:e.clientX,my:e.clientY,bx:bx,by:by,bw:bw,bh:bh};e.preventDefault();return;}if(e.target.closest&&e.target.closest('#fbox')){ds={t:'mv',mx:e.clientX,my:e.clientY,bx:bx,by:by};e.preventDefault();return;}return;}drag=true;sx=e.clientX;sy=e.clientY;dim.style.display='none';sel.style.display='block';up(e);});"
     + "document.addEventListener('mousemove',e=>{if(mode==='fixed'){if(!ds)return;var dx=e.clientX-ds.mx,dy=e.clientY-ds.my;if(ds.t==='mv'){bx=ds.bx+dx;by=ds.by+dy;}else{var x=ds.bx,y=ds.by,w=ds.bw,h=ds.bh,d=ds.d;if(d.indexOf('e')>=0)w=ds.bw+dx;if(d.indexOf('s')>=0)h=ds.bh+dy;if(d.indexOf('w')>=0){w=ds.bw-dx;x=ds.bx+dx;}if(d.indexOf('n')>=0){h=ds.bh-dy;y=ds.by+dy;}if(w<40){if(d.indexOf('w')>=0)x=ds.bx+ds.bw-40;w=40;}if(h<40){if(d.indexOf('n')>=0)y=ds.by+ds.bh-40;h=40;}bx=x;by=y;bw=w;bh=h;}layout();return;}if(drag)up(e);});"
-    + "document.addEventListener('mouseup',e=>{if(mode==='fixed'){ds=null;return;}if(!drag)return;drag=false;var r=rc(e);if(r.w<5||r.h<5)crop(0,0,innerWidth,innerHeight);else crop(r.x,r.y,r.w,r.h);});"
+    + "document.addEventListener('mouseup',e=>{if(mode==='fixed'){ds=null;return;}if(!drag)return;drag=false;var r=rc(e);if(mode==='scroll'){if(r.w>20&&r.h>20){ipcRenderer.send('ddb-scroll-start',{fx:r.x/innerWidth,fy:r.y/innerHeight,fw:r.w/innerWidth,fh:r.h/innerHeight});}else{doCancel();}return;}if(r.w<5||r.h<5)crop(0,0,innerWidth,innerHeight);else crop(r.x,r.y,r.w,r.h);});"
     + "window.addEventListener('keydown',e=>{if(e.key==='Escape')doCancel();else if(e.key==='Enter'&&mode==='fixed')confirmFixed();});"
     + "function crop(x,y,w,h){var im=new Image();im.onload=function(){var sf=im.naturalWidth/window.innerWidth;var cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(w*sf));cv.height=Math.max(1,Math.round(h*sf));cv.getContext('2d').drawImage(im,x*sf,y*sf,w*sf,h*sf,0,0,cv.width,cv.height);ipcRenderer.send('ddb-region-result',cv.toDataURL('image/png'));};im.src=shot;}hl();<\/script></body></html>";
   let overlayWin = null;
@@ -167,6 +168,39 @@ async function createWindow() {
   ipcMain.on('ddb-region-cancel', () => { try { if (overlayWin) { overlayWin.close(); overlayWin = null; } } catch (e) {} });
   ipcMain.on('ddb-region-result', (_e, croppedUrl) => { try { if (overlayWin) { overlayWin.close(); overlayWin = null; } } catch (e) {} try { if (croppedUrl && win) { win.webContents.send('ddb-screenshot', croppedUrl); if (win.isMinimized()) win.restore(); win.show(); win.focus(); } } catch (e) {} });
   ipcMain.handle('ddb-capture-region', async () => { await startRegionCapture(); return true; });
+
+  // ── 스크롤 캡처 ──────────────────────
+  const STITCH_HTML = "<!doctype html><html><head><meta charset='utf-8'></head><body style='margin:0;background:#141822;overflow:hidden;font:12px sans-serif;color:#e5e7eb;user-select:none'>"
+    + "<div style='display:flex;align-items:center;gap:8px;padding:8px 10px'>"
+    + "<span style='font-size:16px'>📜</span><div style='flex:1'><div style='font-weight:700'>스크롤 캡처 중</div><div id='st' style='color:#9aa4b2;font-size:11px'>지정한 영역을 아래로 천천히 스크롤하세요</div></div>"
+    + "<button onclick='done()' style='background:#22c55e;color:#06240f;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer'>✔ 완료</button>"
+    + "<button onclick='cancel()' style='background:rgba(255,255,255,0.1);color:#fca5a5;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:6px 10px;cursor:pointer'>✕ 취소</button>"
+    + "</div>"
+    + "<script>const{ipcRenderer}=require('electron');let acc=null,aw=0,ah=0,frames=0,busy=false;const st=document.getElementById('st');"
+    + "function cropFrame(img,reg){var nw=img.naturalWidth,nh=img.naturalHeight;var x=Math.round(reg.fx*nw),y=Math.round(reg.fy*nh),w=Math.round(reg.fw*nw),h=Math.round(reg.fh*nh);var cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,x,y,w,h,0,0,w,h);return cv;}"
+    + "function stitch(fr){var fw=fr.width,fh=fr.height;if(!acc){acc=document.createElement('canvas');acc.width=fw;acc.height=fh;acc.getContext('2d').drawImage(fr,0,0);aw=fw;ah=fh;return true;}if(fw!==aw)return false;var band=Math.min(90,fh-2,ah-2);if(band<8)return false;var ag=acc.getContext('2d');var fg=fr.getContext('2d');var accB=ag.getImageData(0,ah-band,aw,band).data;var best=-1,bestDiff=1e18;for(var off=0;off<=fh-band;off+=2){var fd=fg.getImageData(0,off,fw,band).data;var diff=0;for(var i=0;i<fd.length;i+=64){var dv=fd[i]-accB[i];diff+=dv<0?-dv:dv;if(diff>=bestDiff)break;}if(diff<bestDiff){bestDiff=diff;best=off;}}var moved=(best>=0)&&(bestDiff/(band*aw/64)<24);if(!moved||best<0)return false;var newStart=best+band;var addH=fh-newStart;if(addH<3)return false;var nc=document.createElement('canvas');nc.width=aw;nc.height=ah+addH;var ng=nc.getContext('2d');ng.drawImage(acc,0,0);ng.drawImage(fr,0,newStart,aw,addH,0,ah,aw,addH);acc=nc;ah+=addH;return true;}"
+    + "ipcRenderer.on('frame',function(e,p){if(busy||!p||!p.url)return;busy=true;var img=new Image();img.onload=function(){try{var fr=cropFrame(img,p.reg);var ok=stitch(fr);frames++;st.textContent='이어붙인 높이 '+ah+'px · 프레임 '+frames+(ok?' ✓':'');}catch(er){}busy=false;};img.onerror=function(){busy=false;};img.src=p.url;});"
+    + "function done(){if(acc)ipcRenderer.send('ddb-scroll-done',acc.toDataURL('image/png'));else ipcRenderer.send('ddb-scroll-cancel');}function cancel(){ipcRenderer.send('ddb-scroll-cancel');}"
+    + "window.addEventListener('keydown',function(e){if(e.key==='Escape')cancel();else if(e.key==='Enter')done();});<\/script></body></html>";
+  let scrollWin = null, scrollTimer = null;
+  function stopScroll() { try { if (scrollTimer) { clearInterval(scrollTimer); scrollTimer = null; } } catch (e) {} try { if (scrollWin) { scrollWin.close(); scrollWin = null; } } catch (e) {} }
+  ipcMain.on('ddb-scroll-start', (_e, reg) => {
+    try {
+      if (overlayWin) { try { overlayWin.close(); } catch (e) {} overlayWin = null; }
+      stopScroll();
+      const d = screen.getPrimaryDisplay(); const b = d.bounds;
+      // 컨트롤 창: 지정 영역과 안 겹치게 화면 하단 중앙에 작게
+      const cw = 360, ch = 56; const cx = b.x + Math.round((b.width - cw) / 2); const cy = b.y + b.height - ch - 24;
+      scrollWin = new BrowserWindow({ x: cx, y: cy, width: cw, height: ch, frame: false, transparent: false, alwaysOnTop: true, skipTaskbar: true, resizable: false, hasShadow: true, webPreferences: { nodeIntegration: true, contextIsolation: false } });
+      try { scrollWin.setAlwaysOnTop(true, 'screen-saver'); } catch (e) {}
+      scrollWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(STITCH_HTML));
+      scrollWin.on('closed', () => { scrollWin = null; });
+      const tick = async () => { try { const url = await captureScreenDataUrl(); if (url && scrollWin && !scrollWin.isDestroyed()) scrollWin.webContents.send('frame', { url: url, reg: reg }); } catch (e) {} };
+      scrollWin.webContents.on('did-finish-load', () => { try { scrollWin.focus(); } catch (e) {} tick(); scrollTimer = setInterval(tick, 350); });
+    } catch (e) { stopScroll(); }
+  });
+  ipcMain.on('ddb-scroll-cancel', () => { stopScroll(); });
+  ipcMain.on('ddb-scroll-done', (_e, finalUrl) => { stopScroll(); try { if (finalUrl && win) { win.webContents.send('ddb-screenshot', finalUrl); if (win.isMinimized()) win.restore(); win.show(); win.focus(); } } catch (e) {} });
   let capHotkey = '', capMode = 'region';
   ipcMain.handle('ddb-set-capture-hotkey', (_e, accel, mode) => {
     try {
