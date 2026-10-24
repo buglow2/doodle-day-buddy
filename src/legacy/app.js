@@ -603,7 +603,7 @@ function DDBImageEditor() {
     function delPage(i) { let arr = pagesRef.current.slice(); if (arr.length <= 1) { setPages([]); pagesRef.current = []; setPageIdx(0); pageIdxRef.current = 0; return; } arr.splice(i, 1); pagesRef.current = arr; setPages(arr); let ni = pageIdxRef.current; if (i < ni) ni--; if (ni >= arr.length) ni = arr.length - 1; pageIdxRef.current = ni; setPageIdx(ni); loadPageState(arr[ni]); }
     function flattenUrl() { const c = fcRef.current; if (!c) return null; c.discardActiveObject(); c.renderAll(); return c.toDataURL({ format: "png", multiplier: (1 / (fitRef.current || 1)) }); }
     function rotate(dir) { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (!a) { flash("회전할 개체를 먼저 선택하세요 (배경 전체 회전은 이미지설정 사용)"); return; } a.rotate((((a.angle || 0) + dir * 90) % 360 + 360) % 360); a.setCoords(); c.renderAll(); pushHist(); }
-    function flip(axis) { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (!a) { flash("반전할 개체를 먼저 선택하세요"); return; } if (axis === "h") a.set("flipX", !a.flipX); else a.set("flipY", !a.flipY); a.setCoords(); c.renderAll(); pushHist(); }
+    function flip(axis) { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (a) { if (axis === "h") a.set("flipX", !a.flipX); else a.set("flipY", !a.flipY); a.setCoords(); c.renderAll(); pushHist(); return; } const u = (typeof flattenUrl === "function") ? flattenUrl() : flatten(); if (!u) { flash("반전할 내용이 없어요"); return; } const im = new Image(); im.onload = () => { try { const cc = document.createElement("canvas"); cc.width = im.width; cc.height = im.height; const g = cc.getContext("2d"); if (axis === "h") { g.translate(im.width, 0); g.scale(-1, 1); } else { g.translate(0, im.height); g.scale(1, -1); } g.drawImage(im, 0, 0); try { pushHist(); } catch (e2) {} loadUrl(cc.toDataURL("image/png"), true); flash(axis === "h" ? "페이지 좌우 반전" : "페이지 상하 반전"); } catch (e) {} }; im.src = u; }
     function applyCanvasSize(w, h) { const c = fcRef.current; if (!c) return; w = Math.max(50, Math.min(6000, Math.round(w))); h = Math.max(50, Math.min(6000, Math.round(h))); const f = fitTo(w, h); fitRef.current = f; setZoom(f); setZoomPct(100); setupBoard(w, h, f); c.renderAll(); pushHist(); }
     function alignObjs(mode) { const c = fcRef.current; if (!c) return; const objs = c.getActiveObjects(); if (objs.length < 1) { flash("정렬할 개체를 선택하세요 (여러 개는 Shift·드래그로)"); return; } c.discardActiveObject(); const R2 = objs.map(o2 => ({ o: o2, b: o2.getBoundingRect(true, true) })); const minL = Math.min(...R2.map(r => r.b.left)), maxR = Math.max(...R2.map(r => r.b.left + r.b.width)), minT = Math.min(...R2.map(r => r.b.top)), maxB = Math.max(...R2.map(r => r.b.top + r.b.height)), cx = (minL + maxR) / 2, cy = (minT + maxB) / 2; R2.forEach(r => { let dx = 0, dy = 0; if (mode === "left") dx = minL - r.b.left; else if (mode === "right") dx = maxR - (r.b.left + r.b.width); else if (mode === "centerH") dx = cx - (r.b.left + r.b.width / 2); else if (mode === "top") dy = minT - r.b.top; else if (mode === "bottom") dy = maxB - (r.b.top + r.b.height); else if (mode === "middleV") dy = cy - (r.b.top + r.b.height / 2); r.o.set({ left: (r.o.left || 0) + dx, top: (r.o.top || 0) + dy }); r.o.setCoords(); }); c.renderAll(); pushHist(); }
     function distribute(axis) { const c = fcRef.current; if (!c) return; const objs = c.getActiveObjects(); if (objs.length < 3) { flash("균등 배치는 3개 이상 선택하세요"); return; } c.discardActiveObject(); const R2 = objs.map(o2 => ({ o: o2, b: o2.getBoundingRect(true, true) })); const key = axis === "h" ? "left" : "top", dim = axis === "h" ? "width" : "height", pk = axis === "h" ? "left" : "top"; R2.sort((a, b) => (a.b[key] + a.b[dim] / 2) - (b.b[key] + b.b[dim] / 2)); const c1 = R2[0].b[key] + R2[0].b[dim] / 2, c2 = R2[R2.length - 1].b[key] + R2[R2.length - 1].b[dim] / 2, step = (c2 - c1) / (R2.length - 1); R2.forEach((r, i) => { const target = c1 + step * i, cur = r.b[key] + r.b[dim] / 2; r.o.set({ [pk]: (r.o[pk] || 0) + (target - cur) }); r.o.setCoords(); }); c.renderAll(); pushHist(); }
@@ -3100,7 +3100,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.32";
+const DDB_VERSION = "1.00.33";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4650,7 +4650,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v469"
+                children: "v470"
             }), (() => {
                 const S = [{
                     k: "cal",
