@@ -3100,7 +3100,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.33";
+const DDB_VERSION = "1.00.34";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4650,7 +4650,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v470"
+                children: "v471"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -18349,7 +18349,7 @@ function YO() {
 function UP9() {
     const [e, t] = O.useState(null);
     return O.useEffect(() => {
-        const DDB_REPO = "buglow2/doodle-day-buddy";
+        const DDB_REPO = "buglow2/doodleday-buddy";
         const cmp = (l, c) => { const u = String(l).split(".").map(Number), h = String(c).split(".").map(Number); for (let d = 0; d < 3; d++) { if ((u[d] ?? 0) > (h[d] ?? 0)) return 1; if ((u[d] ?? 0) < (h[d] ?? 0)) return -1; } return 0; };
         const decide = n => { if (!n || !n.latest_version) return; const a = localStorage.getItem("ddb_skip_ver"); if (cmp(n.latest_version, DDB_VERSION) > 0 && a !== n.latest_version) t(n); };
         const fallbackMeta = () => { try { const r = $a(); if (!r) return; r.from("app_meta").select("latest_version,download_url,notes").eq("id", 1).single().then(({ data: n }) => decide(n)).catch(() => {}); } catch {} };
