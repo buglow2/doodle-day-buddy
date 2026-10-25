@@ -444,6 +444,10 @@ function DDBImageEditor() {
         const t = setTimeout(() => { document.addEventListener("mousedown", close, true); document.addEventListener("wheel", close, true); window.addEventListener("blur", close); }, 0);
         return () => { clearTimeout(t); document.removeEventListener("mousedown", close, true); document.removeEventListener("wheel", close, true); window.removeEventListener("blur", close); };
     }, [ctxMenu]);
+    const [imgFill, setImgFill] = O.useState(null);
+    const imgFillShapeRef = O.useRef(null);
+    const imgFillImgRef = O.useRef(null);
+    const imgFillInputRef = O.useRef(null);
     const [texts, setTexts] = O.useState([]);
     const [layers, setLayers] = O.useState([]);
     const [layerDetail, setLayerDetail] = O.useState(false);
@@ -917,6 +921,56 @@ function DDBImageEditor() {
     const ungroupSel = () => { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (!a || a.type !== "group") { flash("묶인 그룹을 선택하세요"); return; } try { a.toActiveSelection(); c.requestRenderAll(); pushHist(); flash("묶음을 풀었어요"); } catch (e) {} };
     const fo0 = fcRef.current && fcRef.current.getActiveObject();
     const fmtSet = (k, v) => { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (!a) return; a.set(k, v); a.setCoords && a.setCoords(); c.requestRenderAll(); forceR(); };
+    function startImgFill() {
+        const c = fcRef.current; if (!c) return; const a = c.getActiveObject();
+        if (!a) { flash("이미지를 채울 도형을 먼저 선택하세요"); return; }
+        const tp = a.type; if (tp === "image" || tp === "i-text" || tp === "text" || tp === "textbox" || tp === "group" || tp === "activeSelection") { flash("도형 하나를 선택하세요 (이미지·글자·그룹 제외)"); return; }
+        if (imgFillImgRef.current) { flash("먼저 현재 이미지를 적용하거나 취소하세요"); return; }
+        imgFillShapeRef.current = a; if (imgFillInputRef.current) imgFillInputRef.current.click();
+    }
+    function onImgFillFile(e) {
+        const f = e.target.files && e.target.files[0]; try { e.target.value = ""; } catch (x) {}
+        const shape = imgFillShapeRef.current, c = fcRef.current, fab = window.fabric;
+        if (!f || !shape || !c || !fab) return;
+        const rd = new FileReader();
+        rd.onload = ev => { fab.Image.fromURL(ev.target.result, img => {
+            let pts; try { pts = objToRegion(shape, fab); } catch (err) { flash("도형 변환에 실패했어요"); return; }
+            const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]);
+            const minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs), minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+            const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+            const sc = Math.max(bw / (img.width || 1), bh / (img.height || 1)) || 1;
+            img.set({ left: (minX + maxX) / 2, top: (minY + maxY) / 2, originX: "center", originY: "center", scaleX: sc, scaleY: sc, opacity: 0.72, selectable: true, evented: true });
+            img.ddbFillImg = true;
+            shape.set({ selectable: false, evented: false });
+            c.add(img); c.setActiveObject(img); c.requestRenderAll();
+            imgFillImgRef.current = img; setImgFill({ active: true });
+        }, { crossOrigin: "anonymous" }); };
+        rd.readAsDataURL(f);
+    }
+    function cancelImgFill() {
+        const c = fcRef.current, img = imgFillImgRef.current, shape = imgFillShapeRef.current;
+        if (c && img) c.remove(img);
+        if (shape) shape.set({ selectable: true, evented: true });
+        if (c) c.requestRenderAll();
+        imgFillImgRef.current = null; imgFillShapeRef.current = null; setImgFill(null);
+    }
+    function applyImgFill() {
+        const c = fcRef.current, fab = window.fabric, img = imgFillImgRef.current, shape = imgFillShapeRef.current;
+        if (!c || !fab || !img || !shape) return;
+        let pts; try { pts = objToRegion(shape, fab); } catch (err) { flash("도형 변환에 실패했어요"); cancelImgFill(); return; }
+        const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]);
+        const minX = Math.min.apply(null, xs), minY = Math.min.apply(null, ys), maxX = Math.max.apply(null, xs), maxY = Math.max.apply(null, ys);
+        const w = Math.max(2, Math.round(maxX - minX)), h = Math.max(2, Math.round(maxY - minY));
+        const cc = document.createElement("canvas"); cc.width = w; cc.height = h; const ctx = cc.getContext("2d");
+        ctx.translate(-minX, -minY);
+        ctx.save(); ctx.beginPath(); pts.forEach((q, i) => { i === 0 ? ctx.moveTo(q[0], q[1]) : ctx.lineTo(q[0], q[1]); }); ctx.closePath(); ctx.clip();
+        const m = img.calcTransformMatrix(); const el = img.getElement ? img.getElement() : img._element; const iw = img.width, ih = img.height;
+        ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]); try { ctx.drawImage(el, -iw / 2, -ih / 2, iw, ih); } catch (err) {}
+        ctx.restore();
+        if (shape.stroke && (shape.strokeWidth || 0) > 0) { ctx.save(); ctx.beginPath(); pts.forEach((q, i) => { i === 0 ? ctx.moveTo(q[0], q[1]) : ctx.lineTo(q[0], q[1]); }); ctx.closePath(); ctx.lineWidth = (shape.strokeWidth || 1) * (((shape.scaleX || 1) + (shape.scaleY || 1)) / 2); ctx.strokeStyle = shape.stroke; ctx.lineJoin = "round"; ctx.stroke(); ctx.restore(); }
+        const url = cc.toDataURL("image/png");
+        fab.Image.fromURL(url, baked => { baked.set({ left: minX, top: minY, originX: "left", originY: "top", selectable: true, evented: true }); c.remove(img); c.remove(shape); c.add(baked); c.setActiveObject(baked); c.requestRenderAll(); try { pushHist(); } catch (e) {} imgFillImgRef.current = null; imgFillShapeRef.current = null; setImgFill(null); flash("도형에 이미지를 채웠어요"); }, { crossOrigin: "anonymous" });
+    }
     function objToRegion(obj, fab) {
         const t = obj.type; let local;
         if (t === "ellipse" || t === "circle") { const rx = (obj.rx != null ? obj.rx : obj.radius) || 0, ry = (obj.ry != null ? obj.ry : obj.radius) || 0; const N = 64; local = []; for (let i = 0; i < N; i++) { const ang = (i / N) * Math.PI * 2; local.push({ x: rx * Math.cos(ang), y: ry * Math.sin(ang) }); } }
@@ -1027,7 +1081,8 @@ function DDBImageEditor() {
         dimsModal && o.jsx("div", { className: "fixed inset-0 flex items-center justify-center", style: { zIndex: 96, background: "rgba(0,0,0,0.4)" }, onMouseDown: e => { if (e.target === e.currentTarget) setDimsModal(null); }, children: o.jsxs("div", { className: "rounded-2xl p-4", style: { background: "#141824", border: "1px solid rgba(255,255,255,0.18)", width: 260 }, children: [o.jsx("div", { className: "text-white font-semibold text-sm mb-3", children: (gmap[dimsModal.grp] ? gmap[dimsModal.grp].label : "그룹") + " 칸 배치" }), o.jsxs("div", { className: "flex items-center justify-center gap-2 mb-3", children: [o.jsxs("div", { className: "flex flex-col items-center gap-1", children: [o.jsx("span", { className: "text-white/50 text-[11px]", children: "가로" }), o.jsx("input", { type: "number", min: 1, max: 12, value: dimsModal.w, autoFocus: true, onChange: e => setDimsModal(m => ({ ...m, w: e.target.value })), onKeyDown: e => { if (e.key === "Enter") applyDims(); }, className: "w-16 text-center text-lg bg-white/10 border border-white/20 rounded-lg py-1 text-white outline-none" })] }), o.jsx("span", { className: "text-white/40 text-lg mt-4", children: "×" }), o.jsxs("div", { className: "flex flex-col items-center gap-1", children: [o.jsx("span", { className: "text-white/50 text-[11px]", children: "세로" }), o.jsx("input", { type: "number", min: 1, max: 8, value: dimsModal.h, onChange: e => setDimsModal(m => ({ ...m, h: e.target.value })), onKeyDown: e => { if (e.key === "Enter") applyDims(); }, className: "w-16 text-center text-lg bg-white/10 border border-white/20 rounded-lg py-1 text-white outline-none" })] })] }), o.jsxs("div", { className: "flex gap-2", children: [o.jsx("button", { onClick: () => setDimsModal(null), className: "flex-1 py-2 rounded-lg bg-white/10 border border-white/20 text-white/80 cursor-pointer text-sm", children: "취소" }), o.jsx("button", { onClick: applyDims, className: "flex-1 py-2 rounded-lg bg-blue-500/40 border border-blue-400/60 text-white cursor-pointer text-sm", children: "확인" })] })] }) }),
         snapMark && o.jsx("div", { style: { position: "fixed", left: snapMark.x, top: snapMark.y, transform: "translate(-50%,-50%)", width: 13, height: 13, border: "2px solid #facc15", background: "rgba(250,204,21,0.3)", pointerEvents: "none", zIndex: 88, boxShadow: "0 0 6px rgba(250,204,21,0.8)" } }),
         tip && o.jsx("div", { style: { position: "fixed", left: tip.x, top: tip.y, transform: "translateX(-50%)", background: "#141824", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", fontSize: 11, padding: "3px 8px", borderRadius: 6, pointerEvents: "none", opacity: tipVis ? 1 : 0, transition: "opacity 1s ease", zIndex: 90, whiteSpace: "nowrap" }, children: tip.text }),
-        ctxMenu && o.jsx("div", { style: { position: "fixed", left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 320), zIndex: 82 }, "data-ddbctx": "1", onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { className: "flex flex-col rounded-lg overflow-hidden shadow-2xl py-1", style: { minWidth: 158, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: (ctxMenu.crop ? CROPCTX : (() => { const _a = fcRef.current && fcRef.current.getActiveObject(); const boolItems = (_a && _a.type === "activeSelection" && _a._objects && _a._objects.length >= 2) ? [["bu", "⬈ 합치기 (합집합)", () => shapeBool("union")], ["bd", "⬈ 빼기 (차집합)", () => shapeBool("difference")], ["bi", "⬈ 교집합", () => shapeBool("intersect")], ["_", ""]] : []; return (_a && _a.ddbPoly) ? [["polyedit", (_a.ddbPoly.star ? "⭐ 꼭짓점 수 변경" : "🔢 각 수 변경"), () => { polyEditRef.current = _a; setSides(_a.ddbPoly.n || 6); setPolyErr(""); setPolyModal(true); }], ["_", ""], ...CTX] : [...boolItems, ...CTX]; })()).map((it, i) => it[0] === "_" ? o.jsx("div", { className: "my-1 border-t border-white/10" }, "d" + i) : o.jsx("button", { onClick: () => { setCtxMenu(null); it[2] && it[2](); }, className: "text-left px-3 py-1.5 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap text-white/85", children: it[1] }, it[0])) }) }),
+        imgFill && o.jsx("div", { style: { position: "fixed", left: "50%", bottom: 92, transform: "translateX(-50%)", zIndex: 95, display: "flex", gap: 8, alignItems: "center", background: "#111827", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 10, padding: "8px 12px", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }, onMouseDown: e => e.stopPropagation(), children: [o.jsx("span", { style: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginRight: 2 }, children: "이미지를 드래그·크기조절로 맞춘 뒤" }), o.jsx("button", { onClick: applyImgFill, style: { background: "#2563eb", color: "#fff", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 13, cursor: "pointer", fontWeight: 600 }, children: "✓ 적용" }), o.jsx("button", { onClick: cancelImgFill, style: { background: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 7, padding: "6px 12px", fontSize: 13, cursor: "pointer" }, children: "✕ 취소" })] }),
+        ctxMenu && o.jsx("div", { style: { position: "fixed", left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 320), zIndex: 82 }, "data-ddbctx": "1", onMouseDown: e => e.stopPropagation(), children: o.jsx("div", { className: "flex flex-col rounded-lg overflow-hidden shadow-2xl py-1", style: { minWidth: 158, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: (ctxMenu.crop ? CROPCTX : (() => { const _a = fcRef.current && fcRef.current.getActiveObject(); const boolItems = (_a && _a.type === "activeSelection" && _a._objects && _a._objects.length >= 2) ? [["bu", "⬈ 합치기 (합집합)", () => shapeBool("union")], ["bd", "⬈ 빼기 (차집합)", () => shapeBool("difference")], ["bi", "⬈ 교집합", () => shapeBool("intersect")], ["_", ""]] : []; const fillItem = (_a && _a.type !== "activeSelection" && _a.type !== "group" && _a.type !== "image" && _a.type !== "i-text" && _a.type !== "text" && _a.type !== "textbox") ? [["imgfill", "🖼 도형에 이미지 채우기", startImgFill], ["_", ""]] : []; return (_a && _a.ddbPoly) ? [["polyedit", (_a.ddbPoly.star ? "⭐ 꼭짓점 수 변경" : "🔢 각 수 변경"), () => { polyEditRef.current = _a; setSides(_a.ddbPoly.n || 6); setPolyErr(""); setPolyModal(true); }], ["_", ""], ...fillItem, ...CTX] : [...boolItems, ...fillItem, ...CTX]; })()).map((it, i) => it[0] === "_" ? o.jsx("div", { className: "my-1 border-t border-white/10" }, "d" + i) : o.jsx("button", { onClick: () => { setCtxMenu(null); it[2] && it[2](); }, className: "text-left px-3 py-1.5 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap text-white/85", children: it[1] }, it[0])) }) }),
         o.jsxs("div", { className: "flex items-center gap-1.5 px-3 py-1.5 border-b border-white/10 flex-wrap flex-shrink-0", style: { backgroundColor: "rgba(12,16,26,0.98)" }, onMouseDown: e => { e.stopPropagation(); if (grpMenu) setGrpMenu(null); }, children: [
             o.jsx("span", { className: "text-white font-bold text-sm mr-1", children: "🖼 이미지 편집" }),
             null,
@@ -1036,7 +1091,7 @@ function DDBImageEditor() {
             o.jsx("div", { className: "flex-1" }),
             o.jsx("button", { onClick: () => setShowCfg(true), title: "설정", className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: "⚙" }),
             o.jsx("button", { onClick: () => { try { const c = fcRef.current; if (hasImg && c) { try { savePageState(pageIdxRef.current); } catch (e0) {} const day = ddbLocalDay(); const pgs = pagesRef.current || []; let saved = 0; pgs.forEach(pg => { if (pg && pg.thumb && (pg.json || pg.url)) { Dp({ type: "AI_DAILY_ADD", day: day, kind: "images", item: pg.thumb }); saved++; } }); if (!saved && c.getObjects().length > 0) { const u = flatten(); if (u) { const im0 = new Image(); im0.onload = () => { try { let tw = 120, th = Math.max(1, Math.round(im0.height * (tw / im0.width))); th = Math.min(th, 160); const cv = document.createElement("canvas"); cv.width = tw; cv.height = th; cv.getContext("2d").drawImage(im0, 0, 0, tw, th); Dp({ type: "AI_DAILY_ADD", day: day, kind: "images", item: cv.toDataURL("image/jpeg", 0.45) }); } catch (e2) {} }; im0.src = u; } } } } catch (e) {} setOpen(false); }, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15", children: labels ? "✕ 닫기" : "✕" }),
-            o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", multiple: true, onChange: onFile, style: { display: "none" } })
+            o.jsx("input", { ref: fileRef, type: "file", accept: "image/*", multiple: true, onChange: onFile, style: { display: "none" } }), o.jsx("input", { ref: imgFillInputRef, type: "file", accept: "image/*", onChange: onImgFillFile, style: { display: "none" } })
         ] }),
         o.jsxs("div", { className: "flex-shrink-0 overflow-x-auto thin-scroll", style: { backgroundColor: "#f3f2f1", borderBottom: "1px solid #c8c6c4" }, onMouseDown: e => e.stopPropagation(), children: [o.jsx("style", { dangerouslySetInnerHTML: { __html: ".ddbimg-tile:hover{background:#e3e3e2 !important;border-color:#c8c6c4 !important;}" } }), ppRibbon] }),
         o.jsx("style", { dangerouslySetInnerHTML: { __html: ".ddbsb-btn{height:22px;min-width:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:3px;border:1px solid #c8c6c4;background:#fff;color:#333;cursor:pointer;font-size:11px;padding:0 5px}.ddbsb-btn:hover{background:#e8e8e7}.ddbsb-btn.on{background:#cfe3ff;border-color:#2f6fe0;color:#143a7a}.ddbsb-sel{height:22px;border:1px solid #c8c6c4;border-radius:3px;background:#fff;color:#1a1a1a;font-size:11px;padding:0 4px}" } }),
@@ -3136,7 +3191,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.36";
+const DDB_VERSION = "1.00.37";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4686,7 +4741,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v473"
+                children: "v474"
             }), (() => {
                 const S = [{
                     k: "cal",
