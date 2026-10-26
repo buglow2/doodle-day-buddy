@@ -621,7 +621,7 @@ function DDBImageEditor() {
     function applyCrop() { const c = fcRef.current; const r = cropRef.current; if (!c || !r) return; const left = r.left, top = r.top, w = r.getScaledWidth(), h = r.getScaledHeight(); if (w < 4 || h < 4) return; c.remove(r); cropRef.current = null; setCropReady(false); const u = flattenUrl(); if (!u) return; const im = new Image(); im.onload = () => { const sx = Math.max(0, Math.round(left)), sy = Math.max(0, Math.round(top)), sw = Math.min(im.width - sx, Math.round(w)), sh = Math.min(im.height - sy, Math.round(h)); if (sw < 2 || sh < 2) return; const cc = document.createElement("canvas"); cc.width = sw; cc.height = sh; cc.getContext("2d").drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh); try { pushHist(); } catch (e) {} loadUrl(cc.toDataURL("image/png"), true); }; im.src = u; }
     function cancelCrop() { const c = fcRef.current, r = cropRef.current; if (c && r) { c.remove(r); c.renderAll(); } cropRef.current = null; setCropReady(false); }
     function cropSelectAll() { const c = fcRef.current; if (!c || !window.fabric) return; if (cropRef.current) { c.remove(cropRef.current); } const w = (natRef.current.w || Math.round(c.getWidth() / (fitRef.current || 1))), h = (natRef.current.h || Math.round(c.getHeight() / (fitRef.current || 1))); const o = offRef.current || { x: 0, y: 0 }; const r = new window.fabric.Rect({ left: o.x, top: o.y, width: Math.max(2, w - 1), height: Math.max(2, h - 1), fill: "rgba(0,0,0,0.12)", stroke: "#3b82f6", strokeWidth: 2, strokeDashArray: [6, 4], strokeUniform: true, selectable: true, evented: true }); c.add(r); c.setActiveObject(r); cropRef.current = r; setCropReady(true); c.renderAll(); }
-    function cropInvert() { const c = fcRef.current, r = cropRef.current; if (!c || !r) return; const left = r.left, top = r.top, w = r.getScaledWidth(), h = r.getScaledHeight(); c.remove(r); cropRef.current = null; setCropReady(false); const u = flattenUrl(); if (!u) return; const im = new Image(); im.onload = () => { const cc = document.createElement("canvas"); cc.width = im.width; cc.height = im.height; const g = cc.getContext("2d"); g.drawImage(im, 0, 0); g.clearRect(Math.round(left), Math.round(top), Math.round(w), Math.round(h)); loadUrl(cc.toDataURL("image/png")); }; im.src = u; }
+    function cropInvert() { const c = fcRef.current, r = cropRef.current; if (!c || !r) return; const left = r.left, top = r.top, w = r.getScaledWidth(), h = r.getScaledHeight(); c.remove(r); cropRef.current = null; setCropReady(false); const u = flattenUrl(); if (!u) return; const im = new Image(); im.onload = () => { const cc = document.createElement("canvas"); cc.width = im.width; cc.height = im.height; const g = cc.getContext("2d"); g.drawImage(im, 0, 0); g.clearRect(Math.round(left), Math.round(top), Math.round(w), Math.round(h)); try { pushHist(); } catch (e) {} loadUrl(cc.toDataURL("image/png"), true); }; im.src = u; }
     function cropCopy() { const c = fcRef.current, r = cropRef.current; if (!c || !r) return; const left = r.left, top = r.top, w = Math.round(r.getScaledWidth()), h = Math.round(r.getScaledHeight()); c.remove(r); c.renderAll(); const u = flattenUrl(); c.add(r); c.setActiveObject(r); c.renderAll(); if (!u) return; const im = new Image(); im.onload = () => { const cc = document.createElement("canvas"); cc.width = Math.max(1, w); cc.height = Math.max(1, h); cc.getContext("2d").drawImage(im, Math.round(left), Math.round(top), w, h, 0, 0, w, h); cc.toBlob(async b => { if (!b) return; try { await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]); flash("선택 영역 복사됨 (Ctrl+V로 붙여넣기)"); } catch { flash("복사 실패"); } }, "image/png"); }; im.src = u; }
     const ctrlDragRef = O.useRef(null);
     const layerName = o => { if (!o) return "개체"; if (o.ddbLabel) return o.ddbLabel; if (o.type === "i-text" || o.type === "text") return "T " + ((((o.text || "").split("\n")[0]) || "").slice(0, 14) || "(빈 텍스트)"); if (o.ddbArrow) return "→ 화살표"; if (o.type === "line") return "／ 선"; if (o.ddbKind) { try { const sl = (typeof SHAPE_LIB !== "undefined") && SHAPE_LIB.find(s => ("s:" + o.ddbKind) === s.t || o.ddbKind === s.pid); if (sl) return "◇ " + sl.nm; } catch (e) {} return "◇ 도형"; } if (o.ddbFree || o.type === "path") return "✎ 펜"; if (o.type === "rect") return "▭ 사각형"; if (o.type === "ellipse" || o.type === "circle") return "◯ 원"; if (o.type === "triangle") return "△ 삼각형"; if (o.type === "polygon") return "⬟ 다각형"; if (o.type === "group") return "▧ 묶음"; if (o.type === "image") return "🖼 이미지"; return o.type || "개체"; };
@@ -1016,9 +1016,8 @@ function DDBImageEditor() {
             const cc = document.createElement("canvas"); cc.width = w; cc.height = h; const ctx = cc.getContext("2d");
             ctx.translate(-minX, -minY);
             ctx.save(); ctx.beginPath(); regs.forEach(reg => { reg.forEach((pt, i) => { i === 0 ? ctx.moveTo(pt[0], pt[1]) : ctx.lineTo(pt[0], pt[1]); }); ctx.closePath(); }); ctx.clip("evenodd");
-            const bEl = base.getElement ? base.getElement() : base._element;
-            if (bEl) { const m = base.calcTransformMatrix(); const iw = base.width, ih = base.height; ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]); try { ctx.drawImage(bEl, -iw / 2, -ih / 2, iw, ih); } catch (e) {} }
-            else { ctx.fillStyle = (base.fill && typeof base.fill === "string") ? base.fill : "#9ca3af"; ctx.fillRect(minX, minY, w, h); }
+            const toDraw = (op === "union") ? sel : [base];
+            toDraw.forEach(o => { const el = o.getElement ? o.getElement() : o._element; if (el && (o.type === "image" || o.ddbFillRegion)) { ctx.save(); const m = o.calcTransformMatrix(); const iw = o.width, ih = o.height; ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]); try { ctx.drawImage(el, -iw / 2, -ih / 2, iw, ih); } catch (e) {} ctx.restore(); } else { ctx.fillStyle = (o.fill && typeof o.fill === "string" && o.fill !== "transparent") ? o.fill : "#9ca3af"; ctx.fillRect(minX, minY, w, h); } });
             ctx.restore();
             const url = cc.toDataURL("image/png");
             fab.Image.fromURL(url, baked => { baked.set({ left: minX, top: minY, originX: "left", originY: "top", selectable: true, evented: true }); let big = regs[0]; regs.forEach(r => { if (r.length > big.length) big = r; }); const cx = minX + w / 2, cy = minY + h / 2; baked.ddbFillRegion = big.map(pt => ({ x: pt[0] - cx, y: pt[1] - cy })); c.discardActiveObject(); sel.forEach(o => c.remove(o)); c.add(baked); c.setActiveObject(baked); c.requestRenderAll(); try { pushHist(); } catch (e) {} flash(doneMsg); }, { crossOrigin: "anonymous" });
@@ -3222,7 +3221,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.39";
+const DDB_VERSION = "1.00.40";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4772,7 +4771,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v476"
+                children: "v477"
             }), (() => {
                 const S = [{
                     k: "cal",
