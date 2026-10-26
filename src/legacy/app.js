@@ -578,7 +578,7 @@ function DDBImageEditor() {
     function imgRegion() { const f = fitRef.current || 1; const o = offRef.current || { x: 0, y: 0 }; const n = natRef.current || { w: 0, h: 0 }; return { left: Math.round(o.x * f), top: Math.round(o.y * f), width: Math.max(1, Math.round(n.w * f)), height: Math.max(1, Math.round(n.h * f)) }; }
 
     function refreshThumb() { const pi = pageIdxRef.current; const pgs = pagesRef.current; if (!pgs || !pgs[pi]) return; let th = ""; try { th = pgThumb(); } catch (e) {} if (!th) return; const na = pgs.slice(); na[pi] = { ...na[pi], thumb: th }; pagesRef.current = na; setPages(na); }
-    function pushHist() { const c = fcRef.current; if (!c || hist.current.lock) return; const json = JSON.stringify(c.toDatalessJSON(["ddbKind", "ddbP", "ddbArrow", "arrowSize", "ddbFree", "ddbLabel", "ddbDashKey"])); const entry = { j: json, w: c.getWidth(), h: c.getHeight(), nat: { w: (natRef.current || {}).w, h: (natRef.current || {}).h }, fit: fitRef.current, vp: (c.viewportTransform ? c.viewportTransform.slice() : null) }; const h = hist.current; const arr = h.st.slice(0, h.i + 1); arr.push(entry); while (arr.length > 40) arr.shift(); h.st = arr; h.i = arr.length - 1; if (thumbTimer.current) clearTimeout(thumbTimer.current); thumbTimer.current = setTimeout(refreshThumb, 250); }
+    function pushHist() { const c = fcRef.current; if (!c || hist.current.lock) return; const json = JSON.stringify(c.toDatalessJSON(["ddbKind", "ddbP", "ddbArrow", "arrowSize", "ddbFree", "ddbLabel", "ddbDashKey", "ddbFillRegion"])); const entry = { j: json, w: c.getWidth(), h: c.getHeight(), nat: { w: (natRef.current || {}).w, h: (natRef.current || {}).h }, fit: fitRef.current, vp: (c.viewportTransform ? c.viewportTransform.slice() : null) }; const h = hist.current; const arr = h.st.slice(0, h.i + 1); arr.push(entry); while (arr.length > 40) arr.shift(); h.st = arr; h.i = arr.length - 1; if (thumbTimer.current) clearTimeout(thumbTimer.current); thumbTimer.current = setTimeout(refreshThumb, 250); }
     function loadHist(step) { const c = fcRef.current; if (!c) return; const h = hist.current; const ni = h.i + step; if (ni < 0 || ni >= h.st.length) return; h.i = ni; h.lock = true; const e = h.st[ni]; const j = (e && typeof e === "object") ? e.j : e; try { if (e && typeof e === "object") { if (e.nat && e.nat.w) natRef.current = { w: e.nat.w, h: e.nat.h }; if (e.fit) { fitRef.current = e.fit; setZoom(e.fit); setZoomPct(Math.round(e.fit * 100)); } if (e.w && e.h) { c.setWidth(e.w); c.setHeight(e.h); } if (e.vp) c.setViewportTransform(e.vp); } } catch (err) {} c.loadFromJSON(j, () => { try { c.forEachObject(o2 => { if (o2.ddbArrow) applyArrowRender(o2); }); } catch (e2) {} c.renderAll(); h.lock = false; setHasSel(false); }); }
     const undo = () => loadHist(-1);
     const redo = () => loadHist(1);
@@ -608,7 +608,7 @@ function DDBImageEditor() {
     function loadPageState(p) { const c = fcRef.current; if (!c || !p) return; if (p.json) { const f = p.fit || 1; fitRef.current = f; setZoom(f); setZoomPct(100); natRef.current = p.nat || natRef.current; offRef.current = p.off || { x: 0, y: 0 }; boardRef.current = p.board || { w: natRef.current.w, h: natRef.current.h }; c.setZoom(f); c.setWidth(Math.round((boardRef.current.w || natRef.current.w || 800) * f)); c.setHeight(Math.round((boardRef.current.h || natRef.current.h || 600) * f)); try { c.setBackgroundColor("", () => {}); } catch (e) {} hist.current = { st: [], i: -1, lock: false }; c.loadFromJSON(JSON.parse(p.json), () => { c.renderAll(); pushHist(); }); setHasImg(true); } else if (p.url) { loadImage(p.url); } else newBlank(); }
     function gotoPage(i) { if (i === pageIdxRef.current || i < 0 || i >= pagesRef.current.length) return; savePageState(pageIdxRef.current); pageIdxRef.current = i; setPageIdx(i); c_discard(); loadPageState(pagesRef.current[i]); }
     function c_discard() { const c = fcRef.current; if (c) { try { c.discardActiveObject(); } catch {} } }
-    function addPage() { const c = fcRef.current; let arr = pagesRef.current.slice(); if (!arr.length) { arr.push({ id: "pg" + Date.now() + "-0", url: null, json: c ? JSON.stringify(c.toDatalessJSON(["ddbKind", "ddbP", "ddbArrow", "arrowSize", "ddbFree", "ddbLabel", "ddbDashKey"])) : null, thumb: pgThumb(), nat: { ...natRef.current }, fit: fitRef.current }); pagesRef.current = arr; pageIdxRef.current = 0; } else { savePageState(pageIdxRef.current); arr = pagesRef.current.slice(); } arr.push({ id: "pg" + Date.now(), url: null, json: null, thumb: "", nat: null, fit: null }); pagesRef.current = arr; setPages(arr); pageIdxRef.current = arr.length - 1; setPageIdx(arr.length - 1); newBlank(); }
+    function addPage() { const c = fcRef.current; let arr = pagesRef.current.slice(); if (!arr.length) { arr.push({ id: "pg" + Date.now() + "-0", url: null, json: c ? JSON.stringify(c.toDatalessJSON(["ddbKind", "ddbP", "ddbArrow", "arrowSize", "ddbFree", "ddbLabel", "ddbDashKey", "ddbFillRegion"])) : null, thumb: pgThumb(), nat: { ...natRef.current }, fit: fitRef.current }); pagesRef.current = arr; pageIdxRef.current = 0; } else { savePageState(pageIdxRef.current); arr = pagesRef.current.slice(); } arr.push({ id: "pg" + Date.now(), url: null, json: null, thumb: "", nat: null, fit: null }); pagesRef.current = arr; setPages(arr); pageIdxRef.current = arr.length - 1; setPageIdx(arr.length - 1); newBlank(); }
     function addImageObject(url) { const c = fcRef.current; const fab = window.fabric; if (!c || !fab || !url) return; fab.Image.fromURL(url, img => { try { if (!img) return; const cw = c.getWidth(), ch = c.getHeight(), f = fitRef.current || 1; const maxW = (cw / f) * 0.85, maxH = (ch / f) * 0.85; let sc = 1; if (img.width > maxW || img.height > maxH) sc = Math.min(maxW / img.width, maxH / img.height); const vpt = c.viewportTransform || [1, 0, 0, 1, 0, 0]; const cx = (cw / 2 - vpt[4]) / (vpt[0] || 1), cy = (ch / 2 - vpt[5]) / (vpt[3] || 1); img.set({ left: cx, top: cy, originX: "center", originY: "center", scaleX: sc, scaleY: sc, selectable: true, evented: true }); c.add(img); c.setActiveObject(img); try { setTool("select"); } catch (e2) {} c.requestRenderAll(); try { pushHist(); } catch (e3) {} flash("붙여넣음 — 드래그해서 위치를 옮기세요"); } catch (e) {} }); }
     function addPageWithUrl(url) { const c = fcRef.current; let arr = pagesRef.current.slice(); if (arr.length === 0) { arr = [{ id: "pg0-" + Date.now(), url: null, json: c ? JSON.stringify(c.toDatalessJSON()) : null, nat: { ...natRef.current }, fit: fitRef.current, thumb: pgThumb() }]; pageIdxRef.current = 0; } else { savePageState(pageIdxRef.current); arr = pagesRef.current.slice(); } arr.push({ id: "pg" + Date.now(), url: url, json: null, thumb: url, nat: null, fit: null }); pagesRef.current = arr; setPages(arr); pageIdxRef.current = arr.length - 1; setPageIdx(arr.length - 1); loadUrl(url); }
     function delPage(i) { let arr = pagesRef.current.slice(); if (arr.length <= 1) { setPages([]); pagesRef.current = []; setPageIdx(0); pageIdxRef.current = 0; return; } arr.splice(i, 1); pagesRef.current = arr; setPages(arr); let ni = pageIdxRef.current; if (i < ni) ni--; if (ni >= arr.length) ni = arr.length - 1; pageIdxRef.current = ni; setPageIdx(ni); loadPageState(arr[ni]); }
@@ -969,12 +969,20 @@ function DDBImageEditor() {
         ctx.restore();
         if (shape.stroke && (shape.strokeWidth || 0) > 0) { ctx.save(); ctx.beginPath(); pts.forEach((q, i) => { i === 0 ? ctx.moveTo(q[0], q[1]) : ctx.lineTo(q[0], q[1]); }); ctx.closePath(); ctx.lineWidth = (shape.strokeWidth || 1) * (((shape.scaleX || 1) + (shape.scaleY || 1)) / 2); ctx.strokeStyle = shape.stroke; ctx.lineJoin = "round"; ctx.stroke(); ctx.restore(); }
         const url = cc.toDataURL("image/png");
-        fab.Image.fromURL(url, baked => { baked.set({ left: minX, top: minY, originX: "left", originY: "top", selectable: true, evented: true }); c.remove(img); c.remove(shape); c.add(baked); c.setActiveObject(baked); c.requestRenderAll(); try { pushHist(); } catch (e) {} imgFillImgRef.current = null; imgFillShapeRef.current = null; setImgFill(null); flash("도형에 이미지를 채웠어요"); }, { crossOrigin: "anonymous" });
+        fab.Image.fromURL(url, baked => { baked.set({ left: minX, top: minY, originX: "left", originY: "top", selectable: true, evented: true }); const _cx = minX + w / 2, _cy = minY + h / 2; baked.ddbFillRegion = pts.map(pt => ({ x: pt[0] - _cx, y: pt[1] - _cy })); c.remove(img); c.remove(shape); c.add(baked); c.setActiveObject(baked); c.requestRenderAll(); try { pushHist(); } catch (e) {} imgFillImgRef.current = null; imgFillShapeRef.current = null; setImgFill(null); flash("도형에 이미지를 채웠어요"); }, { crossOrigin: "anonymous" });
     }
     function objToRegion(obj, fab) {
+        if (obj.ddbFillRegion && obj.ddbFillRegion.length >= 3) { const m0 = obj.calcTransformMatrix(); return obj.ddbFillRegion.map(pt => { const q = fab.util.transformPoint(pt, m0); return [q.x, q.y]; }); }
         const t = obj.type; let local;
         if (t === "ellipse" || t === "circle") { const rx = (obj.rx != null ? obj.rx : obj.radius) || 0, ry = (obj.ry != null ? obj.ry : obj.radius) || 0; const N = 64; local = []; for (let i = 0; i < N; i++) { const ang = (i / N) * Math.PI * 2; local.push({ x: rx * Math.cos(ang), y: ry * Math.sin(ang) }); } }
         else if ((t === "polygon" || t === "polyline") && obj.points && obj.points.length >= 3) { const po = obj.pathOffset || { x: 0, y: 0 }; local = obj.points.map(pt => ({ x: pt.x - po.x, y: pt.y - po.y })); }
+        else if (t === "path" && obj.path && obj.path.length) {
+            let d = ""; try { d = obj.path.map(seg => seg[0] + " " + seg.slice(1).join(" ")).join(" "); } catch (e) { d = ""; }
+            const pe = document.createElementNS("http://www.w3.org/2000/svg", "path"); pe.setAttribute("d", d);
+            let total = 0; try { total = pe.getTotalLength(); } catch (e) { total = 0; }
+            if (!total || !isFinite(total)) { const w = obj.width, h = obj.height; local = [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: h }, { x: 0, y: h }].map(pt => ({ x: pt.x - w / 2, y: pt.y - h / 2 })); }
+            else { const N = Math.max(40, Math.min(360, Math.round(total / 4))); const po = obj.pathOffset || { x: 0, y: 0 }; local = []; for (let i = 0; i < N; i++) { const q = pe.getPointAtLength(total * i / N); local.push({ x: q.x - po.x, y: q.y - po.y }); } }
+        }
         else if (t === "triangle") { const w = obj.width, h = obj.height; local = [{ x: 0, y: h }, { x: w / 2, y: 0 }, { x: w, y: h }].map(pt => ({ x: pt.x - w / 2, y: pt.y - h / 2 })); }
         else { const w = obj.width, h = obj.height; local = [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: h }, { x: 0, y: h }].map(pt => ({ x: pt.x - w / 2, y: pt.y - h / 2 })); }
         const m = obj.calcTransformMatrix(); return local.map(pt => { const q = fab.util.transformPoint(pt, m); return [q.x, q.y]; });
@@ -984,20 +992,36 @@ function DDBImageEditor() {
         const a = c.getActiveObject();
         if (!a || a.type !== "activeSelection" || !a._objects || a._objects.length < 2) { flash("도형을 2개 이상 선택하세요 (드래그로 여러 개 선택)"); return; }
         const all = c.getObjects(); const sel = a._objects.slice().sort((x, y) => all.indexOf(x) - all.indexOf(y));
-        const bad = sel.find(o => { const tp = o.type; return tp === "image" || tp === "i-text" || tp === "text" || tp === "textbox" || tp === "group" || tp === "activeSelection"; });
-        if (bad) { flash("이미지·글자·그룹은 병합할 수 없어요 (도형만 선택)"); return; }
+        const bad = sel.find(o => { if (o.ddbFillRegion) return false; const tp = o.type; return tp === "i-text" || tp === "text" || tp === "textbox" || tp === "group" || tp === "activeSelection" || tp === "image"; });
+        if (bad) { flash("글자·그룹·일반 이미지는 병합할 수 없어요 (도형 또는 이미지 채운 도형만)"); return; }
         let regions; try { regions = sel.map(o => objToRegion(o, fab)); } catch (e) { flash("도형 변환에 실패했어요"); return; }
         if (regions.some(r => !r || r.length < 3)) { flash("지원하지 않는 도형이 있어요"); return; }
         let acc = { regions: [regions[0]], inverted: false };
         try { for (let i = 1; i < regions.length; i++) { const b = { regions: [regions[i]], inverted: false }; acc = op === "union" ? PolyBool.union(acc, b) : op === "intersect" ? PolyBool.intersect(acc, b) : PolyBool.difference(acc, b); } } catch (e) { flash("병합 계산에 실패했어요"); return; }
         const regs = (acc && acc.regions) ? acc.regions.filter(r => r && r.length >= 3) : [];
         if (!regs.length) { flash(op === "intersect" ? "겹치는 영역이 없어요" : "결과가 비어 있어요"); return; }
+        const base = sel[0]; const doneMsg = op === "union" ? "합쳤어요 (합집합)" : op === "intersect" ? "교집합으로 만들었어요" : "뺐어요 (차집합)";
+        const hasImg = sel.some(o => o.ddbFillRegion || o.type === "image");
+        if (hasImg) {
+            const ax = [], ay = []; regs.forEach(r => r.forEach(pt => { ax.push(pt[0]); ay.push(pt[1]); }));
+            const minX = Math.min.apply(null, ax), minY = Math.min.apply(null, ay), maxX = Math.max.apply(null, ax), maxY = Math.max.apply(null, ay);
+            const w = Math.max(2, Math.round(maxX - minX)), h = Math.max(2, Math.round(maxY - minY));
+            const cc = document.createElement("canvas"); cc.width = w; cc.height = h; const ctx = cc.getContext("2d");
+            ctx.translate(-minX, -minY);
+            ctx.save(); ctx.beginPath(); regs.forEach(reg => { reg.forEach((pt, i) => { i === 0 ? ctx.moveTo(pt[0], pt[1]) : ctx.lineTo(pt[0], pt[1]); }); ctx.closePath(); }); ctx.clip("evenodd");
+            const bEl = base.getElement ? base.getElement() : base._element;
+            if (bEl) { const m = base.calcTransformMatrix(); const iw = base.width, ih = base.height; ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]); try { ctx.drawImage(bEl, -iw / 2, -ih / 2, iw, ih); } catch (e) {} }
+            else { ctx.fillStyle = (base.fill && typeof base.fill === "string") ? base.fill : "#9ca3af"; ctx.fillRect(minX, minY, w, h); }
+            ctx.restore();
+            const url = cc.toDataURL("image/png");
+            fab.Image.fromURL(url, baked => { baked.set({ left: minX, top: minY, originX: "left", originY: "top", selectable: true, evented: true }); let big = regs[0]; regs.forEach(r => { if (r.length > big.length) big = r; }); const cx = minX + w / 2, cy = minY + h / 2; baked.ddbFillRegion = big.map(pt => ({ x: pt[0] - cx, y: pt[1] - cy })); c.discardActiveObject(); sel.forEach(o => c.remove(o)); c.add(baked); c.setActiveObject(baked); c.requestRenderAll(); try { pushHist(); } catch (e) {} flash(doneMsg); }, { crossOrigin: "anonymous" });
+            return;
+        }
         let d = ""; regs.forEach(reg => { reg.forEach((pt, i) => { d += (i === 0 ? "M" : "L") + (Math.round(pt[0] * 100) / 100) + " " + (Math.round(pt[1] * 100) / 100) + " "; }); d += "Z "; });
-        const base = sel[0];
         const path = new fab.Path(d, { fill: (base.fill != null ? base.fill : "#000000"), stroke: (base.stroke || null), strokeWidth: (base.strokeWidth || 0), strokeDashArray: (base.strokeDashArray || null), strokeUniform: true, fillRule: "evenodd", objectCaching: false });
         c.discardActiveObject(); sel.forEach(o => c.remove(o)); c.add(path); c.setActiveObject(path); c.requestRenderAll();
         try { pushHist(); } catch (e) {}
-        flash(op === "union" ? "합쳤어요 (합집합)" : op === "intersect" ? "교집합으로 만들었어요" : "뺐어요 (차집합)");
+        flash(doneMsg);
     }
     function cropToObject() { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (!a) { flash("남길 개체를 먼저 선택하세요"); return; } if (a.type === "activeSelection" || a.type === "group") { flash("개체 1개만 선택한 뒤 사용하세요"); return; } const br = a.getBoundingRect(true, true); const left = br.left, top = br.top, w = br.width, h = br.height; if (w < 4 || h < 4) { flash("개체가 너무 작아요"); return; } try { pushHist(); } catch (e) {} c.getObjects().slice().forEach(o => { if (o !== a) c.remove(o); }); c.discardActiveObject(); c.renderAll(); const u = flattenUrl(); if (!u) return; const im = new Image(); im.onload = () => { const sx = Math.max(0, Math.round(left)), sy = Math.max(0, Math.round(top)); const sw = Math.min(im.width - sx, Math.round(w)), sh = Math.min(im.height - sy, Math.round(h)); if (sw < 2 || sh < 2) return; const cc = document.createElement("canvas"); cc.width = sw; cc.height = sh; cc.getContext("2d").drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh); loadUrl(cc.toDataURL("image/png"), true); }; im.src = u; }
     const CTX = [["group", "🔗 묶기 (그룹)", groupSel], ["ungroup", "✂ 묶음 풀기", ungroupSel], ["_", "", null], ["clone", "복제", cloneSel], ["del", "삭제", delSel], ["_", "", null], ["croptoobj", "⬚ 이 개체만 남기고 자르기", cropToObject], ["_", "", null], ["front", "맨 앞으로", () => zOp("front")], ["fwd", "앞으로", () => zOp("fwd")], ["back", "맨 뒤로", () => zOp("back")], ["bwd", "뒤로", () => zOp("bwd")], ["_", "", null], ["fmt", "🎨 도형 서식…", () => { const c = fcRef.current; if (c && c.getActiveObject()) setFmt(true); else flash("서식을 편집할 개체를 선택하세요"); }], ["_", "", null], ["copyall", "전체 이미지 복사", doCopy], ["save", "저장", doSave]];
@@ -3191,7 +3215,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.37";
+const DDB_VERSION = "1.00.38";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4741,7 +4765,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v474"
+                children: "v475"
             }), (() => {
                 const S = [{
                     k: "cal",
