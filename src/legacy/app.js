@@ -967,7 +967,14 @@ function DDBImageEditor() {
         const m = img.calcTransformMatrix(); const el = img.getElement ? img.getElement() : img._element; const iw = img.width, ih = img.height;
         ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]); try { ctx.drawImage(el, -iw / 2, -ih / 2, iw, ih); } catch (err) {}
         ctx.restore();
-        if (shape.stroke && (shape.strokeWidth || 0) > 0) { ctx.save(); ctx.beginPath(); pts.forEach((q, i) => { i === 0 ? ctx.moveTo(q[0], q[1]) : ctx.lineTo(q[0], q[1]); }); ctx.closePath(); ctx.lineWidth = (shape.strokeWidth || 1) * (((shape.scaleX || 1) + (shape.scaleY || 1)) / 2); ctx.strokeStyle = shape.stroke; ctx.lineJoin = "round"; ctx.stroke(); ctx.restore(); }
+        if (shape.stroke && (shape.strokeWidth || 0) > 0) {
+            ctx.save();
+            ctx.beginPath(); pts.forEach((q, i) => { i === 0 ? ctx.moveTo(q[0], q[1]) : ctx.lineTo(q[0], q[1]); }); ctx.closePath(); ctx.clip();
+            ctx.beginPath(); pts.forEach((q, i) => { i === 0 ? ctx.moveTo(q[0], q[1]) : ctx.lineTo(q[0], q[1]); }); ctx.closePath();
+            const sUnit = (shape.strokeUniform !== false); let lw = (shape.strokeWidth || 1) * (sUnit ? 1 : (((shape.scaleX || 1) + (shape.scaleY || 1)) / 2)); lw = Math.max(1, Math.min(lw, Math.min(w, h) / 2));
+            ctx.lineWidth = lw * 2; ctx.strokeStyle = shape.stroke; ctx.lineJoin = "round"; ctx.stroke();
+            ctx.restore();
+        }
         const url = cc.toDataURL("image/png");
         fab.Image.fromURL(url, baked => { baked.set({ left: minX, top: minY, originX: "left", originY: "top", selectable: true, evented: true }); const _cx = minX + w / 2, _cy = minY + h / 2; baked.ddbFillRegion = pts.map(pt => ({ x: pt[0] - _cx, y: pt[1] - _cy })); c.remove(img); c.remove(shape); c.add(baked); c.setActiveObject(baked); c.requestRenderAll(); try { pushHist(); } catch (e) {} imgFillImgRef.current = null; imgFillShapeRef.current = null; setImgFill(null); flash("도형에 이미지를 채웠어요"); }, { crossOrigin: "anonymous" });
     }
@@ -3215,7 +3222,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.38";
+const DDB_VERSION = "1.00.39";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4765,7 +4772,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v475"
+                children: "v476"
             }), (() => {
                 const S = [{
                     k: "cal",
