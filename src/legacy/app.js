@@ -1327,8 +1327,9 @@ function DDBLibGrid({ content, onCommit }) {
             setFxHelp(null);
         } catch (e3) { setFxHelp(null); }
     };
-    const onCh = O.useCallback(sheets => { if (!onCommit) return; if (tmr.current) clearTimeout(tmr.current); tmr.current = setTimeout(() => { try { onCommit("DDBFS:" + JSON.stringify(sheets)); } catch (e) {} }, 500); }, [onCommit]);
-    O.useEffect(() => () => { if (tmr.current) clearTimeout(tmr.current); }, []);
+    const pendRef = O.useRef(null);
+    const onCh = O.useCallback(sheets => { if (!onCommit) return; pendRef.current = sheets; if (tmr.current) clearTimeout(tmr.current); tmr.current = setTimeout(() => { try { onCommit("DDBFS:" + JSON.stringify(pendRef.current)); pendRef.current = null; } catch (e) {} }, 400); }, [onCommit]);
+    O.useEffect(() => () => { if (tmr.current) clearTimeout(tmr.current); try { if (!window.__ddbTblDiscard && pendRef.current && onCommit) { onCommit("DDBFS:" + JSON.stringify(pendRef.current)); } pendRef.current = null; window.__ddbTblDiscard = false; } catch (e) {} }, [onCommit]);
     const sel = () => { try { const s = wbRef.current && wbRef.current.getSelection(); return (s && s[0]) || null; } catch (e) { return null; } };
     const fmt = (attr, val) => { const r = sel(); if (r && wbRef.current) try { wbRef.current.setCellFormatByRange(attr, val, r); } catch (e) {} };
     const toggle = attr => { const r = sel(); if (!r || !wbRef.current) return; let cur = 0; try { cur = wbRef.current.getCellValue(r.row[0], r.column[0], { type: attr }); } catch (e) {} fmt(attr, cur ? 0 : 1); };
@@ -1392,12 +1393,13 @@ function DDBTableWindow() {
     const [askClose, setAskClose] = O.useState(false);
     const tablesRef = O.useRef(tables); tablesRef.current = tables;
     const snapRef = O.useRef(null);
+    const _syncT = O.useRef(null);
     const [geo, setGeo] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_table_geo") || "null"); if (v && typeof v.x === "number") return v; } catch {} return { x: 140, y: 90, w: 640, h: 470 }; });
     const _dh = ddbDragH(() => geo, setGeo);
     O.useEffect(() => { try { localStorage.setItem("ddb_table_geo", JSON.stringify(geo)); } catch {} }, [geo]);
     O.useEffect(() => { const h = () => { try { snapRef.current = JSON.parse(JSON.stringify(tablesRef.current)); } catch (e) { snapRef.current = null; } setAskClose(false); setOpen(true); }; window.addEventListener("ddb-open-table", h); return () => window.removeEventListener("ddb-open-table", h); }, []);
     O.useEffect(() => { if (!open) return; const k = e => { if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "x" || e.key === "X" || e.key === "ㅌ" || e.code === "KeyX")) { e.preventDefault(); e.stopPropagation(); setAskClose(true); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, [open]);
-    const saveTables = t => { setTables(t); try { localStorage.setItem("ddb_tables", JSON.stringify(t)); } catch {} };
+    const saveTables = t => { setTables(t); try { localStorage.setItem("ddb_tables", JSON.stringify(t)); } catch {} try { if (_syncT.current) clearTimeout(_syncT.current); _syncT.current = setTimeout(() => { try { window.__ddbFinalSync && window.__ddbFinalSync(); } catch (e) {} }, 1500); } catch (e) {} };
     const tab = tables[Math.min(ti, tables.length - 1)] || tables[0];
     const _blank = () => ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]);
     function saveContent(nc) { const t = tables.slice(); const idx = Math.min(ti, t.length - 1); t[idx] = { id: t[idx].id, name: t[idx].name, content: nc }; saveTables(t); }
@@ -1422,7 +1424,7 @@ function DDBTableWindow() {
             o.jsx("div", { className: "text-white/60 text-xs", children: "마지막 작업 내용을 저장하시겠습니까?" }),
             o.jsxs("div", { className: "flex gap-2 mt-1", children: [
                 o.jsx("button", { onClick: () => { setAskClose(false); setOpen(false); }, className: "flex-1 px-3 py-2 rounded text-xs cursor-pointer border-none text-white", style: { background: "#16a34a" }, children: "예 (저장하고 닫기)" }),
-                o.jsx("button", { onClick: () => { try { if (snapRef.current) saveTables(snapRef.current); } catch (e) {} setAskClose(false); setOpen(false); }, className: "flex-1 px-3 py-2 rounded text-xs cursor-pointer border text-white/80", style: { background: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.2)" }, children: "아니오 (저장 안 함)" })
+                o.jsx("button", { onClick: () => { window.__ddbTblDiscard = true; try { if (snapRef.current) saveTables(snapRef.current); } catch (e) {} setAskClose(false); setOpen(false); }, className: "flex-1 px-3 py-2 rounded text-xs cursor-pointer border text-white/80", style: { background: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.2)" }, children: "아니오 (저장 안 함)" })
             ] }),
             o.jsx("button", { onClick: () => setAskClose(false), className: "text-white/50 hover:text-white/80 text-xs cursor-pointer bg-transparent border-none", children: "취소 (계속 편집)" })
         ] })] }) : null
@@ -2808,7 +2810,7 @@ function zv() {
             const raw = localStorage.getItem(Ef);
             if (raw) {
                 const p = JSON.parse(raw);
-                delete p._ps, delete p._fb;
+                delete p._ps, delete p._fb, delete p._tbl;
                 return { ...Hl, ...p }
             }
         }
@@ -3221,7 +3223,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.42";
+const DDB_VERSION = "1.00.43";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -3351,7 +3353,7 @@ function qS({
                     E != null && E.data && Object.keys(E.data).length > 0 && (r({
                         type: "LOAD_FROM_CLOUD",
                         state: E.data
-                    }), E.data._ps && localStorage.setItem("player-songs", JSON.stringify(E.data._ps)), E.data._fb != null && localStorage.setItem("fortune-birth", E.data._fb)), c("synced"), h(new Date().toLocaleTimeString("ko-KR"))
+                    }), E.data._ps && localStorage.setItem("player-songs", JSON.stringify(E.data._ps)), E.data._fb != null && localStorage.setItem("fortune-birth", E.data._fb), E.data._tbl && localStorage.setItem("ddb_tables", JSON.stringify(E.data._tbl))), c("synced"), h(new Date().toLocaleTimeString("ko-KR"))
                 } catch (E) {
                     console.error("cloud load error:", E), c("error")
                 }
@@ -3369,7 +3371,7 @@ function qS({
                         data: {
                             ...t,
                             _ps: JSON.parse(localStorage.getItem("player-songs") ?? "[]"),
-                            _fb: localStorage.getItem("fortune-birth") ?? ""
+                            _fb: localStorage.getItem("fortune-birth") ?? "", _tbl: JSON.parse(localStorage.getItem("ddb_tables") ?? "[]")
                         },
                         updated_at: new Date().toISOString()
                     }, {
@@ -4601,7 +4603,7 @@ function um({
     }
 
     function f() {
-        const k = JSON.stringify({ ...a, _ps: JSON.parse(localStorage.getItem("player-songs") ?? "[]"), _fb: localStorage.getItem("fortune-birth") ?? "" }, null, 2),
+        const k = JSON.stringify({ ...a, _ps: JSON.parse(localStorage.getItem("player-songs") ?? "[]"), _fb: localStorage.getItem("fortune-birth") ?? "", _tbl: JSON.parse(localStorage.getItem("ddb_tables") ?? "[]") }, null, 2),
             E = new Blob([k], {
                 type: "application/json"
             }),
@@ -4654,7 +4656,7 @@ function um({
             var H;
             try {
                 const F = JSON.parse((H = A.target) == null ? void 0 : H.result);
-                F._ps && localStorage.setItem("player-songs", JSON.stringify(F._ps)), F._fb != null && localStorage.setItem("fortune-birth", F._fb), Hv(F), localStorage.setItem("restore_once_v1", "1"), window.location.reload()
+                F._ps && localStorage.setItem("player-songs", JSON.stringify(F._ps)), F._fb != null && localStorage.setItem("fortune-birth", F._fb), F._tbl && localStorage.setItem("ddb_tables", JSON.stringify(F._tbl)), Hv(F), localStorage.setItem("restore_once_v1", "1"), window.location.reload()
             } catch {
                 alert("올바른 JSON 파일이 아닙니다.")
             }
@@ -4771,7 +4773,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v479"
+                children: "v480"
             }), (() => {
                 const S = [{
                     k: "cal",
