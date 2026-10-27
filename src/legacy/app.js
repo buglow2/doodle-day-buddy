@@ -3221,7 +3221,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.41";
+const DDB_VERSION = "1.00.42";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4771,7 +4771,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v478"
+                children: "v479"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -18498,7 +18498,7 @@ function UP9() {
         try {
             fetch("https://api.github.com/repos/" + DDB_REPO + "/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
                 .then(res => res.ok ? res.json() : Promise.reject(res.status))
-                .then(j => { const ver = String(j.tag_name || "").replace(/^v/i, "").trim(); if (!ver) return fallbackMeta(); decide({ latest_version: ver, download_url: j.html_url || ("https://github.com/" + DDB_REPO + "/releases/latest"), notes: String(j.body || "").split("\n").filter(x => x.trim()).slice(0, 6).join("\n").trim() }); })
+                .then(j => { const ver = String(j.tag_name || "").replace(/^v/i, "").trim(); if (!ver) return fallbackMeta(); const assets = Array.isArray(j.assets) ? j.assets : []; const ua = (navigator.userAgent || ""); let pick; if (/Mac/i.test(ua)) pick = a => /\.dmg$/i.test(a.name); else if (/Windows NT (5|6\.0|6\.1)/i.test(ua)) pick = a => /win7/i.test(a.name) && /\.exe$/i.test(a.name); else pick = a => /win10-11/i.test(a.name) && /\.exe$/i.test(a.name); const inst = assets.filter(a => a && a.name && /\.(exe|dmg)$/i.test(a.name)); const hit = inst.find(pick) || inst.find(a => /win10-11.*\.exe$/i.test(a.name)) || inst[0]; const dl = (hit && hit.browser_download_url) ? hit.browser_download_url : (j.html_url || ("https://github.com/" + DDB_REPO + "/releases/latest")); decide({ latest_version: ver, download_url: dl, notes: String(j.body || "").split("\n").filter(x => x.trim()).slice(0, 6).join("\n").trim() }); })
                 .catch(() => fallbackMeta());
         } catch { fallbackMeta(); }
     }, []), e ? o.jsxs("div", {
