@@ -1,7 +1,7 @@
 {
   "name": "momentplan",
   "productName": "MomentPlan",
-  "version": "1.0.45",
+  "version": "1.0.46",
   "private": true,
   "main": "main.js",
   "scripts": { "start": "electron .", "dist": "electron-builder --win" },
