@@ -1328,9 +1328,10 @@ function DDBLibGrid({ content, onCommit }) {
         } catch (e3) { setFxHelp(null); }
     };
     const pendRef = O.useRef(false);
+    const lastRef = O.useRef(null);
     const [flashSave, setFlashSave] = O.useState(false);
-    const onCh = O.useCallback(() => { pendRef.current = true; }, []);
-    const doSaveNow = O.useCallback(() => { try { if (wbRef.current && onCommit) { onCommit("DDBFS:" + JSON.stringify(wbRef.current.getAllSheets())); pendRef.current = false; setFlashSave(true); setTimeout(() => { try { setFlashSave(false); } catch (e) {} }, 1400); return true; } } catch (e) {} return false; }, [onCommit]);
+    const onCh = O.useCallback(sheets => { if (sheets) lastRef.current = sheets; pendRef.current = true; }, []);
+    const doSaveNow = O.useCallback(() => { try { const ae = document.activeElement; if (ae && typeof ae.blur === "function") ae.blur(); } catch (e) {} try { if (!onCommit) return false; let sheets = null; try { sheets = wbRef.current && wbRef.current.getAllSheets(); } catch (e) {} if (!sheets || !sheets.length) sheets = lastRef.current; if (sheets && sheets.length) { onCommit("DDBFS:" + JSON.stringify(sheets)); pendRef.current = false; setFlashSave(true); setTimeout(() => { try { setFlashSave(false); } catch (e) {} }, 1400); return true; } } catch (e) {} return false; }, [onCommit]);
     O.useEffect(() => { window.__ddbTblFlushNow = doSaveNow; return () => { if (window.__ddbTblFlushNow === doSaveNow) window.__ddbTblFlushNow = null; }; }, [doSaveNow]);
     const sel = () => { try { const s = wbRef.current && wbRef.current.getSelection(); return (s && s[0]) || null; } catch (e) { return null; } };
     const fmt = (attr, val) => { const r = sel(); if (r && wbRef.current) try { wbRef.current.setCellFormatByRange(attr, val, r); } catch (e) {} };
@@ -3243,7 +3244,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.46";
+const DDB_VERSION = "1.00.47";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4793,7 +4794,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v483"
+                children: "v484"
             }), (() => {
                 const S = [{
                     k: "cal",
