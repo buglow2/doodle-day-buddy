@@ -1330,6 +1330,8 @@ function DDBLibGrid({ content, onCommit }) {
     const pendRef = O.useRef(null);
     const onCh = O.useCallback(sheets => { if (!onCommit) return; pendRef.current = sheets; if (tmr.current) clearTimeout(tmr.current); tmr.current = setTimeout(() => { try { onCommit("DDBFS:" + JSON.stringify(pendRef.current)); pendRef.current = null; } catch (e) {} }, 400); }, [onCommit]);
     O.useEffect(() => () => { if (tmr.current) clearTimeout(tmr.current); try { if (!window.__ddbTblDiscard && pendRef.current && onCommit) { onCommit("DDBFS:" + JSON.stringify(pendRef.current)); } pendRef.current = null; window.__ddbTblDiscard = false; } catch (e) {} }, [onCommit]);
+    const doSaveNow = O.useCallback(() => { try { if (wbRef.current && onCommit) { onCommit("DDBFS:" + JSON.stringify(wbRef.current.getAllSheets())); if (tmr.current) clearTimeout(tmr.current); pendRef.current = null; } } catch (e) {} }, [onCommit]);
+    O.useEffect(() => { window.__ddbTblFlushNow = doSaveNow; return () => { if (window.__ddbTblFlushNow === doSaveNow) window.__ddbTblFlushNow = null; }; }, [doSaveNow]);
     const sel = () => { try { const s = wbRef.current && wbRef.current.getSelection(); return (s && s[0]) || null; } catch (e) { return null; } };
     const fmt = (attr, val) => { const r = sel(); if (r && wbRef.current) try { wbRef.current.setCellFormatByRange(attr, val, r); } catch (e) {} };
     const toggle = attr => { const r = sel(); if (!r || !wbRef.current) return; let cur = 0; try { cur = wbRef.current.getCellValue(r.row[0], r.column[0], { type: attr }); } catch (e) {} fmt(attr, cur ? 0 : 1); };
@@ -1353,6 +1355,7 @@ function DDBLibGrid({ content, onCommit }) {
     const smL = (label, onClick, title) => o.jsx("button", { onClick: onClick, title: title || "", style: { height: 14, display: "inline-flex", alignItems: "center", gap: 3, border: "1px solid transparent", background: "transparent", color: "#222", borderRadius: 2, cursor: "pointer", fontSize: 10, padding: "0 3px", whiteSpace: "nowrap" }, children: label });
     const colorBtn = (label, attr, title) => o.jsxs("label", { title: title, style: { height: 22, display: "inline-flex", alignItems: "center", gap: 2, border: "1px solid #d6d5d4", background: "#fff", borderRadius: 3, cursor: "pointer", padding: "0 4px", fontSize: 11, color: "#222" }, children: [label, o.jsx("input", { type: "color", onChange: e => fmt(attr, e.target.value), style: { width: 15, height: 15, border: "none", background: "none", padding: 0, cursor: "pointer" } })] });
     const ribbon = o.jsxs("div", { style: { display: "flex", alignItems: "stretch", background: "#f3f2f1", borderBottom: "1px solid #c8c6c4", padding: "3px 2px", flexWrap: "wrap", flexShrink: 0 }, children: [
+        Grp("저장", [Bbig("💾", "저장", doSaveNow, "지금 저장 (현재 표를 즉시 저장)")]),
         Grp("클립보드", [Bbig("📋", "붙여넣기", doPaste, "붙여넣기"), col2([smL("✂ 잘라내기", doCut, "잘라내기"), smL("⧉ 복사", doCopy, "복사")])]),
         Grp("글꼴", o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: [
             o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 2 }, children: [
@@ -1398,7 +1401,7 @@ function DDBTableWindow() {
     const _dh = ddbDragH(() => geo, setGeo);
     O.useEffect(() => { try { localStorage.setItem("ddb_table_geo", JSON.stringify(geo)); } catch {} }, [geo]);
     O.useEffect(() => { const h = () => { try { snapRef.current = JSON.parse(JSON.stringify(tablesRef.current)); } catch (e) { snapRef.current = null; } setAskClose(false); setOpen(true); }; window.addEventListener("ddb-open-table", h); return () => window.removeEventListener("ddb-open-table", h); }, []);
-    O.useEffect(() => { if (!open) return; const k = e => { if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "x" || e.key === "X" || e.key === "ㅌ" || e.code === "KeyX")) { e.preventDefault(); e.stopPropagation(); setAskClose(true); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, [open]);
+    O.useEffect(() => { if (!open) return; const k = e => { if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "x" || e.key === "X" || e.key === "ㅌ" || e.code === "KeyX")) { e.preventDefault(); e.stopPropagation(); try { window.__ddbTblFlushNow && window.__ddbTblFlushNow(); } catch (er) {} setOpen(false); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, [open]);
     const saveTables = t => { setTables(t); try { localStorage.setItem("ddb_tables", JSON.stringify(t)); } catch {} try { if (_syncT.current) clearTimeout(_syncT.current); _syncT.current = setTimeout(() => { try { window.__ddbFinalSync && window.__ddbFinalSync(); } catch (e) {} }, 1500); } catch (e) {} };
     const tab = tables[Math.min(ti, tables.length - 1)] || tables[0];
     const _blank = () => ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]);
@@ -1415,7 +1418,7 @@ function DDBTableWindow() {
             o.jsx("button", { onClick: newTable, title: "새 표", className: "px-2 py-0.5 rounded text-xs bg-white/10 text-white/70 hover:bg-white/20 cursor-pointer border-none", children: "＋" }),
             o.jsx("button", { onClick: () => { try { window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: tab.name || "표", html: ddbBlocksToPrintHtml(ddbTabToMd(tab.content)), landscape: true } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤)", className: "px-2 py-0.5 rounded text-xs bg-green-600/70 text-white hover:bg-green-600 cursor-pointer border-none", children: "🖨 인쇄" }),
             o.jsx("button", { onClick: delTable, title: "이 표 삭제", className: "px-1.5 py-0.5 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none", children: "🗑" }),
-            o.jsx("button", { onClick: () => setAskClose(true), title: "닫기 (Alt+X · 저장 확인)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
+            o.jsx("button", { onClick: () => { try { window.__ddbTblFlushNow && window.__ddbTblFlushNow(); } catch (e) {} setOpen(false); }, title: "저장하고 닫기 (Alt+X)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
         ] }),
         o.jsx("div", { className: "flex-1 overflow-hidden", style: { minHeight: 0, position: "relative" }, children: o.jsx(DDBLibGrid, { content: tab.content, onCommit: saveContent }, "lib-" + tab.id) }),
         o.jsx("div", { onMouseDown: resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) }),
@@ -3223,7 +3226,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.43";
+const DDB_VERSION = "1.00.44";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4773,7 +4776,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v480"
+                children: "v481"
             }), (() => {
                 const S = [{
                     k: "cal",
