@@ -1309,7 +1309,7 @@ function ddbLoadFortune(content) { const s = String(content || ""); if (s.starts
 function ddbTabToMd(content) { const s = String(content || ""); if (s.startsWith("DDBFS:")) { try { return ddbFortuneToMd(JSON.parse(s.slice(6))) || ddbGridToMd(["열1"], []); } catch (e) { return ddbGridToMd(["열1"], []); } } return content; }
 const FS_FONTS = ["맑은 고딕", "굴림", "돋움", "바탕", "궁서", "Arial", "Times New Roman", "Courier New"];
 const FS_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48];
-function DDBCellFmtDialog({ apply, mergeToggle, init, close }) {
+function DDBCellFmtDialog({ apply, mergeToggle, applyBorder, init, close }) {
     const [tab, setTab] = O.useState("num");
     const [ff, setFf] = O.useState(init.ff || "");
     const [fs, setFs] = O.useState(init.fs || 11);
@@ -1324,12 +1324,15 @@ function DDBCellFmtDialog({ apply, mergeToggle, init, close }) {
     const [bg, setBg] = O.useState(init.bg || "");
     const [num, setNum] = O.useState("일반");
     const [doMerge, setDoMerge] = O.useState(false);
+    const [bp, setBp] = O.useState("");
+    const [bc, setBc] = O.useState("#000000");
+    const [bs, setBs] = O.useState("1");
     const PAL = ["#ffffff","#000000","#e7e6e6","#44546a","#4472c4","#ed7d31","#a5a5a5","#ffc000","#5b9bd5","#70ad47","#c0504d","#9bbb59","#ff0000","#ffc000","#ffff00","#92d050","#00b050","#00b0f0","#0070c0","#7030a0"];
     const NUM = [["일반","General","g"],["숫자","#,##0.00","n"],["통화","¤#,##0.00","n"],["회계","¤ #,##0.00","n"],["날짜","yyyy-MM-dd","d"],["시간","hh:mm:ss","d"],["백분율","0.00%","n"],["분수","# ?/?","n"],["지수","0.00E+00","n"],["텍스트","@","s"]];
     const onOk = () => { try {
         apply("ff", ff || null); apply("fs", Number(fs) || 11); apply("bl", bl ? 1 : 0); apply("it", itc ? 1 : 0); apply("un", un ? 1 : 0); apply("cl", cl ? 1 : 0); apply("fc", fc); apply("ht", ht); apply("vt", vt); apply("tb", wrap ? 1 : 0); if (bg) apply("bg", bg);
         const nc = NUM.find(x => x[0] === num); if (nc) { if (nc[2] === "g") apply("ct", { fa: "General", t: "g" }); else apply("ct", { fa: nc[1], t: nc[2] }); }
-        if (doMerge && mergeToggle) mergeToggle();
+        if (doMerge && mergeToggle) mergeToggle(); if (bp && applyBorder) applyBorder(bp, bc, bs);
     } catch (e) {} close(); };
     const lab = t => o.jsx("div", { style: { fontSize: 12, color: "#605e5c", marginBottom: 4, fontWeight: 600 }, children: t });
     const selBox = (val, setV, opts) => o.jsx("select", { value: val, onChange: e => setV(e.target.value), style: { width: "100%", height: 26, border: "1px solid #a19f9d", borderRadius: 3, fontSize: 13, padding: "0 4px" }, children: opts.map(o2 => o.jsx("option", { value: o2[0], children: o2[1] }, String(o2[0]))) });
@@ -1339,7 +1342,7 @@ function DDBCellFmtDialog({ apply, mergeToggle, init, close }) {
     else if (tab === "align") body = o.jsxs("div", { style: { display: "flex", gap: 24 }, children: [o.jsxs("div", { style: { flex: 1 }, children: [lab("텍스트 맞춤"), o.jsx("div", { style: { marginBottom: 8 }, children: selBox(ht, v => setHt(Number(v)), [[1, "가로: 일반/왼쪽"], [0, "가로: 가운데"], [2, "가로: 오른쪽"]]) }), o.jsx("div", { style: { marginBottom: 14 }, children: selBox(vt, v => setVt(Number(v)), [[0, "세로: 가운데"], [1, "세로: 위"], [2, "세로: 아래"]]) }), lab("텍스트 조정"), chk(wrap, setWrap, "자동 줄 바꿈(W)"), chk(doMerge, setDoMerge, "셀 병합(M)")] })] });
     else if (tab === "font") body = o.jsxs("div", { children: [o.jsxs("div", { style: { display: "flex", gap: 12 }, children: [o.jsxs("div", { style: { flex: 2 }, children: [lab("글꼴(F):"), selBox(ff, setFf, FS_FONTS.map(f => [f, f]))] }), o.jsxs("div", { style: { width: 90 }, children: [lab("크기(S):"), selBox(fs, v => setFs(Number(v)), FS_SIZES.map(z => [z, z]))] })] }), o.jsxs("div", { style: { display: "flex", gap: 18, marginTop: 14 }, children: [o.jsxs("div", { children: [lab("글꼴 스타일"), chk(bl, setBl, "굵게(B)"), chk(itc, setItc, "기울임(I)")] }), o.jsxs("div", { children: [lab("효과"), chk(un, setUn, "밑줄(U)"), chk(cl, setCl, "취소선(K)")] }), o.jsxs("div", { children: [lab("색(C):"), o.jsx("input", { type: "color", value: fc, onChange: e => setFc(e.target.value), style: { width: 60, height: 28, border: "1px solid #a19f9d", cursor: "pointer" } })] })] })] });
     else if (tab === "fill") body = o.jsxs("div", { children: [lab("배경색(C):"), o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }, children: [o.jsx("button", { onClick: () => setBg(""), style: { padding: "4px 10px", border: "1px solid #a19f9d", borderRadius: 3, background: "#fff", cursor: "pointer", fontSize: 12 }, children: "색 없음" }), o.jsx("span", { style: { width: 26, height: 20, border: "1px solid #a19f9d", background: bg || "transparent", display: "inline-block" } })] }), o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(10, 22px)", gap: 4 }, children: PAL.map(c => o.jsx("div", { onClick: () => setBg(c), style: { width: 22, height: 22, background: c, border: bg === c ? "2px solid #0078d4" : "1px solid #c8c6c4", cursor: "pointer" } }, c)) })] });
-    else if (tab === "border") body = o.jsx("div", { style: { fontSize: 13, color: "#605e5c", lineHeight: 1.8 }, children: "테두리는 다음 업데이트에서 연결됩니다. 지금은 리본의 선/채움으로 표현해 주세요." });
+    else if (tab === "border") body = o.jsxs("div", { children: [lab("미리 설정"), o.jsx("div", { style: { display: "flex", gap: 8, marginBottom: 16 }, children: [["border-none", "없음"], ["border-outside", "윤곽선"], ["border-all", "모두 테두리"], ["border-inside", "안쪽"]].map(x => o.jsx("button", { onClick: () => setBp(x[0]), style: { padding: "8px 14px", border: bp === x[0] ? "2px solid #0078d4" : "1px solid #a19f9d", borderRadius: 4, background: bp === x[0] ? "#eef3fb" : "#fff", cursor: "pointer", fontSize: 13 }, children: x[1] }, x[0])) }), o.jsxs("div", { style: { display: "flex", gap: 20, alignItems: "flex-start" }, children: [o.jsxs("div", { children: [lab("색(C):"), o.jsx("input", { type: "color", value: bc, onChange: e => setBc(e.target.value), style: { width: 60, height: 28, border: "1px solid #a19f9d", cursor: "pointer" } })] }), o.jsxs("div", { style: { width: 150 }, children: [lab("스타일(S):"), selBox(bs, setBs, [["1", "얇은 실선"], ["2", "가는 실선"], ["3", "점선"], ["4", "파선"], ["7", "굵은 실선"]])] })] }), o.jsx("div", { style: { fontSize: 12, color: "#605e5c", marginTop: 14 }, children: "미리 설정을 고르고 [확인]을 누르면 선택 영역에 적용됩니다." })] });
     else body = o.jsxs("div", { children: [o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }, children: [o.jsx("input", { type: "checkbox", defaultChecked: true, readOnly: true }), "잠금(L)"] }), o.jsx("div", { style: { fontSize: 12, color: "#605e5c", marginTop: 6 }, children: "셀 잠금/수식 숨기기는 정보용입니다(현재 미지원)." })] });
     const tb2 = (k, t) => o.jsx("button", { onClick: () => setTab(k), style: { padding: "5px 12px", fontSize: 13, cursor: "pointer", border: "1px solid #c8c6c4", background: tab === k ? "#fff" : "#f3f2f1", color: "#201f1e", marginRight: -1, borderTopLeftRadius: 4, borderTopRightRadius: 4, borderBottom: tab === k ? "2px solid #fff" : "1px solid #c8c6c4", position: "relative", top: tab === k ? 1 : 0, fontWeight: tab === k ? 700 : 400 }, children: t }, k);
     return Rr.createPortal(o.jsx("div", { onMouseDown: close, style: { position: "fixed", inset: 0, zIndex: 2147483601, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsxs("div", { onMouseDown: e => e.stopPropagation(), style: { width: 560, maxWidth: "94vw", background: "#f3f2f1", border: "1px solid #a19f9d", borderRadius: 6, boxShadow: "0 20px 60px rgba(0,0,0,0.45)", fontFamily: "'Malgun Gothic',sans-serif", color: "#201f1e", overflow: "hidden" }, children: [
@@ -1351,6 +1354,8 @@ function DDBCellFmtDialog({ apply, mergeToggle, init, close }) {
 }
 function DDBLibGrid({ content, onCommit, onSaveNew }) {
     const data = O.useMemo(() => ddbLoadFortune(content), []);
+    const dataRef = O.useRef(null);
+    const [reloadKey, setReloadKey] = O.useState(0);
     const wbRef = O.useRef(null);
     const tmr = O.useRef(null);
     const [fxHelp, setFxHelp] = O.useState(null);
@@ -1381,6 +1386,7 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
     O.useEffect(() => { window.__ddbTblFlushNow = doFlushCurrent; return () => { if (window.__ddbTblFlushNow === doFlushCurrent) window.__ddbTblFlushNow = null; }; }, [doFlushCurrent]);
     const sel = () => { try { const s = wbRef.current && wbRef.current.getSelection(); return (s && s[0]) || null; } catch (e) { return null; } };
     const fmt = (attr, val) => { const r = sel(); if (r && wbRef.current) try { wbRef.current.setCellFormatByRange(attr, val, r); } catch (e) {} };
+    const applyBorder = (preset, color, style) => { try { const r = sel(); if (!r || !wbRef.current) return; const sheets = wbRef.current.getAllSheets(); if (!sheets || !sheets.length) return; const sh = sheets[0]; sh.config = sh.config || {}; const bi = Array.isArray(sh.config.borderInfo) ? sh.config.borderInfo.slice() : []; if (preset === "border-none") { sh.config.borderInfo = []; } else { bi.push({ rangeType: "range", borderType: preset, color: color || "#000000", style: String(style || "1"), range: [{ row: [r.row[0], r.row[1]], column: [r.column[0], r.column[1]] }] }); sh.config.borderInfo = bi; } dataRef.current = sheets; setReloadKey(k => k + 1); if (onCommit) onCommit("DDBFS:" + JSON.stringify(sheets)); } catch (e) {} };
     const toggle = attr => { const r = sel(); if (!r || !wbRef.current) return; let cur = 0; try { cur = wbRef.current.getCellValue(r.row[0], r.column[0], { type: attr }); } catch (e) {} fmt(attr, cur ? 0 : 1); };
     const merge = () => { const r = sel(); if (r && wbRef.current) try { wbRef.current.mergeCells(r, "merge-all"); } catch (e) {} };
     const unmerge = () => { const r = sel(); if (r && wbRef.current) try { wbRef.current.cancelMerge(r); } catch (e) {} };
@@ -1435,10 +1441,10 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
     return o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", width: "100%" }, children: [
         ribbon,
         o.jsxs("div", { style: { flex: 1, minHeight: 0, position: "relative" }, onInput: onFx, onKeyUp: onFx, onContextMenu: e => { try { e.preventDefault(); } catch (er) {} setCtxM({ x: e.clientX, y: e.clientY }); }, children: [
-            o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx(FSWorkbook, { ref: wbRef, data: data, lang: "en", showToolbar: false, defaultFontSize: 11, cellContextMenu: [], headerContextMenu: [], onChange: onCommit ? onCh : void 0 }) }),
+            o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx(FSWorkbook, { ref: wbRef, key: "wb" + reloadKey, data: (reloadKey > 0 && dataRef.current) ? dataRef.current : data, lang: "en", showToolbar: false, defaultFontSize: 11, cellContextMenu: [], headerContextMenu: [], onChange: onCommit ? onCh : void 0 }) }),
             fxPanel,
             ctxMenuEl,
-            fmtOpen ? o.jsx(DDBCellFmtDialog, { apply: fmt, mergeToggle: merge, init: fmtInit || {}, close: () => setFmtOpen(false) }) : null
+            fmtOpen ? o.jsx(DDBCellFmtDialog, { apply: fmt, mergeToggle: merge, applyBorder: applyBorder, init: fmtInit || {}, close: () => setFmtOpen(false) }) : null
         ] })
     ] });
 }
@@ -3296,7 +3302,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.49";
+const DDB_VERSION = "1.00.50";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4846,7 +4852,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v486"
+                children: "v487"
             }), (() => {
                 const S = [{
                     k: "cal",
