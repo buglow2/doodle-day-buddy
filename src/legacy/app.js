@@ -1309,12 +1309,54 @@ function ddbLoadFortune(content) { const s = String(content || ""); if (s.starts
 function ddbTabToMd(content) { const s = String(content || ""); if (s.startsWith("DDBFS:")) { try { return ddbFortuneToMd(JSON.parse(s.slice(6))) || ddbGridToMd(["열1"], []); } catch (e) { return ddbGridToMd(["열1"], []); } } return content; }
 const FS_FONTS = ["맑은 고딕", "굴림", "돋움", "바탕", "궁서", "Arial", "Times New Roman", "Courier New"];
 const FS_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48];
+function DDBCellFmtDialog({ apply, mergeToggle, init, close }) {
+    const [tab, setTab] = O.useState("num");
+    const [ff, setFf] = O.useState(init.ff || "");
+    const [fs, setFs] = O.useState(init.fs || 11);
+    const [bl, setBl] = O.useState(!!init.bl);
+    const [itc, setItc] = O.useState(!!init.it);
+    const [un, setUn] = O.useState(!!init.un);
+    const [cl, setCl] = O.useState(!!init.cl);
+    const [fc, setFc] = O.useState(init.fc || "#000000");
+    const [ht, setHt] = O.useState(init.ht == null ? 1 : init.ht);
+    const [vt, setVt] = O.useState(init.vt == null ? 0 : init.vt);
+    const [wrap, setWrap] = O.useState(!!(init.tb && init.tb !== 0));
+    const [bg, setBg] = O.useState(init.bg || "");
+    const [num, setNum] = O.useState("일반");
+    const [doMerge, setDoMerge] = O.useState(false);
+    const PAL = ["#ffffff","#000000","#e7e6e6","#44546a","#4472c4","#ed7d31","#a5a5a5","#ffc000","#5b9bd5","#70ad47","#c0504d","#9bbb59","#ff0000","#ffc000","#ffff00","#92d050","#00b050","#00b0f0","#0070c0","#7030a0"];
+    const NUM = [["일반","General","g"],["숫자","#,##0.00","n"],["통화","¤#,##0.00","n"],["회계","¤ #,##0.00","n"],["날짜","yyyy-MM-dd","d"],["시간","hh:mm:ss","d"],["백분율","0.00%","n"],["분수","# ?/?","n"],["지수","0.00E+00","n"],["텍스트","@","s"]];
+    const onOk = () => { try {
+        apply("ff", ff || null); apply("fs", Number(fs) || 11); apply("bl", bl ? 1 : 0); apply("it", itc ? 1 : 0); apply("un", un ? 1 : 0); apply("cl", cl ? 1 : 0); apply("fc", fc); apply("ht", ht); apply("vt", vt); apply("tb", wrap ? 1 : 0); if (bg) apply("bg", bg);
+        const nc = NUM.find(x => x[0] === num); if (nc) { if (nc[2] === "g") apply("ct", { fa: "General", t: "g" }); else apply("ct", { fa: nc[1], t: nc[2] }); }
+        if (doMerge && mergeToggle) mergeToggle();
+    } catch (e) {} close(); };
+    const lab = t => o.jsx("div", { style: { fontSize: 12, color: "#605e5c", marginBottom: 4, fontWeight: 600 }, children: t });
+    const selBox = (val, setV, opts) => o.jsx("select", { value: val, onChange: e => setV(e.target.value), style: { width: "100%", height: 26, border: "1px solid #a19f9d", borderRadius: 3, fontSize: 13, padding: "0 4px" }, children: opts.map(o2 => o.jsx("option", { value: o2[0], children: o2[1] }, String(o2[0]))) });
+    const chk = (v, setV, t) => o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", marginBottom: 6 }, children: [o.jsx("input", { type: "checkbox", checked: v, onChange: e => setV(e.target.checked) }), t] });
+    let body = null;
+    if (tab === "num") body = o.jsxs("div", { style: { display: "flex", gap: 16 }, children: [o.jsxs("div", { style: { width: 150 }, children: [lab("범주(C):"), o.jsx("div", { style: { border: "1px solid #a19f9d", height: 230, overflowY: "auto", background: "#fff" }, children: NUM.map(c => o.jsx("div", { onClick: () => setNum(c[0]), style: { padding: "4px 8px", cursor: "pointer", fontSize: 13, background: num === c[0] ? "#cce4ff" : "transparent" }, children: c[0] }, c[0])) })] }), o.jsx("div", { style: { flex: 1, fontSize: 12, color: "#444", paddingTop: 22 }, children: "범주를 고르면 선택한 셀에 그 표시 형식이 적용됩니다." })] });
+    else if (tab === "align") body = o.jsxs("div", { style: { display: "flex", gap: 24 }, children: [o.jsxs("div", { style: { flex: 1 }, children: [lab("텍스트 맞춤"), o.jsx("div", { style: { marginBottom: 8 }, children: selBox(ht, v => setHt(Number(v)), [[1, "가로: 일반/왼쪽"], [0, "가로: 가운데"], [2, "가로: 오른쪽"]]) }), o.jsx("div", { style: { marginBottom: 14 }, children: selBox(vt, v => setVt(Number(v)), [[0, "세로: 가운데"], [1, "세로: 위"], [2, "세로: 아래"]]) }), lab("텍스트 조정"), chk(wrap, setWrap, "자동 줄 바꿈(W)"), chk(doMerge, setDoMerge, "셀 병합(M)")] })] });
+    else if (tab === "font") body = o.jsxs("div", { children: [o.jsxs("div", { style: { display: "flex", gap: 12 }, children: [o.jsxs("div", { style: { flex: 2 }, children: [lab("글꼴(F):"), selBox(ff, setFf, FS_FONTS.map(f => [f, f]))] }), o.jsxs("div", { style: { width: 90 }, children: [lab("크기(S):"), selBox(fs, v => setFs(Number(v)), FS_SIZES.map(z => [z, z]))] })] }), o.jsxs("div", { style: { display: "flex", gap: 18, marginTop: 14 }, children: [o.jsxs("div", { children: [lab("글꼴 스타일"), chk(bl, setBl, "굵게(B)"), chk(itc, setItc, "기울임(I)")] }), o.jsxs("div", { children: [lab("효과"), chk(un, setUn, "밑줄(U)"), chk(cl, setCl, "취소선(K)")] }), o.jsxs("div", { children: [lab("색(C):"), o.jsx("input", { type: "color", value: fc, onChange: e => setFc(e.target.value), style: { width: 60, height: 28, border: "1px solid #a19f9d", cursor: "pointer" } })] })] })] });
+    else if (tab === "fill") body = o.jsxs("div", { children: [lab("배경색(C):"), o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }, children: [o.jsx("button", { onClick: () => setBg(""), style: { padding: "4px 10px", border: "1px solid #a19f9d", borderRadius: 3, background: "#fff", cursor: "pointer", fontSize: 12 }, children: "색 없음" }), o.jsx("span", { style: { width: 26, height: 20, border: "1px solid #a19f9d", background: bg || "transparent", display: "inline-block" } })] }), o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(10, 22px)", gap: 4 }, children: PAL.map(c => o.jsx("div", { onClick: () => setBg(c), style: { width: 22, height: 22, background: c, border: bg === c ? "2px solid #0078d4" : "1px solid #c8c6c4", cursor: "pointer" } }, c)) })] });
+    else if (tab === "border") body = o.jsx("div", { style: { fontSize: 13, color: "#605e5c", lineHeight: 1.8 }, children: "테두리는 다음 업데이트에서 연결됩니다. 지금은 리본의 선/채움으로 표현해 주세요." });
+    else body = o.jsxs("div", { children: [o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }, children: [o.jsx("input", { type: "checkbox", defaultChecked: true, readOnly: true }), "잠금(L)"] }), o.jsx("div", { style: { fontSize: 12, color: "#605e5c", marginTop: 6 }, children: "셀 잠금/수식 숨기기는 정보용입니다(현재 미지원)." })] });
+    const tb2 = (k, t) => o.jsx("button", { onClick: () => setTab(k), style: { padding: "5px 12px", fontSize: 13, cursor: "pointer", border: "1px solid #c8c6c4", background: tab === k ? "#fff" : "#f3f2f1", color: "#201f1e", marginRight: -1, borderTopLeftRadius: 4, borderTopRightRadius: 4, borderBottom: tab === k ? "2px solid #fff" : "1px solid #c8c6c4", position: "relative", top: tab === k ? 1 : 0, fontWeight: tab === k ? 700 : 400 }, children: t }, k);
+    return Rr.createPortal(o.jsx("div", { onMouseDown: close, style: { position: "fixed", inset: 0, zIndex: 2147483601, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsxs("div", { onMouseDown: e => e.stopPropagation(), style: { width: 560, maxWidth: "94vw", background: "#f3f2f1", border: "1px solid #a19f9d", borderRadius: 6, boxShadow: "0 20px 60px rgba(0,0,0,0.45)", fontFamily: "'Malgun Gothic',sans-serif", color: "#201f1e", overflow: "hidden" }, children: [
+        o.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e1dfdd" }, children: [o.jsx("span", { style: { fontWeight: 700, fontSize: 14 }, children: "셀 서식" }), o.jsx("button", { onClick: close, style: { border: "none", background: "transparent", fontSize: 16, cursor: "pointer", color: "#605e5c" }, children: "✕" })] }),
+        o.jsx("div", { style: { display: "flex", padding: "8px 12px 0", background: "#f3f2f1" }, children: [tb2("num", "표시 형식"), tb2("align", "맞춤"), tb2("font", "글꼴"), tb2("border", "테두리"), tb2("fill", "채우기"), tb2("protect", "보호")] }),
+        o.jsx("div", { style: { background: "#fff", padding: 18, minHeight: 272, borderTop: "1px solid #c8c6c4" }, children: body }),
+        o.jsxs("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, padding: "10px 14px", background: "#f3f2f1", borderTop: "1px solid #e1dfdd" }, children: [o.jsx("button", { onClick: onOk, style: { padding: "6px 22px", background: "#fff", border: "1px solid #8a8886", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }, children: "확인" }), o.jsx("button", { onClick: close, style: { padding: "6px 22px", background: "#fff", border: "1px solid #8a8886", borderRadius: 3, cursor: "pointer", fontSize: 13 }, children: "취소" })] })
+    ] }) }), document.body);
+}
 function DDBLibGrid({ content, onCommit, onSaveNew }) {
     const data = O.useMemo(() => ddbLoadFortune(content), []);
     const wbRef = O.useRef(null);
     const tmr = O.useRef(null);
     const [fxHelp, setFxHelp] = O.useState(null);
     const [ctxM, setCtxM] = O.useState(null);
+    const [fmtOpen, setFmtOpen] = O.useState(false);
+    const [fmtInit, setFmtInit] = O.useState(null);
     O.useEffect(() => { if (!ctxM) return; const h = ev => { try { if (ev.target && ev.target.closest && ev.target.closest("[data-ddbfsctx]")) return; } catch (e) {} setCtxM(null); }; const t = setTimeout(() => { document.addEventListener("mousedown", h, true); document.addEventListener("wheel", h, true); }, 0); return () => { clearTimeout(t); document.removeEventListener("mousedown", h, true); document.removeEventListener("wheel", h, true); }; }, [ctxM]);
     const onFx = e => {
         try {
@@ -1388,14 +1430,15 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
     const fxDesc = d => { const parts = String(d || "").split(/\s{2,}/); return { ko: parts[0] || "", ex: parts[1] || "" }; };
     const fxPanel = fxHelp ? o.jsx("div", { style: { position: "absolute", top: 6, right: 14, zIndex: 40, width: 300, maxWidth: "70%", background: "#1e293b", color: "#e7ecf3", border: "1px solid #3b4a5e", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", padding: "8px 10px", fontSize: 12 }, children: o.jsx("div", { style: { display: "flex", flexDirection: "column", gap: 5 }, children: fxHelp.items.map((f, idx) => { const dd = fxDesc(f[1]); return o.jsxs("div", { style: { lineHeight: 1.5 }, children: [o.jsxs("div", { children: [o.jsx("span", { style: { fontWeight: 700, color: "#7dd3fc" }, children: f[0] }), o.jsx("span", { style: { color: "#cbd5e1" }, children: " — " + dd.ko })] }), dd.ex ? o.jsx("div", { style: { color: "#94a3b8", fontFamily: "monospace", fontSize: 11 }, children: dd.ex }) : null] }, f[0] + idx); }) }) }) : null;
     const _run = fn => () => { setCtxM(null); try { fn && fn(); } catch (e) {} };
-    const _FSM = [["✂", "잘라내기(T)", doCut], ["⧉", "복사(C)", doCopy], ["📋", "붙여넣기", doPaste], ["📋", "선택하여 붙여넣기(S)…", doPaste], ["sep"], ["＋", "삽입(I)…", () => insRC("row")], ["✕", "삭제(D)…", () => delRC("row")], ["⌫", "내용 지우기(N)", clearRange], ["sep"], ["📊", "빠른 분석(Q)", null], ["✇", "필터(E)", null], ["↕", "정렬(O)", null], ["sep"], ["▦", "표/범위에서 데이터 가져오기(G)…", null], ["🗨", "메모 삽입(M)", null], ["🎨", "셀 서식(F)…", null], ["▾", "드롭다운 목록에서 선택(K)…", null], ["☰", "윗줄 필드 표시(S)", null], ["□", "이름 정의(A)…", null], ["🔗", "링크(I)…", null], ["↗", "하이퍼링크 열기(O)", null]];
+    const _FSM = [["✂", "잘라내기(T)", doCut], ["⧉", "복사(C)", doCopy], ["📋", "붙여넣기", doPaste], ["📋", "선택하여 붙여넣기(S)…", doPaste], ["sep"], ["＋", "삽입(I)…", () => insRC("row")], ["✕", "삭제(D)…", () => delRC("row")], ["⌫", "내용 지우기(N)", clearRange], ["sep"], ["📊", "빠른 분석(Q)", null], ["✇", "필터(E)", null], ["↕", "정렬(O)", null], ["sep"], ["▦", "표/범위에서 데이터 가져오기(G)…", null], ["🗨", "메모 삽입(M)", null], ["🎨", "셀 서식(F)…", () => { try { const r = sel(); if (r && wbRef.current) { const row = r.row[0], col = r.column[0]; const g = a => { try { return wbRef.current.getCellValue(row, col, { type: a }); } catch (e) { return void 0; } }; setFmtInit({ ff: g("ff"), fs: g("fs"), bl: g("bl"), it: g("it"), un: g("un"), cl: g("cl"), fc: g("fc"), ht: g("ht"), vt: g("vt"), tb: g("tb"), bg: g("bg") }); } else setFmtInit({}); } catch (e) { setFmtInit({}); } setFmtOpen(true); }], ["▾", "드롭다운 목록에서 선택(K)…", null], ["☰", "윗줄 필드 표시(S)", null], ["□", "이름 정의(A)…", null], ["🔗", "링크(I)…", null], ["↗", "하이퍼링크 열기(O)", null]];
     const ctxMenuEl = ctxM ? Rr.createPortal(o.jsx("div", { "data-ddbfsctx": "1", onMouseDown: e => e.stopPropagation(), style: { position: "fixed", left: Math.min(ctxM.x, window.innerWidth - 252), top: Math.min(ctxM.y, window.innerHeight - 560), zIndex: 2147483600, minWidth: 238, background: "#ffffff", border: "1px solid #c8c6c4", borderRadius: 6, boxShadow: "0 10px 30px rgba(0,0,0,0.28)", padding: "4px 0", fontFamily: "'Malgun Gothic',sans-serif" }, children: _FSM.map((it, i) => it[0] === "sep" ? o.jsx("div", { style: { height: 1, background: "#e6e6e6", margin: "4px 0" } }, "s" + i) : o.jsxs("div", { onClick: it[2] ? _run(it[2]) : void 0, onMouseEnter: e => { if (it[2]) e.currentTarget.style.background = "#eef3fb"; }, onMouseLeave: e => { e.currentTarget.style.background = "transparent"; }, style: { display: "flex", alignItems: "center", gap: 10, padding: "5px 14px", cursor: it[2] ? "pointer" : "default", color: it[2] ? "#201f1e" : "#b3b0ad", fontSize: 13, whiteSpace: "nowrap" }, children: [o.jsx("span", { style: { width: 16, textAlign: "center", fontSize: 13, opacity: it[2] ? 0.85 : 0.4 }, children: it[0] }), o.jsx("span", { children: it[1] })] }, "m" + i)) }), document.body) : null;
     return o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", width: "100%" }, children: [
         ribbon,
         o.jsxs("div", { style: { flex: 1, minHeight: 0, position: "relative" }, onInput: onFx, onKeyUp: onFx, onContextMenu: e => { try { e.preventDefault(); } catch (er) {} setCtxM({ x: e.clientX, y: e.clientY }); }, children: [
             o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx(FSWorkbook, { ref: wbRef, data: data, lang: "en", showToolbar: false, defaultFontSize: 11, cellContextMenu: [], headerContextMenu: [], onChange: onCommit ? onCh : void 0 }) }),
             fxPanel,
-            ctxMenuEl
+            ctxMenuEl,
+            fmtOpen ? o.jsx(DDBCellFmtDialog, { apply: fmt, mergeToggle: merge, init: fmtInit || {}, close: () => setFmtOpen(false) }) : null
         ] })
     ] });
 }
@@ -3253,7 +3296,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.48";
+const DDB_VERSION = "1.00.49";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4803,7 +4846,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v485"
+                children: "v486"
             }), (() => {
                 const S = [{
                     k: "cal",
