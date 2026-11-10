@@ -1362,7 +1362,7 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
     const [subI, setSubI] = O.useState(-1);
     const [fmtOpen, setFmtOpen] = O.useState(false);
     const [fmtInit, setFmtInit] = O.useState(null);
-    O.useEffect(() => { if (!ctxM) return; const h = ev => { try { if (ev.target && ev.target.closest && ev.target.closest("[data-ddbfsctx]")) return; } catch (e) {} setCtxM(null); }; const t = setTimeout(() => { document.addEventListener("mousedown", h, true); document.addEventListener("wheel", h, true); }, 0); return () => { clearTimeout(t); document.removeEventListener("mousedown", h, true); document.removeEventListener("wheel", h, true); }; }, [ctxM]);
+    O.useEffect(() => { if (!ctxM) return; const h = ev => { try { if (ev.target && ev.target.closest && ev.target.closest("[data-ddbfsctx]")) return; } catch (e) {} setCtxM(null); }; const kh = ev => { if (ev.key === "Escape") { ev.preventDefault(); setCtxM(null); return; } const k = (ev.key || "").toUpperCase(); const map = { T: doCut, C: doCopy, S: doPaste, I: () => insRC("row"), D: () => delRC("row"), N: clearRange, O: () => sortRange(true), F: openFmtDialog }; if (map[k]) { ev.preventDefault(); ev.stopPropagation(); const fn = map[k]; setCtxM(null); try { fn(); } catch (e) {} } }; const t = setTimeout(() => { document.addEventListener("mousedown", h, true); document.addEventListener("wheel", h, true); document.addEventListener("keydown", kh, true); }, 0); return () => { clearTimeout(t); document.removeEventListener("mousedown", h, true); document.removeEventListener("wheel", h, true); document.removeEventListener("keydown", kh, true); }; }, [ctxM]);
     const onFx = e => {
         try {
             const el = e.target; if (!el) { setFxHelp(null); return; }
@@ -1386,6 +1386,7 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
     O.useEffect(() => { window.__ddbTblFlushNow = doFlushCurrent; return () => { if (window.__ddbTblFlushNow === doFlushCurrent) window.__ddbTblFlushNow = null; }; }, [doFlushCurrent]);
     const sel = () => { try { const s = wbRef.current && wbRef.current.getSelection(); return (s && s[0]) || null; } catch (e) { return null; } };
     const fmt = (attr, val) => { const r = sel(); if (r && wbRef.current) try { wbRef.current.setCellFormatByRange(attr, val, r); } catch (e) {} };
+    const openFmtDialog = () => { try { const r = sel(); if (r && wbRef.current) { const row = r.row[0], col = r.column[0]; const g = a => { try { return wbRef.current.getCellValue(row, col, { type: a }); } catch (e) { return void 0; } }; setFmtInit({ ff: g("ff"), fs: g("fs"), bl: g("bl"), it: g("it"), un: g("un"), cl: g("cl"), fc: g("fc"), ht: g("ht"), vt: g("vt"), tb: g("tb"), bg: g("bg") }); } else setFmtInit({}); } catch (e) { setFmtInit({}); } setFmtOpen(true); };
     const applyBorder = (bt, color, style) => { try { const r = sel(); if (!r || !wbRef.current) return; const rng = [{ row: [r.row[0], r.row[1]], column: [r.column[0], r.column[1]] }]; const list = Array.isArray(bt) ? bt : [bt]; list.forEach(t => { if (!t) return; try { wbRef.current.setCellFormat(r.row[0], r.column[0], "bd", { borderType: t, color: color || "#000000", style: String(style || "1"), range: rng }); } catch (e) {} }); if (onCommit) { try { onCommit("DDBFS:" + JSON.stringify(wbRef.current.getAllSheets())); } catch (e) {} } } catch (e) {} };
     const sortRange = asc => { try { const r = sel(); if (!r || !wbRef.current) return; const cells = wbRef.current.getCellsByRange(r); if (!cells || !cells.length) return; const rows = cells.map(row => (row || []).map(c => c ? (c.v != null ? c.v : (c.m != null ? c.m : "")) : "")); rows.sort((a, b) => { const av = a[0], bv = b[0]; const an = Number(av), bn = Number(bv); let cmp; if (av !== "" && bv !== "" && !isNaN(an) && !isNaN(bn)) cmp = an - bn; else cmp = String(av).localeCompare(String(bv), "ko"); return asc ? cmp : -cmp; }); wbRef.current.setCellValuesByRange(rows, r); } catch (e) {} };
     const toggle = attr => { const r = sel(); if (!r || !wbRef.current) return; let cur = 0; try { cur = wbRef.current.getCellValue(r.row[0], r.column[0], { type: attr }); } catch (e) {} fmt(attr, cur ? 0 : 1); };
@@ -1423,10 +1424,10 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
             ] })
         ] })),
         Grp("맞춤", o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: [
-            o.jsxs("div", { style: { display: "flex", gap: 1 }, children: [B("⬅", () => fmt("ht", 1), "왼쪽", { height: 20 }), B("⬌", () => fmt("ht", 0), "가운데", { height: 20 }), B("➡", () => fmt("ht", 2), "오른쪽", { height: 20 }), B("↵", () => fmt("tb", 2), "줄 바꿈", { height: 20, minWidth: 20 })] }),
+            o.jsxs("div", { style: { display: "flex", gap: 1 }, children: [B(o.jsxs("svg", { width: 15, height: 12, viewBox: "0 0 15 12", fill: "currentColor", children: [o.jsx("rect", { x: 1, y: 1, width: 13, height: 1.5 }, "1"), o.jsx("rect", { x: 1, y: 4.2, width: 8, height: 1.5 }, "2"), o.jsx("rect", { x: 1, y: 7.4, width: 13, height: 1.5 }, "3"), o.jsx("rect", { x: 1, y: 10.6, width: 6, height: 1.5 }, "4")] }), () => fmt("ht", 1), "왼쪽 정렬", { height: 20 }), B(o.jsxs("svg", { width: 15, height: 12, viewBox: "0 0 15 12", fill: "currentColor", children: [o.jsx("rect", { x: 1, y: 1, width: 13, height: 1.5 }, "1"), o.jsx("rect", { x: 3.5, y: 4.2, width: 8, height: 1.5 }, "2"), o.jsx("rect", { x: 1, y: 7.4, width: 13, height: 1.5 }, "3"), o.jsx("rect", { x: 4.5, y: 10.6, width: 6, height: 1.5 }, "4")] }), () => fmt("ht", 0), "가운데 정렬", { height: 20 }), B(o.jsxs("svg", { width: 15, height: 12, viewBox: "0 0 15 12", fill: "currentColor", children: [o.jsx("rect", { x: 1, y: 1, width: 13, height: 1.5 }, "1"), o.jsx("rect", { x: 6, y: 4.2, width: 8, height: 1.5 }, "2"), o.jsx("rect", { x: 1, y: 7.4, width: 13, height: 1.5 }, "3"), o.jsx("rect", { x: 8, y: 10.6, width: 6, height: 1.5 }, "4")] }), () => fmt("ht", 2), "오른쪽 정렬", { height: 20 }), B("↵", () => fmt("tb", 2), "줄 바꿈", { height: 20, minWidth: 20 })] }),
             o.jsxs("div", { style: { display: "flex", gap: 1 }, children: [B("⬆", () => fmt("vt", 1), "위", { height: 20 }), B("↕", () => fmt("vt", 0), "중간", { height: 20 }), B("⬇", () => fmt("vt", 2), "아래", { height: 20 }), B("병합", merge, "셀 병합", { height: 20, fontSize: 10 }), B("해제", unmerge, "병합 해제", { height: 20, fontSize: 10 })] })
         ] })),
-        Grp("표시형식", [B("₩", () => numFmt("¤#,##0"), "통화", { fontSize: 13 }), B("%", () => numFmt("0.00%"), "백분율"), B(",", () => numFmt("#,##0"), "천 단위 구분")]),
+        Grp("표시형식", [B("₩", () => numFmt("₩#,##0"), "통화", { fontSize: 13 }), B("%", () => numFmt("0.00%"), "백분율"), B(",", () => numFmt("#,##0"), "천 단위 구분")]),
         Grp("셀", o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: [
             o.jsxs("div", { style: { display: "flex", gap: 1 }, children: [B("＋행", () => insRC("row"), "행 삽입", { height: 20, fontSize: 10 }), B("＋열", () => insRC("column"), "열 삽입", { height: 20, fontSize: 10 })] }),
             o.jsxs("div", { style: { display: "flex", gap: 1 }, children: [B("－행", () => delRC("row"), "행 삭제", { height: 20, fontSize: 10 }), B("－열", () => delRC("column"), "열 삭제", { height: 20, fontSize: 10 })] })
@@ -3312,7 +3313,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.53";
+const DDB_VERSION = "1.00.54";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4862,7 +4863,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v490"
+                children: "v491"
             }), (() => {
                 const S = [{
                     k: "cal",
