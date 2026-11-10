@@ -2975,6 +2975,15 @@ function Gk(e, t) {
             return {
                 ...e, memoTabs: t.atFront ? [e.memoTabs[0], t.tab, ...e.memoTabs.slice(1)] : [...e.memoTabs, t.tab]
             };
+        case "REORDER_MEMO_TAB": {
+            const arr = (e.memoTabs || []).slice();
+            const from = arr.findIndex(x => x.id === t.id);
+            const to = arr.findIndex(x => x.id === t.overId);
+            if (from < 0 || to < 0 || from === to) return e;
+            const moved = arr.splice(from, 1)[0];
+            arr.splice(to, 0, moved);
+            return { ...e, memoTabs: arr };
+        }
         case "AI_DAILY_ADD": {
             const ad = { ...(e.aiDaily || {}) };
             const rec = { tables: [], images: [], ...(ad[t.day] || {}) };
@@ -3303,7 +3312,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.52";
+const DDB_VERSION = "1.00.53";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4853,7 +4862,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v489"
+                children: "v490"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -5150,7 +5159,8 @@ function hm({
     function b(Y) {
         const M = window.innerWidth / 2,
             X = Y.clientX >= M - 25 && Y.clientX <= M + 25 && Y.clientY >= 4 && Y.clientY <= 54;
-        k.current = X, v(X)
+        k.current = X, v(X);
+        if (!X && _.current) { try { const el = document.elementFromPoint(Y.clientX, Y.clientY); const te = el && el.closest ? el.closest("[data-memotab]") : null; const oid = te && te.getAttribute("data-memotab"); if (oid && oid !== _.current) n({ type: "REORDER_MEMO_TAB", id: _.current, overId: oid }); } catch (er) {} }
     }
 
     function T() {
@@ -5287,6 +5297,7 @@ function hm({
                         onClick: () => {
                             E.current || (r(Y.id), z(Y.id))
                         },
+                        "data-memotab": Y.id,
                         onMouseDown: () => {
                             X || A(Y.id)
                         },
@@ -9550,7 +9561,7 @@ function jw({
     } = vt(), {
         memoTabs: n,
         activeTab: s
-    } = t, a = e ?? s, i = n.find(R => R.id === a), [l, c] = O.useState(""), u = O.useRef(null), ml = O.useRef(null), [h, d] = O.useState(!1), [f, x] = O.useState([0, 0]), p = O.useRef(null), [m, y] = O.useState(() => M0(a ?? "").input), [w, v] = O.useState(() => M0(a ?? "").list); const [mo, setMo] = O.useState("list"); const [selIdx, setSelIdx] = O.useState(0); const escRef = O.useRef(0); const [editId, setEditId] = O.useState(null); const [focusId, setFocusId] = O.useState(null); const [listFocused, setListFocused] = O.useState(false);
+    } = t, a = e ?? s, i = n.find(R => R.id === a), [l, c] = O.useState(""), u = O.useRef(null), ml = O.useRef(null), [h, d] = O.useState(!1), [f, x] = O.useState([0, 0]), p = O.useRef(null), [m, y] = O.useState(() => M0(a ?? "").input), [w, v] = O.useState(() => M0(a ?? "").list); const [mo, setMo] = O.useState("input"); const [selIdx, setSelIdx] = O.useState(0); const escRef = O.useRef(0); const [editId, setEditId] = O.useState(null); const [focusId, setFocusId] = O.useState(null); const [listFocused, setListFocused] = O.useState(false);
     O.useEffect(() => {
         if (!a) return;
         const R = M0(a);
@@ -9796,7 +9807,7 @@ function jw({
             })
         }), (mo === "list") && o.jsxs("div", {
             className: "flex items-center gap-1 px-2 py-1.5 border-b border-white/10 flex-shrink-0",
-            children: focusId ? [o.jsx("button", { onClick: () => setFocusId(null), className: "px-2 py-0.5 rounded text-[11px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer whitespace-nowrap", children: "← " + DDBTR("목록으로") }, "back"), o.jsx("span", { className: "text-white/40 text-xs font-medium flex-1 text-right", children: ddbTT(i.title) }, "ttl2")] : [o.jsx("span", { className: "w-2 h-2 rounded-full flex-shrink-0", style: { backgroundColor: i.color } }), o.jsx("span", { className: "text-white/60 text-xs font-medium flex-1", children: ddbTT(i.title) }), o.jsxs("button", { onClick: () => { setEditId(null); c(""); setMo("input") }, className: "px-2 py-0.5 rounded text-[11px] bg-blue-500/25 text-blue-200 hover:bg-blue-500/40 border-none cursor-pointer whitespace-nowrap", children: ["\u270F\uFE0F ", DDBTR("새 메모")] })]
+            children: focusId ? [o.jsx("button", { onClick: () => setFocusId(null), className: "px-2 py-0.5 rounded text-[11px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer whitespace-nowrap", children: "← " + DDBTR("목록으로") }, "back"), o.jsx("span", { className: "text-white/40 text-xs font-medium flex-1 text-right", children: ddbTT(i.title) }, "ttl2")] : [o.jsx("span", { className: "w-2 h-2 rounded-full flex-shrink-0", style: { backgroundColor: i.color } }), o.jsx("span", { className: "text-white/60 text-xs font-medium flex-1", children: ddbTT(i.title) }), o.jsxs("button", { onClick: () => { setEditId(null); c(""); setMo("input") }, className: "px-2 py-0.5 rounded text-[11px] bg-blue-500/25 text-blue-200 hover:bg-blue-500/40 border-none cursor-pointer whitespace-nowrap", children: ["\u270F\uFE0F ", DDBTR("새 메모")] }), o.jsxs("button", { onClick: () => setMo("list"), className: "px-2 py-0.5 rounded text-[11px] bg-white/10 text-white/70 hover:bg-white/20 border-none cursor-pointer whitespace-nowrap ml-1", children: ["📋 ", DDBTR("목록")] })]
         }), (mo === "list") && o.jsxs("div", {
             ref: ml,
             tabIndex: 0,
