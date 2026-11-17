@@ -1388,7 +1388,7 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
     const fmt = (attr, val) => { const r = sel(); if (r && wbRef.current) try { wbRef.current.setCellFormatByRange(attr, val, r); } catch (e) {} };
     const openFmtDialog = () => { try { const r = sel(); if (r && wbRef.current) { const row = r.row[0], col = r.column[0]; const g = a => { try { return wbRef.current.getCellValue(row, col, { type: a }); } catch (e) { return void 0; } }; setFmtInit({ ff: g("ff"), fs: g("fs"), bl: g("bl"), it: g("it"), un: g("un"), cl: g("cl"), fc: g("fc"), ht: g("ht"), vt: g("vt"), tb: g("tb"), bg: g("bg") }); } else setFmtInit({}); } catch (e) { setFmtInit({}); } setFmtOpen(true); };
     const applyBorder = (bt, color, style) => { try { const r = sel(); if (!r || !wbRef.current) return; const rng = [{ row: [r.row[0], r.row[1]], column: [r.column[0], r.column[1]] }]; const list = Array.isArray(bt) ? bt : [bt]; list.forEach(t => { if (!t) return; try { wbRef.current.setCellFormat(r.row[0], r.column[0], "bd", { borderType: t, color: color || "#000000", style: String(style || "1"), range: rng }); } catch (e) {} }); if (onCommit) { try { onCommit("DDBFS:" + JSON.stringify(wbRef.current.getAllSheets())); } catch (e) {} } } catch (e) {} };
-    const sortRange = asc => { try { const r = sel(); if (!r || !wbRef.current) return; const cells = wbRef.current.getCellsByRange(r); if (!cells || !cells.length) return; const rows = cells.map(row => (row || []).map(c => c ? (c.v != null ? c.v : (c.m != null ? c.m : "")) : "")); rows.sort((a, b) => { const av = a[0], bv = b[0]; const an = Number(av), bn = Number(bv); let cmp; if (av !== "" && bv !== "" && !isNaN(an) && !isNaN(bn)) cmp = an - bn; else cmp = String(av).localeCompare(String(bv), "ko"); return asc ? cmp : -cmp; }); wbRef.current.setCellValuesByRange(rows, r); } catch (e) {} };
+    const sortRange = asc => { try { const ae = document.activeElement; if (ae && ae.blur) ae.blur(); } catch (e) {} try { const r = sel(); if (!r || !wbRef.current) return; const cells = wbRef.current.getCellsByRange(r); if (!cells || !cells.length) return; const rows = cells.map(row => (row || []).map(c => c ? (c.v != null ? c.v : (c.m != null ? c.m : "")) : "")); rows.sort((a, b) => { const av = a[0], bv = b[0]; const an = Number(av), bn = Number(bv); let cmp; if (av !== "" && bv !== "" && !isNaN(an) && !isNaN(bn)) cmp = an - bn; else cmp = String(av).localeCompare(String(bv), "ko"); return asc ? cmp : -cmp; }); wbRef.current.setCellValuesByRange(rows, r); } catch (e) {} };
     const toggle = attr => { const r = sel(); if (!r || !wbRef.current) return; let cur = 0; try { cur = wbRef.current.getCellValue(r.row[0], r.column[0], { type: attr }); } catch (e) {} fmt(attr, cur ? 0 : 1); };
     const merge = () => { const r = sel(); if (r && wbRef.current) try { wbRef.current.mergeCells(r, "merge-all"); } catch (e) {} };
     const unmerge = () => { const r = sel(); if (r && wbRef.current) try { wbRef.current.cancelMerge(r); } catch (e) {} };
@@ -1399,7 +1399,7 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
     const redo = () => { try { wbRef.current && wbRef.current.handleRedo(); } catch (e) {} };
     const fontStep = d => { const r = sel(); if (!r || !wbRef.current) return; let cur = 11; try { cur = Number(wbRef.current.getCellValue(r.row[0], r.column[0], { type: "fs" })) || 11; } catch (e) {} fmt("fs", Math.max(6, Math.min(96, cur + d))); };
     const numFmt = fa => fmt("ct", { fa: fa, t: "n" });
-    const doCopy = async () => { const r = sel(); if (!r || !wbRef.current) return; try { const cells = wbRef.current.getCellsByRange(r); const tsv = (cells || []).map(row => (row || []).map(c => c ? (c.m != null ? c.m : (c.v != null ? c.v : "")) : "").join("\t")).join("\n"); await navigator.clipboard.writeText(tsv); } catch (e) {} };
+    const doCopy = async () => { try { const ae = document.activeElement; if (ae && ae.blur) ae.blur(); } catch (e) {} const r = sel(); if (!r || !wbRef.current) return; try { const cells = wbRef.current.getCellsByRange(r); const tsv = (cells || []).map(row => (row || []).map(c => c ? (c.m != null ? c.m : (c.v != null ? c.v : "")) : "").join("\t")).join("\n"); await navigator.clipboard.writeText(tsv); } catch (e) {} };
     const clearRange = () => { const r = sel(); if (!r || !wbRef.current) return; const nr = r.row[1] - r.row[0] + 1, nc = r.column[1] - r.column[0] + 1; const empty = Array.from({ length: nr }, () => Array.from({ length: nc }, () => "")); try { wbRef.current.setCellValuesByRange(empty, r); } catch (e) {} };
     const doCut = async () => { await doCopy(); clearRange(); };
     const doPaste = async () => { const r = sel(); if (!r || !wbRef.current) return; try { const txt = await navigator.clipboard.readText(); if (!txt) return; const d = txt.replace(/\r/g, "").split("\n").map(l => l.split("\t")); while (d.length && d[d.length - 1].length === 1 && d[d.length - 1][0] === "") d.pop(); const nr = d.length, nc = d.reduce((m, x) => Math.max(m, x.length), 1); wbRef.current.setCellValuesByRange(d, { row: [r.row[0], r.row[0] + nr - 1], column: [r.column[0], r.column[0] + nc - 1] }); } catch (e) {} };
@@ -3313,7 +3313,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.54";
+const DDB_VERSION = "1.00.55";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4863,7 +4863,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v491"
+                children: "v492"
             }), (() => {
                 const S = [{
                     k: "cal",
