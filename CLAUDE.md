@@ -33,3 +33,5 @@
 - 가계부 색상 통일: 입금(+)=파랑, 출금(-)=빨강(일반 가계부 앱 관례). 선택 pill·요약 카드·금액입력 테두리 모두 동일 규칙 유지.
 - 가계부 요약은 얇은 한 줄 대신 대시보드 카드 4개(입금합계·출금합계·순수지·총건수)로 표시. 금액유형 선택은 2줄 카드(아이콘+이름), 비활성에도 테두리 상시 표시해 한눈에 구분.
 - Tailwind CDN(`cdn.tailwindcss.com`)은 프리뷰 패널에서 네트워크 차단으로 로드 안 됨 → 목업 검증은 인라인 CSS로 작성해야 레이아웃이 제대로 보임.
+- 모바일(`mobile/`)은 PC와 달리 깔끔한 일반 React(app.jsx 등). 빌드체크: `esbuild src/app.jsx --loader:.jsx=jsx` → `vite build`. 배포는 사용자가 `mobile/deploy.bat`(= `npm run build` + `surge dist momentplan-buglow-2026.surge.sh`) 실행. PC식 3곳 버전표기는 모바일엔 해당 없음.
+- 모바일은 `amount` 있는 이벤트(가계부)를 달력에서 숨김(app.jsx evByDate 필터). 가계부 탭(월별 조회 전용) 추가함 — 입력·수정은 PC에서, 폰은 조회만(동기화 충돌 방지).
