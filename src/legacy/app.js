@@ -1968,6 +1968,43 @@ function ddbAddCalEvent(ev, dispatch) {
     dispatch({ type: "ADD_EVENT", event: ev });
     return true;
 }
+function ddbLedgerXlsx(entries, year, months, inc, exp, net) {
+    try {
+        const won = n => (typeof n === "number" ? n : 0);
+        const sorted = (entries || []).filter(e => e && e.amount !== void 0).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        const monStr = Array.isArray(months) ? months.join(", ") : String(months || "");
+        const aoa = [];
+        aoa.push(["MomentPlan 가계부", (year || "") + "년 " + monStr + "월"]);
+        aoa.push([]);
+        aoa.push(["입금 합계", won(inc)]);
+        aoa.push(["출금 합계", won(exp)]);
+        aoa.push(["순수지", won(net)]);
+        aoa.push(["총 건수", sorted.length]);
+        aoa.push([]);
+        aoa.push(["날짜", "구분", "항목", "입금", "출금", "잔액", "메모"]);
+        let bal = 0, cur = "", mi = 0, me = 0;
+        const sub = m => aoa.push(["   " + m + " 소계", "", "", mi, me, bal, ""]);
+        sorted.forEach(e => {
+            const mon = String(e.date || "").slice(0, 7);
+            if (cur && mon !== cur) { sub(cur); aoa.push([]); mi = 0; me = 0; }
+            cur = mon;
+            const amt = won(e.amount), isInc = amt >= 0;
+            if (isInc) mi += amt; else me += Math.abs(amt);
+            bal += amt;
+            aoa.push([e.date || "", isInc ? "입금" : "출금", e.title || "", isInc ? amt : "", isInc ? "" : Math.abs(amt), bal, e.memo || ""]);
+        });
+        if (cur) sub(cur);
+        aoa.push([]);
+        aoa.push(["총 합계", "", "", won(inc), won(exp), won(net), ""]);
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws["!cols"] = [{ wch: 12 }, { wch: 8 }, { wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 24 }];
+        try { const range = XLSX.utils.decode_range(ws["!ref"]); for (let R = 0; R <= range.e.r; R++) for (const C of [1, 3, 4, 5]) { const a = XLSX.utils.encode_cell({ r: R, c: C }); const c = ws[a]; if (c && c.t === "n") c.z = "#,##0"; } } catch (e) {}
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "가계부");
+        XLSX.writeFile(wb, "MomentPlan_가계부_" + (year || "") + ".xlsx");
+        return true;
+    } catch (e) { return false; }
+}
 function ddbParseAlarm(mod, baseStr) {
     const p = String(baseStr || ddbLocalDay()).split("-");
     const d = new Date(+p[0], (+p[1]) - 1, +p[2]);
@@ -3352,7 +3389,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.56";
+const DDB_VERSION = "1.00.57";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4902,7 +4939,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v493"
+                children: "v494"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8372,57 +8409,9 @@ function fd({
                         className: "text-white/30",
                         children: [ee.length, DDBTR("건")]
                     }), o.jsx("button", {
-                        onClick: () => {
-                            const ie = rt => rt,
-                                ke = () => ie(["", "", "", "", ""]),
-                                Re = rt => rt.toLocaleString(),
-                                Pe = [];
-                            if (Pe.push(ie(["[가계부 요약]", "", "", "", ""])), Pe.push(ie([DDBTR("기간"), `${s}년 ${q.join(", ")}월`, "", "", ""])), Pe.push(ie([DDBTR("입금 합계"), `+${Re(be)}원`, "", "", ""])), Pe.push(ie([DDBTR("출금 합계"), `-${Re(ye)}원`, "", "", ""])), Pe.push(ie([DDBTR("순수지"), `${un>=0?"+":""}${Re(un)}원`, "", "", ""])), Pe.push(ie([DDBTR("총 건수"), `${ee.length}건`, "", "", ""])), Pe.push(ke()), ze.length > 0 || Qe > 0) {
-                                if (Pe.push(ie(["[출금 카테고리 분석]", "", "", "", ""])), Pe.push(ie([DDBTR("카테고리"), DDBTR("건수"), DDBTR("금액"), DDBTR("비율(%)"), ""])), ze.forEach(rt => {
-                                        const Nr = ye > 0 ? (rt.total / ye * 100).toFixed(1) + "%" : "0%";
-                                        Pe.push(ie([rt.name, rt.evts.length + DDBTR("건"), Re(rt.total) + "원", Nr, ""]))
-                                    }), Qe > 0) {
-                                    const rt = ye > 0 ? (Qe / ye * 100).toFixed(1) + "%" : "0%";
-                                    Pe.push(ie([DDBTR("기타(1회성)"), Ge.length + DDBTR("건"), Re(Qe) + "원", rt, ""]))
-                                }
-                                Pe.push(ke())
-                            }
-                            if (ze.length > 0 || Qe > 0) {
-                                Pe.push(ie(["[출금 상세 - 카테고리별]", "", "", "", ""]));
-                                const rt = ie([DDBTR("날짜"), DDBTR("제목"), DDBTR("금액"), DDBTR("메모"), ""]);
-                                if (ze.forEach(Nr => {
-                                        Pe.push(ke()), Pe.push(ie([`● ${Nr.name}`, `${Nr.evts.length}건`, `${Re(Nr.total)}원`, "", ""])), Pe.push(rt), [...Nr.evts].sort((Rn, Ct) => Rn.date.localeCompare(Ct.date)).forEach(Rn => {
-                                            Pe.push(ie([Rn.date, Rn.title, Re(Math.abs(Rn.amount ?? 0)) + "원", Rn.memo ?? "", ""]))
-                                        })
-                                    }), Qe > 0) {
-                                    Pe.push(ke()), Pe.push(ie([DDBTR("● 기타(1회성)"), `${Ge.length}건`, `${Re(Qe)}원`, "", ""])), Pe.push(rt);
-                                    const Nr = Ct => {
-                                            const Li = Ct.indexOf(":");
-                                            let t0 = Li > 0 && Li <= 10 ? Ct.slice(0, Li).trim() : Ct;
-                                            return t0.includes("이체") && (t0 = "계좌이체"), t0
-                                        },
-                                        Ia = new Set(ze.map(Ct => Ct.name));
-                                    ee.filter(Ct => (Ct.amount ?? 0) < 0 && !Ia.has(Nr(Ct.title))).sort((Ct, Li) => Ct.date.localeCompare(Li.date)).forEach(Ct => {
-                                        Pe.push(ie([Ct.date, Ct.title, Re(Math.abs(Ct.amount ?? 0)) + "원", Ct.memo ?? "", ""]))
-                                    })
-                                }
-                                Pe.push(ke())
-                            }
-                            const Yt = ee.filter(rt => (rt.amount ?? 0) > 0).sort((rt, Nr) => rt.date.localeCompare(Nr.date));
-                            Yt.length > 0 && (Pe.push(ie([`[입금 상세]  ${Yt.length}건  +${Re(be)}원`, "", "", "", ""])), Pe.push(ie([DDBTR("날짜"), DDBTR("제목"), DDBTR("금액"), DDBTR("메모"), ""])), Yt.forEach(rt => {
-                                Pe.push(ie([rt.date, rt.title, "+" + Re(rt.amount ?? 0) + "원", rt.memo ?? "", ""]))
-                            }));
-                            const ms = Pe.map(rt => rt.map(Nr => `"${String(Nr).replace(/"/g,'""')}"`).join(",")).join(`\r
-`),
-                                Js = new Blob(["\uFEFF" + ms], {
-                                    type: "text/csv;charset=utf-8;"
-                                }),
-                                gs = URL.createObjectURL(Js),
-                                Fa = document.createElement("a");
-                            Fa.href = gs, Fa.download = `가계부_${s}년_${q.join("_")}월.csv`, Fa.click(), URL.revokeObjectURL(gs)
-                        },
+                        onClick: () => ddbLedgerXlsx(ee, s, q, be, ye, un),
                         className: "ml-auto px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition-colors",
-                        title: DDBTR("CSV로 내보내기 (Excel에서 열기 가능)"),
+                        title: "엑셀(.xlsx) 내보내기 — 날짜·입금·출금·잔액·월별 소계 정리",
                         children: DDBTR("📥 내보내기")
                     })]
                 }), o.jsxs("div", {
