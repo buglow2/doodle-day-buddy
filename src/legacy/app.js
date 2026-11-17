@@ -1968,17 +1968,56 @@ function ddbAddCalEvent(ev, dispatch) {
     dispatch({ type: "ADD_EVENT", event: ev });
     return true;
 }
-function ddbAiFlush(tab, dispatch) {
+function ddbParseAlarm(mod, baseStr) {
+    const p = String(baseStr || ddbLocalDay()).split("-");
+    const d = new Date(+p[0], (+p[1]) - 1, +p[2]);
+    if (!mod) return d;
+    if (/^\d+$/.test(mod)) { d.setDate(d.getDate() + parseInt(mod, 10)); return d; }
+    const wd = { su: 0, mo: 1, tu: 2, we: 3, th: 4, fr: 5, sa: 6 };
+    const k = String(mod).toLowerCase().slice(0, 2);
+    if (wd[k] !== undefined) { const target = wd[k], dow = d.getDay(), monOff = (dow + 6) % 7; const thisMon = new Date(d); thisMon.setDate(d.getDate() - monOff); const nextMon = new Date(thisMon); nextMon.setDate(thisMon.getDate() + 7); const tFromMon = (target + 6) % 7; const res = new Date(nextMon); res.setDate(nextMon.getDate() + tFromMon); return res; }
+    return d;
+}
+function ddbAiFlush(tab, dispatch, settings) {
     if (!tab) return 0;
     const today = ddbLocalDay();
+    if (!tab.aiText || !String(tab.aiText).trim()) { if (tab.aiFlushDay !== today) dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiFlushDay: today } }); return 0; }
     if (!tab.aiDate) { dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiDate: today } }); return 0; }
-    if (tab.aiDate >= today) return 0;
+    const now = new Date();
+    const due = (tab.aiDate < today) || (now.getHours() >= 12 && tab.aiFlushDay !== today);
+    if (!due) return 0;
     const tc = ddbTeamWriteCtx();
     if (tc && !(tc.caps && tc.caps.event)) return 0; // 팀 읽기전용이면 정리 보류
+    const sym = (settings && settings.memoSymbols) || {};
+    const fbSym = sym.feedback || "~~", alSym = sym.alarm || "!!";
+    const base = tab.aiDate;
     const lines = ddbAiLines(tab.aiText);
-    lines.forEach((ln, ix) => { const lc = ddbLineColor(ln); const color = lc.color || tab.aiColorName || "green"; const customColor = lc.color ? void 0 : ((!tab.aiColorName && tab.aiCustom) ? tab.aiCustom : void 0); ddbAddCalEvent({ id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: lc.title.slice(0, 200), date: tab.aiDate, color: color, customColor: customColor, isAllDay: true }, dispatch); });
-    dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "", aiDate: today } });
-    return lines.length;
+    let n = 0;
+    lines.forEach((ln, ix) => {
+        const raw = String(ln).trim();
+        if (fbSym && (raw === fbSym || raw.startsWith(fbSym + " "))) {
+            const text = raw.slice(fbSym.length).trim();
+            if (text) { dispatch({ type: "ADD_FEEDBACK_MEMO", memo: { id: "fb" + Date.now().toString(36) + ix, content: text, color: tab.aiColorName || "green", tabTitle: tab.title, createdAt: new Date().toISOString(), isDismissed: false } }); n++; }
+            return;
+        }
+        if (alSym && raw.startsWith(alSym)) {
+            const after = raw.slice(alSym.length);
+            let mod = "", text = after.trim();
+            const mm = after.match(/^(\S+)\s+(.*)$/);
+            if (mm && /^(\d+|mo|tu|we|th|fr|sa|su)$/i.test(mm[1])) { mod = mm[1]; text = mm[2].trim(); }
+            else if (/^(\d+|mo|tu|we|th|fr|sa|su)$/i.test(after.trim())) { mod = after.trim(); text = ""; }
+            const dt = ddbParseAlarm(mod, base);
+            const dstr = ddbLocalDay(dt);
+            ddbAddCalEvent({ id: "al" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 4), title: "🔔 " + (text || "알림").slice(0, 180), date: dstr, color: "red", isAllDay: true }, dispatch); n++;
+            return;
+        }
+        const lc = ddbLineColor(raw);
+        const color = lc.color || tab.aiColorName || "green";
+        const customColor = lc.color ? void 0 : ((!tab.aiColorName && tab.aiCustom) ? tab.aiCustom : void 0);
+        ddbAddCalEvent({ id: "ev-ai" + Date.now().toString(36) + ix + Math.random().toString(36).slice(2, 5), title: lc.title.slice(0, 200), date: base, color: color, customColor: customColor, isAllDay: true }, dispatch); n++;
+    });
+    dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "", aiDate: today, aiFlushDay: today } });
+    return n;
 }
 function DDBAiFlusher() {
     const { state, dispatch } = vt();
@@ -1988,7 +2027,7 @@ function DDBAiFlusher() {
             dispatch({ type: "ADD_MEMO_TAB", atFront: true, tab: { id: "aimemo", title: "AI메모", color: "#22c55e", items: [], aiText: "", aiDate: ddbLocalDay(), aiColorName: "green", aiCustom: "" } });
             return;
         }
-        const run = () => { const tab = (state.memoTabs || []).find(x => x.id === "aimemo"); const dstr = tab && tab.aiDate; const n = ddbAiFlush(tab, dispatch); if (n) { setMsg("AI메모 " + n + "건을 " + dstr + " 일정으로 자동 정리했어요"); setTimeout(() => setMsg(""), 6000); } };
+        const run = () => { const tab = (state.memoTabs || []).find(x => x.id === "aimemo"); const dstr = tab && tab.aiDate; const n = ddbAiFlush(tab, dispatch, state.settings); if (n) { setMsg("메모 " + n + "건 자동 정리 (일정·알림·피드백)"); setTimeout(() => setMsg(""), 6000); } };
         run();
         const id = setInterval(run, 60000);
         return () => clearInterval(id);
@@ -3313,7 +3352,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.55";
+const DDB_VERSION = "1.00.56";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4863,7 +4902,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v492"
+                children: "v493"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -12076,6 +12115,7 @@ function c4({
                                 className: "w-4 h-4 flex-shrink-0"
                             })]
                         }),
+                        o.jsxs("div", { className: _ + " border-0", style: { flexDirection: "column", alignItems: "stretch", gap: 8 }, children: [o.jsxs("span", { className: "text-white/70 text-sm", children: ["메모 자동정리 기호", o.jsx("span", { className: "block text-white/35 text-[10px]", style: { lineHeight: 1.6 }, children: "메모 입력칸에 한 줄씩 써두면 정오(낮12시)에 자동정리 · (기호없음)=일정, [피드백기호 글]=피드백, [알림기호 글]=알림 · 알림 바로 뒤 숫자=N일뒤, mo/tu/we/th/fr/sa/su=다음주 요일 (예: !!7 회의 → 7일뒤, !!tu 전화 → 다음주 화)" })] }), o.jsxs("div", { style: { display: "flex", gap: 14, flexWrap: "wrap" }, children: [o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.75)" }, children: ["피드백 기호", o.jsx("input", { type: "text", value: (c.memoSymbols && c.memoSymbols.feedback) || "~~", onChange: k => y("memoSymbols", { ...(c.memoSymbols || {}), feedback: k.target.value }), style: { width: 60, padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 13, textAlign: "center" } })] }), o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.75)" }, children: ["알림 기호", o.jsx("input", { type: "text", value: (c.memoSymbols && c.memoSymbols.alarm) || "!!", onChange: k => y("memoSymbols", { ...(c.memoSymbols || {}), alarm: k.target.value }), style: { width: 60, padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 13, textAlign: "center" } })] })] })] }),
                         false && o.jsxs("label", { className: _ + " border-0 cursor-pointer", children: [o.jsxs("span", { className: "text-white/70 text-sm", children: [DDBTR("Tab으로 메모 이동"), o.jsx("span", { className: "block text-white/35 text-[10px]", children: DDBTR("체크한 메모끼리 Tab 키로 이동. 각 메모 제목줄의 체크박스로 선택") })] }), o.jsx("input", { type: "checkbox", checked: !!c.memoTabCycle, onChange: k => y("memoTabCycle", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] }),
                         false && o.jsxs("div", { className: "border-0 py-1.5", children: [o.jsx("div", { className: "text-white/70 text-sm mb-1.5", children: DDBTR("달력 헤더 버튼 표시") }), o.jsx("div", { className: "grid grid-cols-2 gap-x-3 gap-y-1", children: [{ k: "lock", n: DDBTR("사생활 잠금") }, { k: "do", n: DDBTR("Do! 리스트") }, { k: "cal", n: DDBTR("달력 보기") }, { k: "todo", n: DDBTR("할 일") }, { k: "team", n: DDBTR("팀") }, { k: "memodetail", n: DDBTR("메모 상세") }, { k: "share", n: DDBTR("일정 내보내기") }, { k: "imgedit", n: DDBTR("이미지 편집") }, { k: "table", n: DDBTR("표") }].map(bt => o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer text-white/60 text-xs", children: [o.jsx("input", { type: "checkbox", checked: !((c.calBtnHidden) || []).includes(bt.k), onChange: k => { const cur = Array.isArray(c.calBtnHidden) ? c.calBtnHidden.slice() : []; const nx = k.target.checked ? cur.filter(z => z !== bt.k) : (cur.includes(bt.k) ? cur : [...cur, bt.k]); y("calBtnHidden", nx); }, className: "w-3.5 h-3.5 flex-shrink-0" }), bt.n] }, bt.k)) })] }), o.jsxs("label", {
                             className: _ + " border-0 cursor-pointer",
