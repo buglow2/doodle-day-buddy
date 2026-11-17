@@ -3389,7 +3389,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.58";
+const DDB_VERSION = "1.00.59";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4939,7 +4939,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v495"
+                children: "v496"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -6935,24 +6935,29 @@ function Nw({
     const Te = "w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-400 placeholder-white/30",
         xe = [{
             key: "none",
-            label: "없음",
-            active: "bg-white/20 text-white"
+            icon: "—",
+            name: DDBTR("없음"),
+            active: "bg-white/25 text-white border-white/40"
         }, {
             key: "income",
-            label: DDBTR("💰입금"),
-            active: "bg-red-400/80 text-white"
+            icon: "💰",
+            name: DDBTR("입금"),
+            active: "bg-blue-500/80 text-white border-blue-300"
         }, {
             key: "expense",
-            label: DDBTR("💸출금"),
-            active: "bg-blue-400/80 text-white"
+            icon: "💸",
+            name: DDBTR("출금"),
+            active: "bg-red-500/80 text-white border-red-300"
         }, {
             key: "loan",
-            label: "🏦대출",
-            active: "bg-amber-500/80 text-white"
+            icon: "🏦",
+            name: DDBTR("대출"),
+            active: "bg-amber-500/80 text-white border-amber-300"
         }, {
             key: "savings",
-            label: "📈적금·펀드",
-            active: "bg-emerald-500/80 text-white"
+            icon: "📈",
+            name: DDBTR("적금·펀드"),
+            active: "bg-emerald-500/80 text-white border-emerald-300"
         }];
     return X ? o.jsx(If, {
         loan: null,
@@ -7037,7 +7042,7 @@ function Nw({
                     children: DDBTR("금액 유형")
                 }), o.jsx("div", {
                     className: "flex gap-1",
-                    children: xe.map(me => o.jsx("button", {
+                    children: xe.map(me => o.jsxs("button", {
                         onClick: () => {
                             if (me.key === "loan") {
                                 ce(!0);
@@ -7049,15 +7054,15 @@ function Nw({
                             }
                             b(me.key), me.key !== "expense" && M("")
                         },
-                        className: "flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors truncate px-0.5 " + (E === me.key ? me.active : "bg-white/10 text-white/50 hover:bg-white/15"),
-                        children: me.label
+                        className: "flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors border " + (E === me.key ? me.active : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"),
+                        children: [o.jsx("span", { className: "text-base leading-none", children: me.icon }), o.jsx("span", { className: "leading-none", children: me.name })]
                     }, me.key))
                 }), de && o.jsx("input", {
                     type: "number",
                     value: T,
                     onChange: me => A(me.target.value),
                     placeholder: DDBTR("금액 입력 (원)"),
-                    className: Te + " mt-2 " + (E === "income" ? "border-red-300/50" : "border-blue-300/50")
+                    className: Te + " mt-2 " + (E === "income" ? "border-blue-300/50" : "border-red-300/50")
                 }), de && o.jsx("input", { type: "text", value: acct, onChange: me => setAcct(me.target.value), placeholder: "계좌/자산 (예: 주거래통장, 생활비카드)", className: Te + " mt-2" }), de && o.jsx("input", { type: "text", value: bcat, onChange: me => setBcat(me.target.value), placeholder: "대분류 (예: 식비 · 고정지출 · 생활)", className: Te + " mt-2" }), E === "expense" && u.length > 0 && o.jsxs("div", {
                     className: "mt-2 bg-amber-400/5 border border-amber-400/20 rounded-xl px-3 py-2.5",
                     children: [o.jsxs("div", {
@@ -8391,28 +8396,22 @@ function fd({
                         children: [ie, "월"]
                     }, ie))]
                 }), o.jsxs("div", {
-                    className: "flex gap-2 px-3 py-1 border-b border-white/10 text-xs flex-shrink-0 items-center",
-                    children: [o.jsxs("span", {
-                        className: "text-blue-300",
-                        children: ["+", be.toLocaleString()]
-                    }), o.jsx("span", {
-                        className: "text-white/20",
-                        children: "|"
-                    }), o.jsxs("span", {
-                        className: "text-red-300",
-                        children: ["-", ye.toLocaleString()]
-                    }), o.jsx("span", {
-                        className: "text-white/20",
-                        children: "|"
-                    }), o.jsxs("span", {
-                        className: un >= 0 ? "text-green-300" : "text-red-300",
-                        children: ["순 ", un >= 0 ? "+" : "", un.toLocaleString()]
-                    }), o.jsxs("span", {
-                        className: "text-white/30",
-                        children: [ee.length, DDBTR("건")]
+                    className: "flex gap-2 px-3 py-2 border-b border-white/10 flex-shrink-0 items-stretch",
+                    children: [o.jsxs("div", {
+                        className: "flex-1 rounded-lg bg-blue-500/10 border border-blue-400/30 px-3 py-1.5",
+                        children: [o.jsx("div", { className: "text-[10px] text-blue-300/70 mb-0.5", children: DDBTR("입금 합계") }), o.jsxs("div", { className: "text-base font-bold text-blue-200 leading-tight", children: ["+", be.toLocaleString(), o.jsx("span", { className: "text-[10px] font-normal text-blue-300/50 ml-0.5", children: "원" })] })]
+                    }), o.jsxs("div", {
+                        className: "flex-1 rounded-lg bg-red-500/10 border border-red-400/30 px-3 py-1.5",
+                        children: [o.jsx("div", { className: "text-[10px] text-red-300/70 mb-0.5", children: DDBTR("출금 합계") }), o.jsxs("div", { className: "text-base font-bold text-red-200 leading-tight", children: ["-", ye.toLocaleString(), o.jsx("span", { className: "text-[10px] font-normal text-red-300/50 ml-0.5", children: "원" })] })]
+                    }), o.jsxs("div", {
+                        className: `flex-1 rounded-lg px-3 py-1.5 border ${un >= 0 ? "bg-emerald-500/10 border-emerald-400/30" : "bg-rose-500/10 border-rose-400/30"}`,
+                        children: [o.jsx("div", { className: "text-[10px] text-white/50 mb-0.5", children: DDBTR("순수지") }), o.jsxs("div", { className: `text-base font-bold leading-tight ${un >= 0 ? "text-emerald-200" : "text-rose-200"}`, children: [un >= 0 ? "+" : "", un.toLocaleString(), o.jsx("span", { className: "text-[10px] font-normal opacity-50 ml-0.5", children: "원" })] })]
+                    }), o.jsxs("div", {
+                        className: "flex-1 rounded-lg bg-white/5 border border-white/10 px-3 py-1.5",
+                        children: [o.jsx("div", { className: "text-[10px] text-white/50 mb-0.5", children: DDBTR("총 건수") }), o.jsxs("div", { className: "text-base font-bold text-white/80 leading-tight", children: [ee.length, o.jsx("span", { className: "text-[10px] font-normal text-white/40 ml-0.5", children: DDBTR("건") })] })]
                     }), o.jsx("button", {
                         onClick: () => ddbLedgerXlsx(ee, s, q, be, ye, un),
-                        className: "ml-auto px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition-colors",
+                        className: "self-center px-3 py-2 rounded-lg text-xs bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition-colors whitespace-nowrap",
                         title: "엑셀(.xlsx) 내보내기 — 날짜·입금·출금·잔액·월별 소계 정리",
                         children: DDBTR("📥 내보내기")
                     })]
