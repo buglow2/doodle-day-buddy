@@ -94,10 +94,11 @@ export default function App() {
           onMemo={(ds, txt) => { setMemo(ds, txt); setMemos(loadMemos()); pushCloud(); }} />}
         {tab === 'add' && <AddEvent initialDate={addDate} onAdd={(ev, time) => { const it = addEvent(ev); if (time) scheduleEventAlarm(it, time); refresh(); pushCloud(); setTab('month'); }} onImport={txt => { if (importFromPcBackup(txt)) { refresh(); pushCloud(); } }} />}
         {tab === 'dday' && <Dday ddays={ddays} onAdd={dd => { addDday(dd); refresh(); pushCloud(); }} onDel={id => { deleteDday(id); refresh(); pushCloud(); }} />}
+        {tab === 'ledger' && <Ledger events={events} />}
       </main>
 
       <nav style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.1)', background: '#111827', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        {[['today', '오늘', '📌'], ['month', '달력', '🗓'], ['dday', 'D-Day', '⏳'], ['add', '추가', '➕']].map(t => (
+        {[['today', '오늘', '📌'], ['month', '달력', '🗓'], ['ledger', '가계부', '💰'], ['dday', 'D-Day', '⏳'], ['add', '추가', '➕']].map(t => (
           <button key={t[0]} onClick={() => setTab(t[0])} style={{
             flex: 1, padding: '10px 0 12px', background: 'transparent', border: 'none',
             color: tab === t[0] ? '#60a5fa' : 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer'
@@ -464,6 +465,67 @@ function SharePanel({ evByDate, onClose }) {
         <button disabled={!sel.size} onClick={doText} style={{ ...shBtn, background: '#22c55e', color: '#04220f', opacity: sel.size ? 1 : 0.4 }}>📝 텍스트</button>
         <button disabled={!sel.size} onClick={doExcel} style={{ ...shBtn, background: '#059669', opacity: sel.size ? 1 : 0.4 }}>📊 엑셀</button>
       </div>
+    </div>
+  );
+}
+
+function Ledger({ events }) {
+  const [cur, setCur] = useState(new Date());
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const ym = `${y}-${pad(m + 1)}`;
+  const rows = useMemo(() =>
+    events.filter(e => typeof e.amount === 'number' && (e.date || '').startsWith(ym))
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
+    [events, ym]);
+  const income = rows.filter(e => e.amount >= 0).reduce((s, e) => s + e.amount, 0);
+  const expense = rows.filter(e => e.amount < 0).reduce((s, e) => s + Math.abs(e.amount), 0);
+  const net = income - expense;
+  const byDate = {};
+  rows.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  const dates = Object.keys(byDate).sort();
+  const won = n => n.toLocaleString();
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <button onClick={() => setCur(new Date(y, m - 1, 1))} style={navBtn}>‹</button>
+        <b style={{ fontSize: 16 }}>{y}년 {m + 1}월</b>
+        <button onClick={() => setCur(new Date(y, m + 1, 1))} style={navBtn}>›</button>
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <div style={{ flex: 1, borderRadius: 10, padding: '8px 10px', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(96,165,250,0.3)' }}>
+          <div style={{ fontSize: 10, color: 'rgba(147,197,253,0.8)', marginBottom: 2 }}>입금 합계</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#bfdbfe' }}>+{won(income)}<span style={{ fontSize: 10, opacity: .6, marginLeft: 1 }}>원</span></div>
+        </div>
+        <div style={{ flex: 1, borderRadius: 10, padding: '8px 10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.3)' }}>
+          <div style={{ fontSize: 10, color: 'rgba(252,165,165,0.8)', marginBottom: 2 }}>출금 합계</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#fecaca' }}>-{won(expense)}<span style={{ fontSize: 10, opacity: .6, marginLeft: 1 }}>원</span></div>
+        </div>
+        <div style={{ flex: 1, borderRadius: 10, padding: '8px 10px', background: net >= 0 ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)', border: '1px solid ' + (net >= 0 ? 'rgba(52,211,153,0.3)' : 'rgba(251,113,133,0.3)') }}>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 2 }}>순수지</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: net >= 0 ? '#a7f3d0' : '#fda4af' }}>{net >= 0 ? '+' : '-'}{won(Math.abs(net))}<span style={{ fontSize: 10, opacity: .6, marginLeft: 1 }}>원</span></div>
+        </div>
+      </div>
+      {dates.length ? dates.map(ds => {
+        const d = new Date(ds + 'T00:00:00');
+        return (
+          <div key={ds} style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: '#93c5fd', fontWeight: 700, marginBottom: 5 }}>{d.getMonth() + 1}월 {d.getDate()}일 ({WD[d.getDay()]})</div>
+            {byDate[ds].map(e => {
+              const inc = e.amount >= 0;
+              return (
+                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 6 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title || (inc ? '입금' : '출금')}</div>
+                    {(e.account || e.category) ? <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{[e.category, e.account].filter(Boolean).join(' · ')}</div> : null}
+                  </div>
+                  <b style={{ color: inc ? '#93c5fd' : '#fca5a5', fontSize: 14, flexShrink: 0 }}>{inc ? '+' : '-'}{won(Math.abs(e.amount))}</b>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }) : <Empty>이 달의 가계부 내역이 없어요.</Empty>}
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 8 }}>※ 조회 전용 — 입력·수정은 PC 앱에서 하세요.</div>
     </div>
   );
 }
