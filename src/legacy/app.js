@@ -1981,9 +1981,9 @@ function ddbLedgerXlsx(entries, year, months, inc, exp, net) {
         aoa.push(["순수지", won(net)]);
         aoa.push(["총 건수", sorted.length]);
         aoa.push([]);
-        aoa.push(["날짜", "구분", "항목", "입금", "출금", "잔액", "메모"]);
+        aoa.push(["날짜", "계좌/자산", "구분", "대분류", "항목", "입금", "출금", "잔액", "메모"]);
         let bal = 0, cur = "", mi = 0, me = 0;
-        const sub = m => aoa.push(["   " + m + " 소계", "", "", mi, me, bal, ""]);
+        const sub = m => aoa.push(["   " + m + " 소계", "", "", "", "", mi, me, bal, ""]);
         sorted.forEach(e => {
             const mon = String(e.date || "").slice(0, 7);
             if (cur && mon !== cur) { sub(cur); aoa.push([]); mi = 0; me = 0; }
@@ -1991,14 +1991,14 @@ function ddbLedgerXlsx(entries, year, months, inc, exp, net) {
             const amt = won(e.amount), isInc = amt >= 0;
             if (isInc) mi += amt; else me += Math.abs(amt);
             bal += amt;
-            aoa.push([e.date || "", isInc ? "입금" : "출금", e.title || "", isInc ? amt : "", isInc ? "" : Math.abs(amt), bal, e.memo || ""]);
+            aoa.push([e.date || "", e.account || "", isInc ? "입금" : "출금", e.category || "", e.title || "", isInc ? amt : "", isInc ? "" : Math.abs(amt), bal, e.memo || ""]);
         });
         if (cur) sub(cur);
         aoa.push([]);
-        aoa.push(["총 합계", "", "", won(inc), won(exp), won(net), ""]);
+        aoa.push(["총 합계", "", "", "", "", won(inc), won(exp), won(net), ""]);
         const ws = XLSX.utils.aoa_to_sheet(aoa);
-        ws["!cols"] = [{ wch: 12 }, { wch: 8 }, { wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 24 }];
-        try { const range = XLSX.utils.decode_range(ws["!ref"]); for (let R = 0; R <= range.e.r; R++) for (const C of [1, 3, 4, 5]) { const a = XLSX.utils.encode_cell({ r: R, c: C }); const c = ws[a]; if (c && c.t === "n") c.z = "#,##0"; } } catch (e) {}
+        ws["!cols"] = [{ wch: 12 }, { wch: 14 }, { wch: 7 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 }];
+        try { const range = XLSX.utils.decode_range(ws["!ref"]); for (let R = 0; R <= range.e.r; R++) for (const C of [1, 5, 6, 7]) { const a = XLSX.utils.encode_cell({ r: R, c: C }); const c = ws[a]; if (c && c.t === "n") c.z = "#,##0"; } } catch (e) {}
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "가계부");
         XLSX.writeFile(wb, "MomentPlan_가계부_" + (year || "") + ".xlsx");
@@ -3389,7 +3389,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.57";
+const DDB_VERSION = "1.00.58";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4939,7 +4939,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v494"
+                children: "v495"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -6803,7 +6803,7 @@ function Nw({
         elRef: l,
         onHeaderMouseDown: c,
         resizeHandle: RZ
-    } = Oi(550), u = s.loans || [], [h, d] = O.useState((r == null ? void 0 : r.title) ?? ""), [f, x] = O.useState((r == null ? void 0 : r.date) ?? e), [p, m] = O.useState((r == null ? void 0 : r.endDate) ?? t ?? ""), [y, w] = O.useState((r == null ? void 0 : r.color) ?? ddbLastEvColor().c), [v, g] = O.useState((r == null ? void 0 : r.customColor) ?? ddbLastEvColor().cc), _ = O.useRef(null), k = (r == null ? void 0 : r.amount) === void 0 ? "none" : r.amount >= 0 ? "income" : "expense", [E, b] = O.useState(k), [T, A] = O.useState((r == null ? void 0 : r.amount) !== void 0 ? String(Math.abs(r.amount)) : ""), [H, F] = O.useState((r == null ? void 0 : r.memo) ?? ""), [epc, epcSet] = O.useState(null), [etx, etxSet] = O.useState(""), [R, K] = O.useState(!!(r != null && r.repeat)), [se, z] = O.useState(((Me = r == null ? void 0 : r.repeat) == null ? void 0 : Me.type) ?? "monthly"), [G, re] = O.useState((r == null ? void 0 : r.bankKeyword) ?? ""), [Y, M] = O.useState((r == null ? void 0 : r.linkedLoanId) ?? ""), [X, ce] = O.useState(!1), [j, q] = O.useState(!1), [U, B] = O.useState(!1), W = O.useRef(), te = ((Fe = s.settings) == null ? void 0 : Fe.feedbackThresholds) ?? iu;
+    } = Oi(550), u = s.loans || [], [h, d] = O.useState((r == null ? void 0 : r.title) ?? ""), [f, x] = O.useState((r == null ? void 0 : r.date) ?? e), [p, m] = O.useState((r == null ? void 0 : r.endDate) ?? t ?? ""), [y, w] = O.useState((r == null ? void 0 : r.color) ?? ddbLastEvColor().c), [v, g] = O.useState((r == null ? void 0 : r.customColor) ?? ddbLastEvColor().cc), _ = O.useRef(null), k = (r == null ? void 0 : r.amount) === void 0 ? "none" : r.amount >= 0 ? "income" : "expense", [E, b] = O.useState(k), [T, A] = O.useState((r == null ? void 0 : r.amount) !== void 0 ? String(Math.abs(r.amount)) : ""), [H, F] = O.useState((r == null ? void 0 : r.memo) ?? ""), [acct, setAcct] = O.useState((r == null ? void 0 : r.account) ?? ""), [bcat, setBcat] = O.useState((r == null ? void 0 : r.category) ?? ""), [epc, epcSet] = O.useState(null), [etx, etxSet] = O.useState(""), [R, K] = O.useState(!!(r != null && r.repeat)), [se, z] = O.useState(((Me = r == null ? void 0 : r.repeat) == null ? void 0 : Me.type) ?? "monthly"), [G, re] = O.useState((r == null ? void 0 : r.bankKeyword) ?? ""), [Y, M] = O.useState((r == null ? void 0 : r.linkedLoanId) ?? ""), [X, ce] = O.useState(!1), [j, q] = O.useState(!1), [U, B] = O.useState(!1), W = O.useRef(), te = ((Fe = s.settings) == null ? void 0 : Fe.feedbackThresholds) ?? iu;
 
     function he(me) {
         clearTimeout(W.current), W.current = setTimeout(() => {
@@ -6907,6 +6907,8 @@ function Nw({
             isAllDay: !0,
             amount: me,
             memo: H || void 0,
+            account: (acct || "").trim() || void 0,
+            category: (bcat || "").trim() || void 0,
             repeat: R ? {
                 type: se,
                 interval: 1
@@ -7056,7 +7058,7 @@ function Nw({
                     onChange: me => A(me.target.value),
                     placeholder: DDBTR("금액 입력 (원)"),
                     className: Te + " mt-2 " + (E === "income" ? "border-red-300/50" : "border-blue-300/50")
-                }), E === "expense" && u.length > 0 && o.jsxs("div", {
+                }), de && o.jsx("input", { type: "text", value: acct, onChange: me => setAcct(me.target.value), placeholder: "계좌/자산 (예: 주거래통장, 생활비카드)", className: Te + " mt-2" }), de && o.jsx("input", { type: "text", value: bcat, onChange: me => setBcat(me.target.value), placeholder: "대분류 (예: 식비 · 고정지출 · 생활)", className: Te + " mt-2" }), E === "expense" && u.length > 0 && o.jsxs("div", {
                     className: "mt-2 bg-amber-400/5 border border-amber-400/20 rounded-xl px-3 py-2.5",
                     children: [o.jsxs("div", {
                         className: "flex items-center gap-1.5 mb-1.5",
