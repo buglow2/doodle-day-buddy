@@ -11,3 +11,20 @@ html,body{background:#0b0714;}
 .bg-gray-950\/98{background-color:rgb(3 7 18 / 0.98);}
 .gap-x-3{column-gap:.75rem;}
 .gap-y-2{row-gap:.5rem;}
+
+/* ===== DDB-UX-TUNE: 전체 공통 톤 (심미적 사용성·일관성) ===== */
+/* 1) 부드러운 전환 — 버튼/탭 눌림·호버가 매끄럽게 (Aesthetic) */
+button, [role="button"], a { transition: background-color .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease, transform .08s ease; }
+button:active:not(:disabled) { transform: translateY(0.5px); }
+/* 2) 키보드 포커스 링 통일 — 마우스 클릭엔 안 뜸(Jakob 표준) */
+:focus-visible { outline: 2px solid rgba(96,165,250,0.9); outline-offset: 1px; border-radius: 4px; }
+/* 3) 텍스트 선택색 통일 */
+::selection { background: rgba(96,165,250,0.35); }
+/* 4) 스크롤바 얇게·은은하게 통일 (과밀감 완화) */
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.22) transparent; }
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.32); background-clip: content-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+/* 5) 비활성 버튼은 확실히 흐리게 — 눌러도 되는지 한눈에(Fitts/피드백) */
+button:disabled { opacity: 0.4; cursor: not-allowed; }
