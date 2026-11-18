@@ -2377,6 +2377,8 @@ function DDBMemoOverview() {
     const [evSort, setEvSort] = O.useState("date-asc");
     const [itemIdx, setItemIdx] = O.useState(0);
     const [exp, setExp] = O.useState([]);
+    const [lightbox, setLightbox] = O.useState(null);
+    const [memoBig, setMemoBig] = O.useState(null);
     const boxRef = O.useRef(null);
     const [win, setWin] = O.useState(() => { const W = (typeof window !== "undefined" ? window : { innerWidth: 1280, innerHeight: 800 }); return { x: Math.round(W.innerWidth * 0.03), y: Math.round(W.innerHeight * 0.06), w: Math.round(W.innerWidth * 0.94), h: Math.round(W.innerHeight * 0.88) }; });
     function startDrag(e) { if (e.target.closest && (e.target.closest("button") || e.target.closest("input"))) return; e.preventDefault(); const sx = e.clientX, sy = e.clientY, ox = win.x, oy = win.y; function mm(ev) { setWin(w => ({ ...w, x: ox + (ev.clientX - sx), y: Math.max(0, oy + (ev.clientY - sy)) })); } function mu() { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); } document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
@@ -2457,8 +2459,20 @@ function DDBMemoOverview() {
     O.useEffect(() => { const n = tabs.length; if (carActive && n) { const CP = n <= 12 ? 5 : 3; setCadx(((CP - 1) / 2) * n + ((kbIdx % n + n) % n)); } }, [carActive]);
     O.useEffect(() => { if (!open || !sel) return; const box = boxRef.current; if (!box) return; const el = box.querySelector('[data-ovitem="' + itemIdx + '"]'); el && el.scrollIntoView && el.scrollIntoView({ block: "nearest" }); }, [itemIdx, sel, open]);
     if (!open) return null;
+    const lbMove = dir => setLightbox(l => l ? { ...l, idx: (l.idx + dir + l.list.length) % l.list.length } : l);
     return Rr.createPortal(o.jsxs(o.Fragment, { children: [
         o.jsx("div", { className: "fixed inset-0", style: { zIndex: 2147483000, backgroundColor: "rgba(0,0,0,0.55)" }, onClick: () => setOpen(!1) }),
+        lightbox && o.jsxs("div", { className: "fixed inset-0 flex items-center justify-center", style: { zIndex: 2147483200, background: "rgba(0,0,0,0.92)" }, onClick: () => setLightbox(null), children: [
+            o.jsx("img", { src: lightbox.list[lightbox.idx], onClick: e => e.stopPropagation(), style: { maxWidth: "92vw", maxHeight: "88vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 8px 40px rgba(0,0,0,0.6)" } }),
+            lightbox.list.length > 1 && o.jsx("button", { onClick: e => { e.stopPropagation(); lbMove(-1); }, style: { position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", width: 48, height: 48, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", fontSize: 26, cursor: "pointer" }, children: "‹" }),
+            lightbox.list.length > 1 && o.jsx("button", { onClick: e => { e.stopPropagation(); lbMove(1); }, style: { position: "absolute", right: 18, top: "50%", transform: "translateY(-50%)", width: 48, height: 48, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", fontSize: 26, cursor: "pointer" }, children: "›" }),
+            o.jsx("button", { onClick: () => setLightbox(null), style: { position: "absolute", top: 18, right: 22, width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", fontSize: 20, cursor: "pointer" }, children: "✕" }),
+            lightbox.list.length > 1 && o.jsxs("div", { style: { position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", color: "#fff", fontSize: 13, background: "rgba(0,0,0,0.5)", padding: "4px 12px", borderRadius: 999 }, children: [lightbox.idx + 1, " / ", lightbox.list.length] })
+        ] }),
+        memoBig && o.jsx("div", { className: "fixed inset-0 flex items-center justify-center", style: { zIndex: 2147483200, background: "rgba(0,0,0,0.75)", padding: 20 }, onClick: () => setMemoBig(null), children: o.jsxs("div", { onClick: e => e.stopPropagation(), style: { background: "#1e2636", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 14, padding: 20, width: "min(760px, 92vw)", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 12px 40px rgba(0,0,0,0.6)" }, children: [
+            o.jsxs("div", { className: "flex items-center justify-between mb-3", children: [o.jsx("span", { className: "text-white/90 font-bold text-base", children: memoBig.title || "메모" }), o.jsx("button", { onClick: () => setMemoBig(null), className: "text-white/60 hover:text-white bg-transparent border-none cursor-pointer text-lg", children: "✕" })] }),
+            o.jsx("div", { className: "text-white/90", style: { fontSize: 15, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" }, children: memoBig.content })
+        ] }) }),
         o.jsxs("div", { className: "fixed rounded-2xl shadow-2xl flex flex-col", style: { zIndex: 2147483001, left: win.x, top: win.y, width: win.w, height: win.h, backgroundColor: "#0f1420", border: "1px solid rgba(255,255,255,0.14)" }, children: [
             o.jsxs("div", { onMouseDown: startDrag, style: { cursor: "grab" }, className: "flex items-center gap-2 px-4 py-2.5 border-b border-white/10 flex-shrink-0", children: [
                 o.jsxs("span", { className: "text-white font-semibold text-sm", children: ["\u{1F5C2} " + DDBTR("메모 상세"), o.jsx("span", { className: "text-white/35 text-[11px] font-normal ml-2", children: DDBTR("←→ 칸 이동 · Enter 들어가기 · 안에서 ↑↓ 이동 · → 펼치기 · ← 접기 · Esc 뒤로") })] }),
@@ -2480,7 +2494,7 @@ function DDBMemoOverview() {
                     const isSel = isActive && sel === tb.id;
                     const isEdit = isActive && edit === tb.id;
                     const isOpen = isSel || isEdit;
-                    return o.jsxs("div", { "data-ovactive": isActive ? "1" : "0", className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0 transition-opacity duration-200", style: { width: isOpen ? "min(560px, 80vw)" : "220px", height: isOpen ? "78vh" : "auto", border: (isActive ? "2px solid " : "1px solid ") + (tb.color || "#8899aa") + (isActive ? "" : "55"), boxShadow: isActive ? "0 0 0 2px " + (tb.color || "#8899aa") + "55" : "none", backgroundColor: "rgba(255,255,255,0.03)", opacity: isActive ? 1 : (carousel ? 0.6 : 1) }, children: [
+                    return o.jsxs("div", { "data-ovactive": isActive ? "1" : "0", className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0 transition-opacity duration-200", style: { width: isOpen ? "min(480px, 74vw)" : "200px", height: isOpen ? "78vh" : "auto", border: (isActive ? "2px solid " : "1px solid ") + (tb.color || "#8899aa") + (isActive ? "" : "55"), boxShadow: isActive ? "0 0 0 2px " + (tb.color || "#8899aa") + "55" : "none", backgroundColor: "rgba(255,255,255,0.03)", opacity: isActive ? 1 : (carousel ? 0.6 : 1) }, children: [
                         o.jsxs("button", { onClick: () => { setKbIdx(ix); if (carActive) setCadx(ai); setEdit(null); setSel(isSel ? null : tb.id); setItemIdx(0); setExp([]); }, className: "flex items-center gap-1.5 px-3 py-2 cursor-pointer bg-transparent text-left w-full" + (isOpen ? " border-b" : ""), style: { borderColor: "rgba(255,255,255,0.08)" }, children: [
                             o.jsx("span", { className: "w-2.5 h-2.5 rounded-full flex-shrink-0", style: { backgroundColor: tb.color || "#8899aa" } }),
                             o.jsx("span", { className: "text-white/90 text-sm font-medium flex-1 truncate", children: ddbTT(tb.title) }),
@@ -2514,8 +2528,8 @@ function DDBMemoOverview() {
                                     cell([o.jsx("div", { className: "px-2 py-1 text-sky-300 text-[11px] font-bold flex-shrink-0", children: "📊 Table" }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2", children: tbls.length ? tbls.map((md, i2) => o.jsxs("div", { className: "relative", children: [stbl(md, i2), o.jsx("button", { onClick: () => dsp({ type: "AI_DAILY_DEL", day: dd, kind: "tables", idx: i2 }), className: "absolute top-0 right-0 text-white/60 bg-black/50 rounded text-[10px] px-1 cursor-pointer border-none", children: "✕" })] }, i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "AI메모에 표 붙여넣으면 여기" }) })])
                                 ] }),
                                 o.jsxs("div", { style: { flex: "1 1 50%", minHeight: 0, display: "flex" }, children: [
-                                    o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,0.12)" }, children: [o.jsx("div", { className: "px-2 py-1 text-purple-300 text-[11px] font-bold flex-shrink-0", children: "🖼 Image" }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2 flex flex-wrap gap-1.5 content-start", children: imgs.length ? imgs.map((src, i2) => o.jsxs("div", { className: "relative", children: [o.jsx("img", { src: src, style: { maxWidth: 88, maxHeight: 88, borderRadius: 5, border: "1px solid rgba(255,255,255,0.15)", background: "#000" } }), o.jsx("button", { onClick: () => dsp({ type: "AI_DAILY_DEL", day: dd, kind: "images", idx: i2 }), className: "absolute top-0.5 right-0.5 text-white/70 bg-black/55 rounded text-[10px] px-1 cursor-pointer border-none", children: "✕" })] }, i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "작업/저장한 이미지가 여기" }) })] }),
-                                    cell([o.jsxs("div", { className: "px-2 py-1 text-pink-300 text-[11px] font-bold flex-shrink-0", children: ["🕒 그날 한 일 (", acts.length, ")"] }), o.jsx("div", { className: "flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-1", children: acts.length ? acts.map((a, i2) => { const m = aMeta(a); return o.jsxs("div", { className: "flex items-start gap-1.5", children: [o.jsx("span", { style: { color: "rgba(255,255,255,0.4)", fontSize: 10, width: 30, flexShrink: 0, paddingTop: 1 }, children: aTime(a.t) }), o.jsx("span", { style: { width: 6, height: 6, borderRadius: "50%", background: m.c, flexShrink: 0, marginTop: 4 } }), o.jsx("span", { style: { flex: 1, minWidth: 0, color: "rgba(255,255,255,0.85)", fontSize: 11, wordBreak: "break-word" }, children: m.txt }), m.thumb && o.jsx("img", { src: m.thumb, style: { width: 40, height: 40, objectFit: "cover", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", flexShrink: 0 } })] }, i2); }) : o.jsx("span", { className: "text-white/25 text-[11px] px-1", children: "메모·이미지편집·가계부·할일·검색 기록이 여기" }) })])
+                                    o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,0.12)" }, children: [o.jsx("div", { className: "px-2 py-1 text-purple-300 text-[11px] font-bold flex-shrink-0", children: "🖼 Image" }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2 flex flex-wrap gap-1.5 content-start", children: imgs.length ? imgs.map((src, i2) => o.jsxs("div", { className: "relative", children: [o.jsx("img", { src: src, onClick: () => setLightbox({ list: imgs, idx: i2 }), style: { maxWidth: 88, maxHeight: 88, borderRadius: 5, border: "1px solid rgba(255,255,255,0.15)", background: "#000", cursor: "pointer" } }), o.jsx("button", { onClick: () => dsp({ type: "AI_DAILY_DEL", day: dd, kind: "images", idx: i2 }), className: "absolute top-0.5 right-0.5 text-white/70 bg-black/55 rounded text-[10px] px-1 cursor-pointer border-none", children: "✕" })] }, i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "작업/저장한 이미지가 여기" }) })] }),
+                                    cell([o.jsxs("div", { className: "px-2 py-1 text-pink-300 text-[11px] font-bold flex-shrink-0", children: ["🕒 그날 한 일 (", acts.length, ")"] }), o.jsx("div", { className: "flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-1", children: acts.length ? acts.map((a, i2) => { const m = aMeta(a); const clickable = a.kind === "image" || a.kind === "memo"; const onRow = () => { if (a.kind === "image") setLightbox({ list: imgs.length ? imgs : [a.thumb], idx: Math.max(0, imgs.indexOf(a.thumb)) }); else if (a.kind === "memo") { const mt = (t.memoTabs || []).find(x => x.id === a.tabId); setMemoBig({ title: mt ? ddbTT(mt.title) : (a.tab || "메모"), content: mt ? ((mt.items || []).map(it => it.content).join("\n\n") || a.preview || "") : (a.preview || "") }); } }; return o.jsxs("div", { onClick: clickable ? onRow : void 0, className: "flex items-start gap-1.5", style: clickable ? { cursor: "pointer" } : void 0, children: [o.jsx("span", { style: { color: "rgba(255,255,255,0.4)", fontSize: 10, width: 30, flexShrink: 0, paddingTop: 1 }, children: aTime(a.t) }), o.jsx("span", { style: { width: 6, height: 6, borderRadius: "50%", background: m.c, flexShrink: 0, marginTop: 4 } }), o.jsx("span", { style: { flex: 1, minWidth: 0, color: "rgba(255,255,255,0.85)", fontSize: 11, wordBreak: "break-word", textDecoration: clickable ? "underline dotted rgba(255,255,255,0.3)" : "none" }, children: m.txt }), m.thumb && o.jsx("img", { src: m.thumb, style: { width: 40, height: 40, objectFit: "cover", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", flexShrink: 0 } })] }, i2); }) : o.jsx("span", { className: "text-white/25 text-[11px] px-1", children: "메모·이미지편집·가계부·할일·검색 기록이 여기" }) })])
                                 ] })
                             ] }, dd);
                         }) })
@@ -2528,7 +2542,7 @@ function DDBMemoOverview() {
                     for (let cp = 0; cp < COPIES; cp++) for (let ix = 0; ix < n; ix++) { const arrIdx = cp * n + ix; out.push(mkCol(tabs[ix], ix, arrIdx === cadx, "c" + arrIdx, arrIdx)); }
                     return out;
                 }
-                const spacer = key => o.jsx("div", { className: "flex-shrink-0", style: { width: "max(0px, 50% - 280px)", flexShrink: 0 } }, key);
+                const spacer = key => o.jsx("div", { className: "flex-shrink-0", style: { width: "0px", flexShrink: 0 } }, key);
                 const opened = sel || edit;
                 return [opened && spacer("sp0"), ...tabs.map((tb, ix) => mkCol(tb, ix, ix === ak, "m" + ix, ix)), csel.length && o.jsxs("div", { className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0", style: { width: "320px", height: "78vh", border: "1px dashed rgba(255,255,255,0.25)", backgroundColor: "rgba(255,255,255,0.03)" }, children: [
                     o.jsxs("div", { className: "flex items-center gap-2 px-3 py-2 border-b border-white/10 flex-shrink-0", children: [
@@ -3419,7 +3433,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.62";
+const DDB_VERSION = "1.00.63";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4969,7 +4983,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v499"
+                children: "v500"
             }), (() => {
                 const S = [{
                     k: "cal",
