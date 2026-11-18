@@ -767,7 +767,7 @@ function DDBImageEditor() {
     function flatten() { const c = fcRef.current; if (!c) return null; const f = fitRef.current || 1; const pct = Math.max(5, Math.min(400, outPct || 100)); const mult = (1 / f) * (pct / 100); const r = imgRegion(); return c.toDataURL({ format: outFmt === "jpg" ? "jpeg" : outFmt, quality: 0.95, multiplier: mult, left: r.left, top: r.top, width: r.width, height: r.height, backgroundColor: outFmt === "png" ? undefined : "#ffffff" }); }
     function dataUrlToBlob(u) { const b = atob(u.split(",")[1]); const mime = u.slice(u.indexOf(":") + 1, u.indexOf(";")); const ar = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) ar[i] = b.charCodeAt(i); return new Blob([ar], { type: mime }); }
     async function pickDir() { try { if (!window.showDirectoryPicker) { flash("이 버전에선 폴더 지정을 지원하지 않아요"); return; } const h = await window.showDirectoryPicker(); dirH.current = h; flash("폴더 지정: " + (h.name || "")); } catch {} }
-    async function doSave() { const c = fcRef.current; if (!c) return; c.discardActiveObject(); c.renderAll(); const u = flatten(); if (!u) return; saveHist(u); try { const im0 = new Image(); im0.onload = () => { try { let tw = 140, th = Math.max(1, Math.round(im0.height * (tw / im0.width))); th = Math.min(th, 170); const cv = document.createElement("canvas"); cv.width = tw; cv.height = th; cv.getContext("2d").drawImage(im0, 0, 0, tw, th); Dp({ type: "AI_DAILY_ADD", day: ddbLocalDay(), kind: "images", item: cv.toDataURL("image/jpeg", 0.5) }); } catch (e2) {} }; im0.src = u; } catch (e1) {} const b = dataUrlToBlob(u); const ext = outFmt === "jpg" ? "jpg" : outFmt; const base = ((sv.nameOn && sv.fname) ? sv.fname : "MomentPlan").replace(/[\\/:*?"<>|]+/g, "_"); const nm = base + "-" + saveN + "." + ext; if (sv.pathOn && window.showDirectoryPicker) { try { if (!dirH.current) await pickDir(); if (!dirH.current) return; const fh = await dirH.current.getFileHandle(nm, { create: true }); const w = await fh.createWritable(); await w.write(b); await w.close(); setSaveN(n => n + 1); flash("저장: " + nm); } catch { flash("저장 실패 — 권한을 확인하세요"); } } else { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = nm; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); setSaveN(n => n + 1); flash("저장: " + nm); } }
+    async function doSave() { const c = fcRef.current; if (!c) return; c.discardActiveObject(); c.renderAll(); const u = flatten(); if (!u) return; saveHist(u); try { const im0 = new Image(); im0.onload = () => { try { let tw = 140, th = Math.max(1, Math.round(im0.height * (tw / im0.width))); th = Math.min(th, 170); const cv = document.createElement("canvas"); cv.width = tw; cv.height = th; cv.getContext("2d").drawImage(im0, 0, 0, tw, th); const _thumb = cv.toDataURL("image/jpeg", 0.5); Dp({ type: "AI_DAILY_ADD", day: ddbLocalDay(), kind: "images", item: _thumb }); try { ddbLogAct("image", { thumb: _thumb }); } catch (e3) {} } catch (e2) {} }; im0.src = u; } catch (e1) {} const b = dataUrlToBlob(u); const ext = outFmt === "jpg" ? "jpg" : outFmt; const base = ((sv.nameOn && sv.fname) ? sv.fname : "MomentPlan").replace(/[\\/:*?"<>|]+/g, "_"); const nm = base + "-" + saveN + "." + ext; if (sv.pathOn && window.showDirectoryPicker) { try { if (!dirH.current) await pickDir(); if (!dirH.current) return; const fh = await dirH.current.getFileHandle(nm, { create: true }); const w = await fh.createWritable(); await w.write(b); await w.close(); setSaveN(n => n + 1); flash("저장: " + nm); } catch { flash("저장 실패 — 권한을 확인하세요"); } } else { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = nm; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); setSaveN(n => n + 1); flash("저장: " + nm); } }
     async function doCopy() { const c = fcRef.current; if (!c) return; c.discardActiveObject(); c.renderAll(); const rr = imgRegion(); const u = c.toDataURL({ format: "png", multiplier: (1 / (fitRef.current || 1)), left: rr.left, top: rr.top, width: rr.width, height: rr.height }); try { const b = dataUrlToBlob(u); await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]); flash("복사됨! 붙여넣기(Ctrl+V)"); } catch { flash("복사 실패"); } }
     function savePal() { setPal(p => { const np = [color, ...p.filter(x => x.toLowerCase() !== color.toLowerCase())].slice(0, 6); try { localStorage.setItem("ddb_img_pal", JSON.stringify(np)); } catch {} return np; }); flash("색상 저장됨", 1400); }
 
@@ -1517,7 +1517,7 @@ function ddbHexToName(h) { if (!h) return null; const s = String(h).toLowerCase(
 let DDB_PAINT = null;
 function ddbSetPaint(hex) { DDB_PAINT = hex || null; try { window.dispatchEvent(new CustomEvent("ddb-paint-change", { detail: { hex: DDB_PAINT } })); } catch (e) {} }
 function ddbActKey(d) { d = d || new Date(); return "ddb_act_" + d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
-function ddbLogAct(kind, detail) { try { const key = ddbActKey(); let arr = []; try { arr = JSON.parse(localStorage.getItem(key) || "[]"); } catch (e) {} arr.push(Object.assign({ t: Date.now(), kind: kind }, detail || {})); if (arr.length > 600) arr = arr.slice(-600); localStorage.setItem(key, JSON.stringify(arr)); try { const rm = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("ddb_act_") === 0) { const ds = k.slice(8); const age = (Date.now() - new Date(ds + "T00:00:00").getTime()) / 864e5; if (age > 7.7) rm.push(k); } } rm.forEach(k => localStorage.removeItem(k)); } catch (e) {} try { window.dispatchEvent(new CustomEvent("ddb-act-log")); } catch (e) {} } catch (e) {} }
+function ddbLogAct(kind, detail) { try { const key = ddbActKey(); let arr = []; try { arr = JSON.parse(localStorage.getItem(key) || "[]"); } catch (e) {} arr.push(Object.assign({ t: Date.now(), kind: kind }, detail || {})); if (arr.length > 600) arr = arr.slice(-600); localStorage.setItem(key, JSON.stringify(arr)); try { const rm = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("ddb_act_") === 0) { const ds = k.slice(8); const age = (Date.now() - new Date(ds + "T00:00:00").getTime()) / 864e5; if (age > 370) rm.push(k); } } rm.forEach(k => localStorage.removeItem(k)); } catch (e) {} try { window.dispatchEvent(new CustomEvent("ddb-act-log")); } catch (e) {} } catch (e) {} }
 function ddbUnlogRecent(kind, matchFn, ms) { try { const key = ddbActKey(); let arr = JSON.parse(localStorage.getItem(key) || "[]"); const now = Date.now(); for (let i = arr.length - 1; i >= 0; i--) { const e = arr[i]; if (e.kind === kind && (now - e.t) < (ms || 300000) && (!matchFn || matchFn(e))) { arr.splice(i, 1); localStorage.setItem(key, JSON.stringify(arr)); try { window.dispatchEvent(new CustomEvent("ddb-act-log")); } catch (er) {} return true; } } } catch (e) {} return false; }
 const _ddbMemoLogT = {};
 function ddbLogMemo(tabId, name, preview) { try { const now = Date.now(); if (_ddbMemoLogT[tabId] && now - _ddbMemoLogT[tabId] < 60000) return; _ddbMemoLogT[tabId] = now; ddbUnlogRecent("memo", x => x.tabId === tabId, 864e5); ddbLogAct("memo", { tabId: tabId, tab: name || "메모", preview: (preview || "").slice(0, 24) }); } catch (e) {} }
@@ -2055,6 +2055,36 @@ function ddbAiFlush(tab, dispatch, settings) {
     });
     dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "", aiDate: today, aiFlushDay: today } });
     return n;
+}
+function DDBAnnivBanner() {
+    const { state, dispatch } = vt();
+    const [, tick] = O.useState(0);
+    const [cfgOpen, setCfgOpen] = O.useState(false);
+    const [dismissed, setDismissed] = O.useState(() => { try { return localStorage.getItem("ddb_anniv_dismiss") === ddbLocalDay(); } catch (e) { return false; } });
+    O.useEffect(() => { const id = setInterval(() => tick(x => x + 1), 3600000); return () => clearInterval(id); }, []);
+    const cfg = (state.settings && state.settings.annivNotify) || {};
+    const daysBefore = typeof cfg.daysBefore === "number" ? cfg.daysBefore : 7;
+    const daily = cfg.daily !== false;
+    const setCfg = patch => dispatch({ type: "UPDATE_SETTINGS", settings: { annivNotify: { daysBefore: daysBefore, daily: daily, ...patch } } });
+    const items = (state.ddays || []).map(d => { const info = ddbPinInfo(d); return info ? { d: d, left: info.daysLeft, nth: info.nth } : null; }).filter(Boolean)
+        .filter(x => x.left >= 0 && x.left <= daysBefore && (daily || x.left <= 1))
+        .sort((a, b) => a.left - b.left);
+    if (dismissed || items.length === 0) return null;
+    const phrase = x => { const nm = x.d.title || "기념일"; const ny = x.d.isYearly && x.nth > 0 ? " " + x.nth + "주년" : ""; if (x.left === 0) return "🎉 오늘은 " + nm + ny + " 입니다!"; if (x.left === 1) return "⏰ " + nm + ny + " 하루 남았습니다"; return "📌 " + nm + ny + " " + x.left + "일 남았습니다"; };
+    const top = items.slice(0, 2);
+    const closeToday = () => { try { localStorage.setItem("ddb_anniv_dismiss", ddbLocalDay()); } catch (e) {} setDismissed(true); };
+    return Rr.createPortal(o.jsxs("div", { style: { position: "fixed", top: 150, left: "50%", transform: "translateX(-50%)", zIndex: 72, minWidth: 320, maxWidth: 560, background: "#1e2636", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 14, boxShadow: "0 10px 30px rgba(0,0,0,0.5)", padding: "10px 12px" }, children: [
+        o.jsxs("div", { className: "flex items-center gap-2", children: [
+            o.jsx("div", { className: "flex-1 flex flex-col gap-0.5", children: top.map((x, i) => o.jsx("div", { className: "text-white/90 text-sm font-semibold", children: phrase(x) }, i)) }),
+            items.length > 2 && o.jsxs("span", { className: "text-white/50 text-[11px] whitespace-nowrap", children: ["외 ", items.length - 2, "건"] }),
+            o.jsx("button", { onClick: () => setCfgOpen(v => !v), title: "알림 설정", className: "text-white/60 hover:text-white bg-transparent border-none cursor-pointer text-sm px-1", children: "⚙" }),
+            o.jsx("button", { onClick: closeToday, title: "오늘 그만 보기", className: "text-white/60 hover:text-white bg-transparent border-none cursor-pointer text-base px-1", children: "✕" })
+        ] }),
+        cfgOpen && o.jsxs("div", { className: "mt-2 pt-2 border-t border-white/10 flex flex-col gap-2", children: [
+            o.jsxs("div", { className: "flex items-center gap-2", children: [o.jsx("span", { className: "text-white/85 text-[11px] w-20", children: "며칠 전부터" }), [3, 7, 14, 30].map(n => o.jsxs("button", { onClick: () => setCfg({ daysBefore: n }), className: "px-2 py-0.5 rounded text-[11px] border cursor-pointer " + (daysBefore === n ? "bg-amber-500/80 text-white border-amber-300" : "bg-white/5 text-white/70 border-white/15"), children: [n, "일"] }, n))] }),
+            o.jsxs("div", { className: "flex items-center gap-2", children: [o.jsx("span", { className: "text-white/85 text-[11px] w-20", children: "알림 주기" }), [["매일", true], ["하루 전·당일만", false]].map((o2, i) => o.jsx("button", { onClick: () => setCfg({ daily: o2[1] }), className: "px-2 py-0.5 rounded text-[11px] border cursor-pointer " + (daily === o2[1] ? "bg-blue-500/80 text-white border-blue-300" : "bg-white/5 text-white/70 border-white/15"), children: o2[0] }, i))] })
+        ] })
+    ] }), document.body);
 }
 function DDBAiFlusher() {
     const { state, dispatch } = vt();
@@ -3389,7 +3419,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.60";
+const DDB_VERSION = "1.00.61";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4939,7 +4969,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v497"
+                children: "v498"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -17985,7 +18015,7 @@ function DDBTimelinePanel({ panel }) {
     const dname = dayOff === 0 ? "오늘" : dayOff === 1 ? "어제" : (d.getMonth() + 1) + "월 " + d.getDate() + "일";
     return o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }, children: [
         o.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "6px", borderBottom: "1px solid rgba(255,255,255,0.1)" }, children: [
-            o.jsx("button", { onClick: () => setDayOff(v => Math.min(6, v + 1)), disabled: dayOff >= 6, className: "px-2 py-0.5 rounded bg-white/10 border border-white/20 text-white/80 text-xs cursor-pointer disabled:opacity-30", children: "◀" }),
+            o.jsx("button", { onClick: () => setDayOff(v => Math.min(365, v + 1)), disabled: dayOff >= 365, className: "px-2 py-0.5 rounded bg-white/10 border border-white/20 text-white/80 text-xs cursor-pointer disabled:opacity-30", children: "◀" }),
             o.jsxs("span", { className: "text-white text-sm font-semibold", children: [dname, o.jsxs("span", { className: "text-white/40 text-[11px] ml-1", children: ["(", (d.getMonth() + 1), ".", d.getDate(), ")"] })] }),
             o.jsx("button", { onClick: () => setDayOff(v => Math.max(0, v - 1)), disabled: dayOff <= 0, className: "px-2 py-0.5 rounded bg-white/10 border border-white/20 text-white/80 text-xs cursor-pointer disabled:opacity-30", children: "▶" })
         ] }),
@@ -18608,7 +18638,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBTableDropZones, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBHotkeys, {}), o.jsx(DDBPaintBanner, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBTableDropZones, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAnnivBanner, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBHotkeys, {}), o.jsx(DDBPaintBanner, {})]
         })
     })
 }

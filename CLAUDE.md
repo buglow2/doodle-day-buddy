@@ -36,4 +36,7 @@
 - Tailwind CDN(`cdn.tailwindcss.com`)은 프리뷰 패널에서 네트워크 차단으로 로드 안 됨 → 목업 검증은 인라인 CSS로 작성해야 레이아웃이 제대로 보임.
 - 모바일(`mobile/`)은 PC와 달리 깔끔한 일반 React(app.jsx 등). 빌드체크: `esbuild src/app.jsx --loader:.jsx=jsx` → `vite build`. 배포는 사용자가 `mobile/deploy.bat`(= `npm run build` + `surge dist momentplan-buglow-2026.surge.sh`) 실행. PC식 3곳 버전표기는 모바일엔 해당 없음.
 - 모바일은 `amount` 있는 이벤트(가계부)를 달력에서 숨김(app.jsx evByDate 필터). 가계부 탭(월별 조회 전용) 추가함 — 입력·수정은 PC에서, 폰은 조회만(동기화 충돌 방지).
+- '그날 일기' 관련 데이터원 3종: ⑴`ddbLogAct(kind,detail)`→localStorage `ddb_act_<날짜>`(메모·tool·일정·할일·검색·image), 날짜별 칸 분리라 조회 빠름, 보관 370일(기존 7.7일서 늘림), 동기화 안 됨, `DDBTimelinePanel`("🕒 오늘 활동")이 표시(날짜 ◀▶ 365일). ⑵`state.aiDaily[날짜]={tables,images}` 썸네일(최대30), 동기화됨, `DDBMemoOverview`(메모 상세)가 digDay로 표시. 이미지 저장 시 썸네일(≤170px jpeg0.5) 생성 → aiDaily + ddbLogAct("image") 양쪽 기록. 이미지 썸네일만 용량 큼(글자는 1년치도 가벼움).
+- `DDBTileBar`=상단 색색 버튼 바 = 핀고정 D-Day(ddays의 pinTop)+창추가 기능(settings.quickActions). '창추가/기능추가' 메뉴는 494542 근처. D-Day 남은일수 계산은 `ddbPinInfo(dd)`(isYearly 처리).
+- 생일·기념일 배너 `DDBAnnivBanner`(렌더목록에 mount): ddays 전체를 ddbPinInfo로 계산, `settings.annivNotify={daysBefore(기본7),daily(기본true)}`, 상단중앙 고정, localStorage `ddb_anniv_dismiss`로 그날 닫기.
 - AI 자동정리(`DDBAiFlusher`)는 'AI메모' 탭(id "aimemo")에만 작동 → 캘린더/알림/피드백 연동. 일반 카테고리 탭은 작성 패널 열려있을 때 정오에 초안을 그 탭 items로 자동저장(`persistDraft` 노ун 타이머)+닫을 때 저장. ai메모=캘린더, 일반메모=그 카테고리에 차곡차곡.
