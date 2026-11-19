@@ -50,3 +50,12 @@ html[data-ddbskin="workshop"], html[data-ddbskin="midnight"]{
 [data-ddbskin="midnight"] .ring-blue-400\/60,[data-ddbskin="midnight"] .ring-blue-400\/20{ --tw-ring-color: var(--sk) !important; }
 [data-ddbskin="workshop"] .accent-blue-400,[data-ddbskin="workshop"] .accent-blue-500,
 [data-ddbskin="midnight"] .accent-blue-400,[data-ddbskin="midnight"] .accent-blue-500{ accent-color: var(--sk) !important; }
+
+/* ===== DDB-SKIN workshop: 달력 작업일지 리디자인 ===== */
+html[data-ddbskin="workshop"] .ddbc-dow{ background:rgba(20,26,34,.80) !important; border-bottom:1px solid rgba(227,167,79,.30) !important; }
+html[data-ddbskin="workshop"] .ddbc-dow > div{ font-size:11px !important; letter-spacing:.14em; font-weight:600; }
+html[data-ddbskin="workshop"] .ddbc-grid{ background:rgba(16,21,28,.74) !important; }
+html[data-ddbskin="workshop"] .ddbc-grid > div{ border-color:rgba(227,167,79,.12) !important; padding:7px 8px !important; transition:background-color .12s ease; }
+html[data-ddbskin="workshop"] .ddbc-grid > div:hover{ background-color:rgba(227,167,79,.07) !important; box-shadow:inset 0 2px 6px rgba(0,0,0,.35) !important; }
+/* 이벤트 칩: 왼쪽 악센트 바 + 라운드 통일 */
+html[data-ddbskin="workshop"] .ddbc-grid > div [class*="rounded"][style*="background"]{ border-radius:6px !important; }

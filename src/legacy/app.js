@@ -3453,7 +3453,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.71";
+const DDB_VERSION = "1.00.72";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5003,7 +5003,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v508"
+                children: "v509"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8302,7 +8302,7 @@ function fd({
             country: (c.weather && c.weather.country) || "kr",
             city: (c.weather && c.weather.city) || "seoul"
         }), !A && !F && o.jsx("div", {
-            className: "grid grid-cols-7 border-b border-white/10 flex-shrink-0",
+            className: "grid grid-cols-7 border-b border-white/10 flex-shrink-0 ddbc-dow",
             children: WTA().map((S, D) => o.jsx("div", {
                 className: "text-center py-1.5 text-xs font-semibold " + (D === 0 || D === 6 ? "" : "text-white/70"),
                 style: { color: D === 0 ? (c.sunColor || "#fca5a5") : D === 6 ? (c.satColor || "#93c5fd") : void 0 },
@@ -8805,7 +8805,7 @@ function fd({
             })
         })(), !A && !F && (() => {
             const __big = (c.calRowH ?? 0) > 0, __grid = o.jsx("div", {
-            className: "grid grid-cols-7 " + (__big ? "" : "flex-1 min-h-0 overflow-hidden"),
+            className: "grid grid-cols-7 ddbc-grid " + (__big ? "" : "flex-1 min-h-0 overflow-hidden"),
             style: __big ? {
                 gridTemplateColumns: "repeat(7, 1fr)",
                 gridAutoRows: (c.calRowH) + "px",
