@@ -3453,7 +3453,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.70";
+const DDB_VERSION = "1.00.71";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5003,7 +5003,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v507"
+                children: "v508"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9781,7 +9781,9 @@ function jw({
         if (R.key === "ArrowDown") { R.preventDefault(); setSelIdx(v => Math.min(A.length - 1, v + 1)) }
         else if (R.key === "ArrowUp") { R.preventDefault(); setSelIdx(v => Math.max(0, v - 1)) }
         else if (R.key === "Escape" || ((R.ctrlKey || R.metaKey) && R.key === "ArrowLeft")) { R.preventDefault(); ml.current && ml.current.blur(); setListFocused(false); }
-        else if (R.key === "Enter" || R.key === "ArrowRight") { R.preventDefault(); if (it) { setFocusId(it.id); } }
+        else if (R.key === "ArrowRight") { R.preventDefault(); if (it && !it.expanded) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !0 } }); }
+        else if (R.key === "ArrowLeft") { R.preventDefault(); if (it && it.expanded) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !1 } }); }
+        else if (R.key === "Enter") { R.preventDefault(); if (it) setFocusId(it.id); }
     }
     O.useEffect(() => { if (mo === "list" && !focusId && ml.current) { ml.current.focus(); const el = ml.current.querySelector('[data-midx="' + Math.min(selIdx, Math.max(0, A.length - 1)) + '"]'); el && el.scrollIntoView({ block: "nearest" }) } }, [mo, selIdx, focusId]);
 
@@ -10528,7 +10530,7 @@ function qT({
             return
         }
         c || (clearTimeout(v.current), v.current = setTimeout(() => {
-            isDoc ? void 0 : (u(!0), d(e.content))
+            isDoc ? void 0 : (i && i())
         }, 200))
     }
 
