@@ -2060,6 +2060,21 @@ function ddbAiFlush(tab, dispatch, settings) {
     dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiText: "", aiDate: today, aiFlushDay: today } });
     return n;
 }
+function DDBCountrySetup() {
+    const { state, dispatch } = vt();
+    const [open, setOpen] = O.useState(() => { try { return !localStorage.getItem("ddb_setup_done"); } catch (e) { return false; } });
+    const [sel, setSel] = O.useState(DDB_LANG || "ko");
+    O.useEffect(() => { try { if (!localStorage.getItem("ddb_setup_done")) { const hasData = (state.events && state.events.length) || (state.memoTabs && state.memoTabs.some(t => (t.items || []).length)); if (hasData) { localStorage.setItem("ddb_setup_done", "1"); setOpen(false); } } } catch (e) {} }, []);
+    if (!open) return null;
+    const LANGS = [["ko", "🇰🇷 한국어 · 한국"], ["en", "🇺🇸 English · USA"], ["ja", "🇯🇵 日本語 · 日本"], ["zh", "🇨🇳 简体中文 · 中国"], ["zhTW", "🇹🇼 繁體中文 · 台灣"], ["de", "🇩🇪 Deutsch · DE"], ["es", "🇪🇸 Español · ES"]];
+    const done = () => { try { localStorage.setItem("ddb_setup_done", "1"); } catch (e) {} const reg = DDB_REGION[sel] || DDB_REGION.ko; dispatch({ type: "UPDATE_SETTINGS", settings: { holidays: { ...((state.settings && state.settings.holidays) || {}), on: true, country: reg.hol } } }); const _sel = sel; setOpen(false); if (_sel !== DDB_LANG) ddbSetLang(_sel); };
+    return Rr.createPortal(o.jsx("div", { style: { position: "fixed", inset: 0, zIndex: 2147483600, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, children: o.jsxs("div", { style: { width: "min(420px, 94vw)", background: "#1e2636", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 16, padding: 22, boxShadow: "0 16px 50px rgba(0,0,0,0.6)" }, children: [
+        o.jsx("div", { className: "text-white text-lg font-bold mb-1", children: "🌏 사용 국가 / Country" }),
+        o.jsx("div", { className: "text-white/70 text-xs mb-3", children: "국가를 고르면 그 나라 공휴일이 달력에 표시되고, 언어도 맞춰집니다. (나중에 설정에서 변경 가능)" }),
+        o.jsx("div", { className: "flex flex-col gap-1.5 mb-4 max-h-[46vh] overflow-y-auto", children: LANGS.map(lg => o.jsx("button", { onClick: () => setSel(lg[0]), className: "w-full text-left px-3 py-2.5 rounded-lg text-sm border transition-colors cursor-pointer " + (sel === lg[0] ? "bg-blue-500/80 text-white border-blue-300" : "bg-white/5 text-white/80 border-white/15 hover:bg-white/10"), children: lg[1] }, lg[0])) }),
+        o.jsx("button", { onClick: done, className: "w-full py-2.5 rounded-lg bg-blue-500 hover:bg-blue-400 text-white text-sm font-semibold cursor-pointer border-none", children: "시작하기 / Start" })
+    ] }) }), document.body);
+}
 function DDBAnnivBanner() {
     const { state, dispatch } = vt();
     const [, tick] = O.useState(0);
@@ -3437,7 +3452,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.68";
+const DDB_VERSION = "1.00.69";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4987,7 +5002,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v505"
+                children: "v506"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8817,6 +8832,10 @@ function fd({
                     ze = Ge.length === 1,
                     Qe = ze ? Ge[0].customColor || (qt[Ge[0].color] ?? "#999") : null,
                     wt = !S.isPadding && qu(J);
+                const _evCap = Math.max(2, (c.calRowH ?? 0) > 0 ? Math.floor(((c.calRowH ?? 0) - 26) / 15) : 4);
+                const _evOver = be.length > _evCap;
+                const _evShow = _evOver ? be.slice(0, Math.max(1, _evCap - 1)) : be;
+                const _evMore = be.length - _evShow.length;
                 return o.jsxs("div", {
                     className: (shareSel && shareSel.includes(J) ? "ring-2 ring-blue-400 ring-inset z-10 " : "") + "group relative border-r border-b border-white/5 overflow-hidden p-1 transition-all flex flex-col " + (S.isPadding ? "opacity-40 cursor-default " : "cursor-pointer hover:bg-white/[0.09] hover:shadow-[inset_0_2px_5px_rgba(0,0,0,0.45)] ") + (Q ? "ring-1 ring-inset ring-blue-400/60 " : "") + (wt ? "ring-1 ring-inset ring-purple-400/70 " : ""),
                     style: wt ? {
@@ -8951,7 +8970,7 @@ function fd({
                             scrollbarWidth: "thin",
                             scrollbarColor: "rgba(255,255,255,0.15) transparent"
                         },
-                        children: be.map(_e => {
+                        children: [..._evShow.map(_e => {
                             const $e = Oa(_e, J),
                                 st = _e.customColor || (qt[_e.color] ?? "#999"),
                                 cn = $e === "start" || $e === "single";
@@ -9055,7 +9074,7 @@ function fd({
                                     })]
                                 }) : " "
                             }, _e.id + J)
-                        })
+                        }), _evOver && o.jsxs("div", { onClick: _e => { _e.stopPropagation(); he({ dateStr: J, events: Z, rect: _e.currentTarget.getBoundingClientRect() }); }, onMouseDown: _e => _e.stopPropagation(), onMouseUp: _e => _e.stopPropagation(), className: "text-[9px] text-white/60 hover:text-white hover:bg-white/15 rounded px-1 cursor-pointer flex-shrink-0 font-medium leading-4", children: ["+", _evMore, DDBTR("개 더")] }, "evmore")]
                     })]
                 }, `${J}-${D}`)
             })
@@ -12235,7 +12254,7 @@ function c4({
                     }), o.jsx("p", {
                         className: "text-white/30 text-[10px] mb-1",
                         children: DDB_LANG === "ko" ? "※ 영어는 주요 화면부터 순차 적용 중입니다." : "* English is being applied screen by screen."
-                    })]
+                    }), o.jsxs("div", { className: "mt-3 pt-3 border-t border-white/10", children: [o.jsx("h4", { className: "text-white/40 text-xs mb-2 uppercase tracking-wide", children: DDBTR("나라") + " (공휴일 / Country)" }), o.jsx("select", { value: (c.holidays && c.holidays.country) || "kr", onChange: k => y("holidays", { ...(c.holidays ?? {}), on: true, country: k.target.value }), className: "w-full bg-white/10 border border-white/20 rounded-lg px-2 py-2 text-white text-sm focus:outline-none", children: Object.keys(DDB_COUNTRIES).map(ck => o.jsx("option", { value: ck, style: { backgroundColor: "#1e293b", color: "white" }, children: DDB_COUNTRIES[ck].n }, ck)) }), o.jsx("p", { className: "text-white/85 text-[11px] mt-1.5", children: "선택한 나라의 공휴일이 달력에 표시됩니다. (언어와 별개로 바꿀 수 있어요)" })] })]
                 })] }), x === "features" && o.jsxs(o.Fragment, { children: [
                     o.jsx("p", { className: "text-white/40 text-[11px] mb-2 px-1", style: { columnSpan: "all" }, children: "카테고리를 눌러 펼치세요. 자주 쓰는 기능 설정을 모아놨어요." }),
                     o.jsxs(DDBAccordion, { title: "기능버튼 (상단 툴바)", icon: "🔧", defaultOpen: true, children: [
@@ -18661,7 +18680,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBTableDropZones, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBAnnivBanner, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBHotkeys, {}), o.jsx(DDBPaintBanner, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBTableDropZones, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBCountrySetup, {}), o.jsx(DDBAnnivBanner, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBHotkeys, {}), o.jsx(DDBPaintBanner, {})]
         })
     })
 }
