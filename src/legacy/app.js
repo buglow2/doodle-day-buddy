@@ -3437,7 +3437,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.67";
+const DDB_VERSION = "1.00.68";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4987,7 +4987,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v504"
+                children: "v505"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9761,7 +9761,7 @@ function jw({
         if (R.key === "ArrowDown") { R.preventDefault(); setSelIdx(v => Math.min(A.length - 1, v + 1)) }
         else if (R.key === "ArrowUp") { R.preventDefault(); setSelIdx(v => Math.max(0, v - 1)) }
         else if (R.key === "Escape" || ((R.ctrlKey || R.metaKey) && R.key === "ArrowLeft")) { R.preventDefault(); ml.current && ml.current.blur(); setListFocused(false); }
-        else if (R.key === "Enter") { R.preventDefault(); if (it) { if (isTbl) { setFocusId(it.id) } else { c(it.content); setEditId(it.id); setMo("input"); setTimeout(() => u.current && u.current.focus(), 20) } } }
+        else if (R.key === "Enter" || R.key === "ArrowRight") { R.preventDefault(); if (it) { setFocusId(it.id); } }
     }
     O.useEffect(() => { if (mo === "list" && !focusId && ml.current) { ml.current.focus(); const el = ml.current.querySelector('[data-midx="' + Math.min(selIdx, Math.max(0, A.length - 1)) + '"]'); el && el.scrollIntoView({ block: "nearest" }) } }, [mo, selIdx, focusId]);
 
@@ -9886,7 +9886,7 @@ function jw({
             })
         }), (mo === "list") && o.jsxs("div", {
             className: "flex items-center gap-1 px-2 py-1.5 border-b border-white/10 flex-shrink-0",
-            children: focusId ? [o.jsx("button", { onClick: () => setFocusId(null), className: "px-2 py-0.5 rounded text-[11px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer whitespace-nowrap", children: "← " + DDBTR("목록으로") }, "back"), o.jsx("span", { className: "text-white/40 text-xs font-medium flex-1 text-right", children: ddbTT(i.title) }, "ttl2")] : [o.jsx("span", { className: "w-2 h-2 rounded-full flex-shrink-0", style: { backgroundColor: i.color } }), o.jsx("span", { className: "text-white/60 text-xs font-medium flex-1", children: ddbTT(i.title) }), o.jsxs("button", { onClick: () => { setEditId(null); c(""); setMo("input") }, className: "px-2 py-0.5 rounded text-[11px] bg-blue-500/25 text-blue-200 hover:bg-blue-500/40 border-none cursor-pointer whitespace-nowrap", children: ["\u270F\uFE0F ", DDBTR("새 메모")] }), o.jsxs("button", { onClick: () => setMo("list"), className: "px-2 py-0.5 rounded text-[11px] bg-white/10 text-white/70 hover:bg-white/20 border-none cursor-pointer whitespace-nowrap ml-1", children: ["📋 ", DDBTR("목록")] })]
+            children: focusId ? [o.jsx("button", { onClick: () => setFocusId(null), className: "px-2 py-0.5 rounded text-[11px] bg-white/10 text-white/80 hover:bg-white/20 border-none cursor-pointer whitespace-nowrap", children: "← " + DDBTR("목록으로") }, "back"), o.jsx("button", { onClick: () => { const it = A.find(z => z.id === focusId); if (it) { c(it.content); setEditId(it.id); setMo("input"); setFocusId(null); setTimeout(() => u.current && u.current.focus(), 20); } }, className: "px-2 py-0.5 rounded text-[11px] bg-blue-500/30 text-blue-100 hover:bg-blue-500/50 border border-blue-400/40 cursor-pointer whitespace-nowrap", children: "✏ " + DDBTR("수정") }, "editfocus"), o.jsx("span", { className: "text-white/40 text-xs font-medium flex-1 text-right", children: ddbTT(i.title) }, "ttl2")] : [o.jsx("span", { className: "w-2 h-2 rounded-full flex-shrink-0", style: { backgroundColor: i.color } }), o.jsx("span", { className: "text-white/60 text-xs font-medium flex-1", children: ddbTT(i.title) }), o.jsxs("button", { onClick: () => { setEditId(null); c(""); setMo("input") }, className: "px-2 py-0.5 rounded text-[11px] bg-blue-500/25 text-blue-200 hover:bg-blue-500/40 border-none cursor-pointer whitespace-nowrap", children: ["\u270F\uFE0F ", DDBTR("새 메모")] }), o.jsxs("button", { onClick: () => setMo("list"), className: "px-2 py-0.5 rounded text-[11px] bg-white/10 text-white/70 hover:bg-white/20 border-none cursor-pointer whitespace-nowrap ml-1", children: ["📋 ", DDBTR("목록")] })]
         }), (mo === "list") && o.jsxs("div", {
             ref: ml,
             tabIndex: 0,

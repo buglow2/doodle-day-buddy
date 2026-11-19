@@ -41,4 +41,6 @@
 - `DDBTileBar`=상단 색색 버튼 바 = 핀고정 D-Day(ddays의 pinTop)+창추가 기능(settings.quickActions). '창추가/기능추가' 메뉴는 494542 근처 — 그룹 헤더(🔎검색/🛠도구/📌바로가기)로 정리함. 바 타일은 셀기반 드래그 재배치(0.7s 롱프레스)라 강제 정렬 금지(레이아웃 깨짐) — 사용자가 직접 배치. D-Day 남은일수 계산은 `ddbPinInfo(dd)`(isYearly 처리).
 - 우측 세로탭 '창 추가' 메뉴(1709xxx): 버그였음 — 메뉴 폭을 버튼(세로탭~45px) 폭에 맞추고 위로 열려 거의 안 보였음. 폭 224px 고정+화면 안 보정+아래로 열림+그룹 헤더로 수정.
 - 생일·기념일 배너 `DDBAnnivBanner`(렌더목록에 mount): ddays 전체를 ddbPinInfo로 계산, `settings.annivNotify={daysBefore(기본7),daily(기본true)}`, 상단중앙 고정, localStorage `ddb_anniv_dismiss`로 그날 닫기.
+- 메모 패널(`jw`, 1076xxx): 기본 모드 "list"(목록 먼저). 항목 펼치기(Enter/→/Ctrl+→)는 `setFocusId`(읽기뷰, 커서 없음)로 — 이전엔 하단 작성칸 편집모드로 점프해 커서 깜빡/꼬임. 읽기뷰 헤더에 ✏ 수정 버튼(편집 진입). 편집은 더블클릭 or 수정버튼만. 메모 패널 기본크기 380×820, `ddb_memo_wh`에 크기 저장(Td 효과)·복원(ddbMemoWH, 생성 5곳).
+- 국가별 공휴일: 이미 구현됨 — 설정 → "🎌 공휴일 표시" 체크 → "나라(공휴일)" 드롭다운(`settings.holidays.country`, `DDB_COUNTRIES`, `ddbLoadHolidays`→`window.__ddbHolMap`). 달력 셀(996172)이 __ddbHolMap로 공휴일명 표시. 언어(locale)는 메뉴 텍스트만 바꿈(별개).
 - AI 자동정리(`DDBAiFlusher`)는 'AI메모' 탭(id "aimemo")에만 작동 → 캘린더/알림/피드백 연동. 일반 카테고리 탭은 작성 패널 열려있을 때 정오에 초안을 그 탭 items로 자동저장(`persistDraft` 노ун 타이머)+닫을 때 저장. ai메모=캘린더, 일반메모=그 카테고리에 차곡차곡.
