@@ -1628,7 +1628,7 @@ function DDBDesignEditor() {
             sec("달력 상단 버튼 줄 수"),
             o.jsx("div", { className: "flex gap-1", children: [[1, "1줄"], [2, "2줄"], [3, "3줄"]].map(r => o.jsx("button", { onClick: () => y("calHeadRows", r[0]), className: "px-3 py-1 rounded text-[11px] cursor-pointer border " + ((c.calHeadRows || 1) === r[0] ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/60"), children: r[1] }, r[0])) }),
             sec("화면 스타일"),
-            o.jsx("div", { className: "flex gap-1", children: [["default", "기본"], ["modern", "모던"], ["minimal", "미니멀"]].map(s => o.jsx("button", { onClick: () => y("uiSkin", s[0]), className: "px-2.5 py-1 rounded text-[11px] cursor-pointer border " + ((c.uiSkin || "default") === s[0] ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/60"), children: s[1] }, s[0])) }),
+            o.jsx("div", { className: "flex gap-1 flex-wrap", children: [["default", "기본"], ["modern", "모던"], ["minimal", "미니멀"], ["workshop", "🛠 작업일지"], ["midnight", "🌊 미드나잇"]].map(s => o.jsx("button", { onClick: () => y("uiSkin", s[0]), className: "px-2.5 py-1 rounded text-[11px] cursor-pointer border " + ((c.uiSkin || "default") === s[0] ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/8 border-white/15 text-white/60"), children: s[1] }, s[0])) }),
             sec("요일 색 (일 / 토)"),
             o.jsxs("div", { className: "flex items-center gap-3", children: [o.jsxs("label", { className: "flex items-center gap-1 cursor-pointer", children: [o.jsx("span", { className: "text-white/75 text-xs", children: "일" }), o.jsx("input", { type: "color", value: c.sunColor || "#fca5a5", onChange: e => y("sunColor", e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] }), o.jsxs("label", { className: "flex items-center gap-1 cursor-pointer", children: [o.jsx("span", { className: "text-white/75 text-xs", children: "토" }), o.jsx("input", { type: "color", value: c.satColor || "#93c5fd", onChange: e => y("satColor", e.target.value), className: "w-7 h-7 rounded cursor-pointer bg-transparent border border-white/20 p-0" })] })] }),
             o.jsx("div", { className: "mt-4 pt-3 border-t border-white/10", children: o.jsx("button", { onClick: () => { y("uiFont", ""); y("uiZoom", 1); y("uiRadius", null); y("bgDim", 0); }, className: "w-full py-2 rounded-lg bg-white/8 hover:bg-white/15 text-white/70 text-xs border-none cursor-pointer", children: "↺ 디자인 기본값으로 되돌리기" }) })
@@ -2077,6 +2077,7 @@ function DDBCountrySetup() {
 }
 function DDBAnnivBanner() {
     const { state, dispatch } = vt();
+    O.useEffect(() => { try { document.documentElement.setAttribute("data-ddbskin", (state.settings && state.settings.uiSkin) || "classic"); } catch (e) {} }, [state.settings && state.settings.uiSkin]);
     const [, tick] = O.useState(0);
     const [cfgOpen, setCfgOpen] = O.useState(false);
     const [dismissed, setDismissed] = O.useState(() => { try { return localStorage.getItem("ddb_anniv_dismiss") === ddbLocalDay(); } catch (e) { return false; } });
@@ -3452,7 +3453,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.69";
+const DDB_VERSION = "1.00.70";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5002,7 +5003,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v506"
+                children: "v507"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -12139,7 +12140,7 @@ function c4({
                                 onChange: k => y("quickDelete", k.target.checked),
                                 className: "w-4 h-4 flex-shrink-0"
                             })]
-                        }), o.jsxs("label", { className: _ + " border-0", children: [o.jsxs("span", { className: "text-white/70 text-sm", children: ["UI 스타일(스킨)", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "일정 표시 스타일을 바꿉니다 (모던: 각지고 끝이 은은하게 페이드)" })] }), o.jsxs("div", { className: "flex gap-1 flex-shrink-0", children: [o.jsx("button", { onClick: () => y("uiSkin", "classic"), className: "px-2.5 py-1 rounded text-xs border cursor-pointer " + ((c.uiSkin || "classic") === "classic" ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: "기본" }), o.jsx("button", { onClick: () => y("uiSkin", "modern"), className: "px-2.5 py-1 rounded text-xs border cursor-pointer " + (c.uiSkin === "modern" ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: "모던" }), o.jsx("button", { onClick: () => y("uiSkin", "minimal"), className: "px-2.5 py-1 rounded text-xs border cursor-pointer " + (c.uiSkin === "minimal" ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: "미니멀" })] })] }), false && o.jsxs("label", {
+                        }), o.jsxs("label", { className: _ + " border-0", children: [o.jsxs("span", { className: "text-white/70 text-sm", children: ["UI 스타일(스킨)", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "일정 표시 스타일을 바꿉니다 (모던: 각지고 끝이 은은하게 페이드)" })] }), o.jsxs("div", { className: "flex gap-1 flex-shrink-0", children: [o.jsx("button", { onClick: () => y("uiSkin", "classic"), className: "px-2.5 py-1 rounded text-xs border cursor-pointer " + ((c.uiSkin || "classic") === "classic" ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: "기본" }), o.jsx("button", { onClick: () => y("uiSkin", "modern"), className: "px-2.5 py-1 rounded text-xs border cursor-pointer " + (c.uiSkin === "modern" ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: "모던" }), o.jsx("button", { onClick: () => y("uiSkin", "minimal"), className: "px-2.5 py-1 rounded text-xs border cursor-pointer " + (c.uiSkin === "minimal" ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: "미니멀" }), o.jsx("button", { onClick: () => y("uiSkin", "workshop"), className: "px-2.5 py-1 rounded text-xs border cursor-pointer " + (c.uiSkin === "workshop" ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: "🛠 작업일지" }), o.jsx("button", { onClick: () => y("uiSkin", "midnight"), className: "px-2.5 py-1 rounded text-xs border cursor-pointer " + (c.uiSkin === "midnight" ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/15 text-white/60"), children: "🌊 미드나잇" })] })]}), false && o.jsxs("label", {
                             className: _ + " border-0 cursor-pointer",
                             children: [o.jsxs("span", {
                                 className: "text-white/70 text-sm",

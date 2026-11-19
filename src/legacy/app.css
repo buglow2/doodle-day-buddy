@@ -28,3 +28,25 @@ button:active:not(:disabled) { transform: translateY(0.5px); }
 *::-webkit-scrollbar-track { background: transparent; }
 /* 5) 비활성 버튼은 확실히 흐리게 — 눌러도 되는지 한눈에(Fitts/피드백) */
 button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ===== DDB-SKINS: 스킨별 악센트 치환 (data-ddbskin) ===== */
+html[data-ddbskin="workshop"]{ --sk:#E3A74F; --sk-soft:rgba(227,167,79,.18); --sk-tx:#ECC487; --sk-bd:rgba(227,167,79,.55); }
+html[data-ddbskin="midnight"]{ --sk:#2FBFB6; --sk-soft:rgba(47,191,182,.18); --sk-tx:#7FE3DB; --sk-bd:rgba(47,191,182,.55); }
+/* 미세 배경 글로우로 무드 차이 */
+html[data-ddbskin="workshop"] body{ background-image: radial-gradient(900px 420px at 85% -8%, rgba(227,167,79,.10), transparent 60%) !important; background-attachment: fixed; }
+html[data-ddbskin="midnight"] body{ background-image: radial-gradient(900px 420px at 85% -8%, rgba(47,191,182,.12), transparent 60%) !important; background-attachment: fixed; }
+/* 악센트 치환 — 스킨 적용 시에만 (classic/modern/minimal은 기존 파랑 유지) */
+html[data-ddbskin="workshop"], html[data-ddbskin="midnight"]{
+}
+[data-ddbskin="workshop"] .bg-blue-500,[data-ddbskin="workshop"] .bg-blue-600,[data-ddbskin="workshop"] .bg-blue-400,[data-ddbskin="workshop"] .bg-blue-400\/80,
+[data-ddbskin="midnight"] .bg-blue-500,[data-ddbskin="midnight"] .bg-blue-600,[data-ddbskin="midnight"] .bg-blue-400,[data-ddbskin="midnight"] .bg-blue-400\/80{ background-color: var(--sk) !important; }
+[data-ddbskin="workshop"] .bg-blue-500\/30,[data-ddbskin="workshop"] .bg-blue-500\/40,[data-ddbskin="workshop"] .bg-blue-500\/15,[data-ddbskin="workshop"] .bg-blue-500\/10,[data-ddbskin="workshop"] .bg-blue-400\/30,[data-ddbskin="workshop"] .bg-blue-400\/20,[data-ddbskin="workshop"] .bg-blue-400\/10,
+[data-ddbskin="midnight"] .bg-blue-500\/30,[data-ddbskin="midnight"] .bg-blue-500\/40,[data-ddbskin="midnight"] .bg-blue-500\/15,[data-ddbskin="midnight"] .bg-blue-500\/10,[data-ddbskin="midnight"] .bg-blue-400\/30,[data-ddbskin="midnight"] .bg-blue-400\/20,[data-ddbskin="midnight"] .bg-blue-400\/10{ background-color: var(--sk-soft) !important; }
+[data-ddbskin="workshop"] .text-blue-200,[data-ddbskin="workshop"] .text-blue-300,[data-ddbskin="workshop"] .text-blue-400,[data-ddbskin="workshop"] .text-blue-300\/80,[data-ddbskin="workshop"] .text-blue-300\/70,
+[data-ddbskin="midnight"] .text-blue-200,[data-ddbskin="midnight"] .text-blue-300,[data-ddbskin="midnight"] .text-blue-400,[data-ddbskin="midnight"] .text-blue-300\/80,[data-ddbskin="midnight"] .text-blue-300\/70{ color: var(--sk-tx) !important; }
+[data-ddbskin="workshop"] .border-blue-400,[data-ddbskin="workshop"] .border-blue-400\/60,[data-ddbskin="workshop"] .border-blue-400\/40,[data-ddbskin="workshop"] .border-blue-400\/30,[data-ddbskin="workshop"] .border-blue-500\/40,[data-ddbskin="workshop"] .border-blue-300\/50,[data-ddbskin="workshop"] .border-blue-400\/80,
+[data-ddbskin="midnight"] .border-blue-400,[data-ddbskin="midnight"] .border-blue-400\/60,[data-ddbskin="midnight"] .border-blue-400\/40,[data-ddbskin="midnight"] .border-blue-400\/30,[data-ddbskin="midnight"] .border-blue-500\/40,[data-ddbskin="midnight"] .border-blue-300\/50,[data-ddbskin="midnight"] .border-blue-400\/80{ border-color: var(--sk-bd) !important; }
+[data-ddbskin="workshop"] .ring-blue-400\/60,[data-ddbskin="workshop"] .ring-blue-400\/20,
+[data-ddbskin="midnight"] .ring-blue-400\/60,[data-ddbskin="midnight"] .ring-blue-400\/20{ --tw-ring-color: var(--sk) !important; }
+[data-ddbskin="workshop"] .accent-blue-400,[data-ddbskin="workshop"] .accent-blue-500,
+[data-ddbskin="midnight"] .accent-blue-400,[data-ddbskin="midnight"] .accent-blue-500{ accent-color: var(--sk) !important; }
