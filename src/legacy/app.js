@@ -3453,7 +3453,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.72";
+const DDB_VERSION = "1.00.73";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5003,7 +5003,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v509"
+                children: "v510"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -9783,7 +9783,7 @@ function jw({
         else if (R.key === "Escape" || ((R.ctrlKey || R.metaKey) && R.key === "ArrowLeft")) { R.preventDefault(); ml.current && ml.current.blur(); setListFocused(false); }
         else if (R.key === "ArrowRight") { R.preventDefault(); if (it && !it.expanded) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !0 } }); }
         else if (R.key === "ArrowLeft") { R.preventDefault(); if (it && it.expanded) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !1 } }); }
-        else if (R.key === "Enter") { R.preventDefault(); if (it) setFocusId(it.id); }
+        else if (R.key === "Enter") { R.preventDefault(); if (it) { if (!it.expanded) r({ type: "UPDATE_MEMO_ITEM", tabId: i.id, item: { ...it, expanded: !0 } }); setFocusId(it.id); } }
     }
     O.useEffect(() => { if (mo === "list" && !focusId && ml.current) { ml.current.focus(); const el = ml.current.querySelector('[data-midx="' + Math.min(selIdx, Math.max(0, A.length - 1)) + '"]'); el && el.scrollIntoView({ block: "nearest" }) } }, [mo, selIdx, focusId]);
 
@@ -10604,12 +10604,21 @@ function qT({
             children: [o.jsx("div", {
                 className: "flex items-center gap-1.5",
                 children: o.jsx("p", {
-                    className: "text-white font-semibold leading-snug flex-1 break-all truncate",
+                    className: "text-white font-semibold leading-snug flex-1 break-all " + (T ? "" : "truncate"),
                     style: {
                         fontSize: Math.max(11, t)
                     },
                     children: k
                 })
+            }), b && T && o.jsx("div", {
+                onMouseDown: ev => ev.stopPropagation(),
+                className: "mt-1 text-white/85 whitespace-pre-wrap break-words select-text",
+                style: { fontSize: Math.max(10, t - 1), lineHeight: 1.55 },
+                children: E
+            }), b && !T && o.jsx("div", {
+                className: "text-white/35 mt-0.5",
+                style: { fontSize: Math.max(9, t - 3) },
+                children: "⌄ 펼치기"
             })]
         }), o.jsxs("div", {
             className: "absolute top-1 right-1 hidden group-hover:flex gap-0.5 z-10",
