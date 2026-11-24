@@ -3529,7 +3529,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.79";
+const DDB_VERSION = "1.00.80";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5078,7 +5078,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v516"
+                children: "v517"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -18808,9 +18808,12 @@ function UP9() {
                 margin: 0
             },
             children: ["🔔 새 버전 ", e.latest_version, " 사용 가능"]
-        }), e.notes && o.jsx("p", {
+        }), (window.ddbNative && window.ddbNative.updateInstall && /\.exe$/i.test(e.download_url || "")) ? o.jsx("p", {
+            style: { color: "rgba(255,255,255,0.88)", fontSize: 11.5, margin: 0, lineHeight: 1.55 },
+            children: upS && upS.err ? ("자동 설치에 실패해서 브라우저로 받았어요. (" + String(upS.err).slice(0, 80) + ")") : "'업데이트 설치'를 누르면 앱이 직접 내려받아 설치하고 자동으로 다시 켜집니다. 브라우저 다운로드·경고창 없이 진행돼요."
+        }) : e.notes && o.jsx("p", {
             style: {
-                color: "rgba(255,255,255,0.65)",
+                color: "rgba(255,255,255,0.85)",
                 fontSize: 11,
                 margin: 0,
                 whiteSpace: "pre-wrap"
