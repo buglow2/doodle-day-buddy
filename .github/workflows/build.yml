@@ -34,6 +34,10 @@ jobs:
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: MomentPlan ${{ steps.ver.outputs.tag }}
+          # ★ 처음엔 '시험판(prerelease)'으로 숨겨 둠 → 설치파일이 붙기 전에는
+          #   앱의 업데이트 알림(releases/latest)에 잡히지 않음. 맨 아래 publish 단계에서 공개.
+          prerelease: true
+          make_latest: false
           body: |
             MomentPlan 설치파일입니다. 자기 OS에 맞는 파일을 받으세요.
             · Windows 7 : MomentPlan-Setup_win7-버전.exe
@@ -48,7 +52,7 @@ jobs:
   #      SUPABASE_SERVICE_KEY  Supabase → Settings → API → service_role 키
   #    (service_role 키는 GitHub 비밀값에만 두고, 앱(클라이언트)엔 절대 넣지 않습니다)
   bumpmeta:
-    needs: mkrelease
+    needs: [mkrelease, publish]
     runs-on: ubuntu-latest
     steps:
       - name: Supabase app_meta.latest_version 갱신
@@ -103,6 +107,8 @@ jobs:
           tag_name: ${{ needs.mkrelease.outputs.tag }}
           files: electron-app/release/MomentPlan-Setup_mac-*.dmg
           fail_on_unmatched_files: false
+          prerelease: true
+          make_latest: false
 
   # ── 2) Windows 10/11 설치본 (.exe) ───────────────────
   windows:
@@ -134,6 +140,8 @@ jobs:
           tag_name: ${{ needs.mkrelease.outputs.tag }}
           files: electron-app/release/MomentPlan-Setup_win10-11-*.exe
           fail_on_unmatched_files: false
+          prerelease: true
+          make_latest: false
 
   # ── 3) Windows 7 전용 설치본 (Electron 22) ───────────
   windows7:
@@ -168,3 +176,20 @@ jobs:
           tag_name: ${{ needs.mkrelease.outputs.tag }}
           files: electron-app/release/MomentPlan-Setup_win7-*.exe
           fail_on_unmatched_files: false
+          prerelease: true
+          make_latest: false
+
+  # ── 4) 설치파일이 다 붙은 뒤에 '정식(Latest)'으로 공개 ───────────
+  #  · Windows 10/11 설치파일이 성공적으로 붙었을 때만 공개 → 앱이 빈 릴리스를 보고
+  #    브라우저 페이지로 넘어가는 문제(업데이트 알림이 너무 일찍 뜸) 방지.
+  #  · 예전 버전 앱에도 바로 효과 있음(앱이 보는 releases/latest 에 늦게 나타나므로).
+  publish:
+    needs: [mkrelease, mac, windows, windows7]
+    if: ${{ always() && needs.windows.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 릴리스 정식 공개 (Latest)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.mkrelease.outputs.tag }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
