@@ -5,6 +5,39 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
+// 업데이트 파일 다운로드: GitHub 릴리스 → githubusercontent 로 리다이렉트를 따라가며 저장
+function ddbDownloadFile(url, dest, onProg, depth) {
+  depth = depth || 0;
+  return new Promise((resolve, reject) => {
+    let u; try { u = new URL(url); } catch (e) { return reject(new Error('bad-url')); }
+    if (!/(^|\.)github\.com$|(^|\.)githubusercontent\.com$/i.test(u.hostname) && !(process.env.DDB_UPDATE_TEST && /^(localhost|127\.0\.0\.1)$/.test(u.hostname))) return reject(new Error('host-not-allowed'));
+    const mod = u.protocol === 'http:' ? http : https;
+    const req = mod.get(u, { headers: { 'User-Agent': 'MomentPlan-Updater', 'Accept': 'application/octet-stream' } }, res => {
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+        res.resume();
+        if (depth > 8) return reject(new Error('too-many-redirects'));
+        return resolve(ddbDownloadFile(new URL(res.headers.location, u).toString(), dest, onProg, depth + 1));
+      }
+      if (res.statusCode !== 200) { res.resume(); return reject(new Error('HTTP ' + res.statusCode)); }
+      const total = parseInt(res.headers['content-length'] || '0', 10) || 0;
+      let got = 0;
+      const tmp = dest + '.part';
+      const f = fs.createWriteStream(tmp);
+      res.on('data', c => { got += c.length; if (onProg) onProg(got, total); });
+      res.on('error', err => { try { f.destroy(); } catch (e) {} reject(err); });
+      f.on('error', reject);
+      f.on('finish', () => f.close(() => {
+        if (total && got !== total) return reject(new Error('incomplete'));
+        try { if (fs.existsSync(dest)) fs.unlinkSync(dest); fs.renameSync(tmp, dest); } catch (e) { return reject(e); }
+        resolve(dest);
+      }));
+      res.pipe(f);
+    });
+    req.on('error', reject);
+    req.setTimeout(120000, () => req.destroy(new Error('timeout')));
+  });
+}
+
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json' };
 const DIST = path.join(__dirname, 'dist');
 
@@ -63,6 +96,22 @@ async function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
   // 렌더러가 직접 요청하는 외부 링크 열기 (window.open 우회 — 주소 유실 방지)
   ipcMain.handle('ddb-open-external', (_e, url) => { try { if (url && /^(https?:|mailto:)/i.test(url)) { shell.openExternal(url); return true; } } catch (e) {} return false; });
+  // 앱 안에서 업데이트 설치파일을 직접 받아 실행 (브라우저 다운로드가 아니라 SmartScreen '인터넷에서 받은 파일' 표시가 붙지 않음)
+  ipcMain.handle('ddb-update-install', async (e, url) => {
+    try {
+      url = String(url || '');
+      if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/releases\/download\/[^?#]+\.exe$/i.test(url)) return { ok: false, error: 'bad-url' };
+      const name = decodeURIComponent(url.split('/').pop()).replace(/[^\w.\-]/g, '_');
+      const dest = path.join(app.getPath('temp'), name);
+      let last = 0;
+      await ddbDownloadFile(url, dest, (got, total) => { const now = Date.now(); if (now - last > 150 || got === total) { last = now; try { e.sender.send('ddb-update-progress', { got, total }); } catch (er) {} } });
+      const { spawn } = require('child_process');
+      const child = spawn(dest, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore' });
+      child.unref();
+      setTimeout(() => { try { app.quit(); } catch (er) {} }, 700);
+      return { ok: true };
+    } catch (err) { return { ok: false, error: String((err && err.message) || err) }; }
+  });
   // ── 검색/AI 웹뷰 팝업 처리: 같은 탭 이동(기본) 또는 새 창(외부 브라우저) 선택 ──
   ipcMain.handle('ddb-wv-newwindow', (_e, v) => { wvNewWindow = !!v; return true; });
   win.webContents.on('did-attach-webview', (_e, wc) => {

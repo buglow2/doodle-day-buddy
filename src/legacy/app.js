@@ -3453,7 +3453,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.74";
+const DDB_VERSION = "1.00.75";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5003,7 +5003,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v511"
+                children: "v512"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -18699,6 +18699,7 @@ function YO() {
 
 function UP9() {
     const [e, t] = O.useState(null);
+    const [upS, setUpS] = O.useState(null);
     return O.useEffect(() => {
         const DDB_REPO = "buglow2/doodle-day-buddy";
         const cmp = (l, c) => { const u = String(l).split(".").map(Number), h = String(c).split(".").map(Number); for (let d = 0; d < 3; d++) { if ((u[d] ?? 0) > (h[d] ?? 0)) return 1; if ((u[d] ?? 0) < (h[d] ?? 0)) return -1; } return 0; };
@@ -18748,8 +18749,21 @@ function UP9() {
                 gap: 6
             },
             children: [o.jsx("button", {
-                onClick: () => {
+                disabled: !!(upS && upS.busy),
+                onClick: async () => {
                     const u = e.download_url;
+                    const nat = window.ddbNative;
+                    if (nat && nat.updateInstall && u && /\.exe$/i.test(u)) {
+                        setUpS({ busy: !0, pct: 0 });
+                        const off = nat.onUpdateProgress ? nat.onUpdateProgress(d => setUpS({ busy: !0, pct: d && d.total ? Math.floor(d.got * 100 / d.total) : 0, mb: d ? (d.got / 1048576).toFixed(1) : "0" })) : null;
+                        let r = null;
+                        try { r = await nat.updateInstall(u); } catch (er) { r = { ok: !1, error: String(er) }; }
+                        off && off();
+                        if (r && r.ok) { setUpS({ busy: !0, pct: 100, done: !0 }); return; }
+                        setUpS({ busy: !1, err: (r && r.error) || "fail" });
+                        window.open(u, "_blank");
+                        return;
+                    }
                     if (u && /^https?:\/\//i.test(u)) window.open(u, "_blank");
                     else alert(DDBTR("다운로드 링크가 아직 준비되지 않았습니다. 관리자에게 문의하세요."));
                     t(null)
@@ -18763,9 +18777,10 @@ function UP9() {
                     color: "#fff",
                     fontSize: 12,
                     fontWeight: 600,
-                    cursor: "pointer"
+                    cursor: upS && upS.busy ? "default" : "pointer",
+                    opacity: upS && upS.busy && !upS.done ? 0.85 : 1
                 },
-                children: DDBTR("다운로드")
+                children: upS && upS.done ? "설치 시작 — 잠시 후 다시 켜집니다" : upS && upS.busy ? ("받는 중 " + (upS.pct || 0) + "%" + (upS.mb ? " (" + upS.mb + "MB)" : "")) : upS && upS.err ? "브라우저로 받기(자동설치 실패)" : DDBTR("업데이트 설치")
             }), o.jsx("button", {
                 onClick: () => t(null),
                 style: {

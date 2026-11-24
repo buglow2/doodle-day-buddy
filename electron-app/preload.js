@@ -12,7 +12,9 @@ contextBridge.exposeInMainWorld('ddbNative', {
   pickCaptureDir: () => { try { return ipcRenderer.invoke('ddb-pick-capture-dir'); } catch (e) { return Promise.resolve(null); } },
   captureRegion: () => { try { return ipcRenderer.invoke('ddb-capture-region'); } catch (e) { return Promise.resolve(false); } },
   setCapturePrefs: (obj) => { try { return ipcRenderer.invoke('ddb-cap-prefs', obj || {}); } catch (e) { return Promise.resolve(false); } },
-  setCaptureHotkey: (a, mode) => { try { return ipcRenderer.invoke('ddb-set-capture-hotkey', String(a || ''), String(mode || 'region')); } catch (e) { return Promise.resolve(false); } }
+  setCaptureHotkey: (a, mode) => { try { return ipcRenderer.invoke('ddb-set-capture-hotkey', String(a || ''), String(mode || 'region')); } catch (e) { return Promise.resolve(false); } },
+  updateInstall: (url) => { try { return ipcRenderer.invoke('ddb-update-install', String(url || '')); } catch (e) { return Promise.resolve({ ok: false, error: String(e) }); } },
+  onUpdateProgress: (cb) => { const h = (_e, d) => { try { cb(d); } catch (er) {} }; try { ipcRenderer.on('ddb-update-progress', h); } catch (e) {} return () => { try { ipcRenderer.removeListener('ddb-update-progress', h); } catch (e) {} }; }
 });
 try { ipcRenderer.on('ddb-screenshot', (_e, url) => { try { window.dispatchEvent(new CustomEvent('ddb-capture-result', { detail: { url: url } })); } catch (e) {} }); } catch (e) {}
 try { ipcRenderer.on('ddb-cap-toggle', (_e, d) => { try { window.dispatchEvent(new CustomEvent('ddb-cap-toggle', { detail: d || {} })); } catch (e) {} }); } catch (e) {}
