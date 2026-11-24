@@ -791,7 +791,7 @@ function DDBImageEditor() {
         (etcHover && etcRect) ? Rr.createPortal(o.jsx("div", { onMouseEnter: etcOpen, onMouseLeave: etcClose, className: "thin-scroll", style: { position: "fixed", left: Math.min(etcRect.left, window.innerWidth - 320), top: etcRect.bottom + 4, zIndex: 2147483600, background: "#ffffff", border: "1px solid #c8c6c4", borderRadius: 8, padding: 6, boxShadow: "0 14px 40px rgba(0,0,0,0.3)", maxHeight: 380, overflowY: "auto" }, children: o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(10, 26px)", gap: 3 }, children: etcIdx.slice(0, 50).map(i => shpTile(SHAPE_LIB[i], i, 26)) }) }), document.body) : null
     ] });
     const abtn = (fn, label, dis) => o.jsx("button", { onClick: fn, disabled: dis, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: labels ? label : label.split(" ")[0] });
-    const dropBtn = (id, label, active, opts, cur, onPick) => o.jsxs("div", { className: "relative", children: [o.jsxs("button", { title: label, onClick: () => setMenu(m => m === id ? null : id), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + (active ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/15 text-white/90 hover:bg-white/15"), children: [labels ? label : label.split(" ")[0], " ▾"] }), menu === id && o.jsx("div", { className: "absolute left-0 top-full mt-1 flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { zIndex: 60, minWidth: 150, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: opts.map(op => o.jsx("button", { onClick: () => { onPick(op[0]); setMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + (op[0] === cur ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) })] });
+    const dropBtn = (id, label, active, opts, cur, onPick) => o.jsxs("div", { className: "relative", children: [o.jsxs("button", { title: label, onClick: () => setMenu(m => m === id ? null : id), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + (active ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/15 text-white/90 hover:bg-white/15"), children: [labels ? label : label.split(" ")[0], " ▾"] }), menu === id && o.jsx(DDBPortalPop, { className: "flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { zIndex: 60, minWidth: 150, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: opts.map(op => o.jsx("button", { onClick: () => { onPick(op[0]); setMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + (op[0] === cur ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) })] });
     const penActive = PENV.some(x => x[0] === tool), shapeActive = SHAPES.some(x => x[0] === tool);
     const bumpLw = delta => { const cur = (styRef.current && styRef.current.lw != null) ? styRef.current.lw : lw; const nv = Math.max(1, Math.min(40, cur + delta)); setLw(nv); if (styRef.current) styRef.current.lw = nv; saveToolLw(nv); const c = fcRef.current; if (c) { const a = c.getActiveObject(); if (a && a.strokeWidth != null && a.type !== "i-text" && a.type !== "text") { if (a.type === "activeSelection") a.forEachObject(o2 => { if (o2.strokeWidth != null) o2.set("strokeWidth", nv); }); else a.set("strokeWidth", nv); a.setCoords && a.setCoords(); c.renderAll(); pushHist(); } } try { flash("두께 " + nv + "px", 850); } catch (e) {} };
     const ICONS = {
@@ -2150,9 +2150,24 @@ function DDBAiFlusher() {
     if (!msg) return null;
     return Rr.createPortal(o.jsx("div", { style: { position: "fixed", left: "50%", bottom: 60, transform: "translateX(-50%)", zIndex: 2147483600, background: "rgba(16,185,129,0.96)", color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13, boxShadow: "0 8px 24px rgba(0,0,0,0.45)" }, children: "🤖 " + msg }), document.body);
 }
-function DDBAiRulesPop({ sym, dispatch, onInsert, onClose }) {
+function DDBPortalPop({ up, matchW, gap, className, style, children, ...rest }) {
+    const ph = O.useRef(null), box = O.useRef(null);
+    const [r, setR] = O.useState(null);
+    const [sz, setSz] = O.useState({ w: 0, h: 0 });
+    O.useLayoutEffect(() => { const calc = () => { try { const p = ph.current && ph.current.parentElement; if (p) setR(p.getBoundingClientRect()); } catch (e) {} }; calc(); window.addEventListener("resize", calc); window.addEventListener("scroll", calc, true); return () => { window.removeEventListener("resize", calc); window.removeEventListener("scroll", calc, true); }; }, []);
+    O.useLayoutEffect(() => { try { if (box.current) { const w = box.current.offsetWidth, h = box.current.offsetHeight; if (w !== sz.w || h !== sz.h) setSz({ w, h }); } } catch (e) {} });
+    const g = gap == null ? 4 : gap, vw = window.innerWidth, vh = window.innerHeight;
+    let pos = { left: -9999, top: -9999 };
+    if (r) { const left = Math.max(6, Math.min(vw - (sz.w || 0) - 6, r.left)); const spaceB = vh - r.bottom - g - 6, spaceA = r.top - g - 6; const goUp = up ? !(spaceA < sz.h && spaceB > spaceA) : (sz.h > spaceB && spaceA > spaceB); pos = goUp ? { left, top: Math.max(6, r.top - g - sz.h), maxHeight: spaceA } : { left, top: r.bottom + g, maxHeight: spaceB }; if (matchW) pos.width = r.width; }
+    const st = { ...(style || {}), position: "fixed", ...pos, overflowY: "auto", zIndex: Math.max(2147483400, (style && +style.zIndex) || 0) };
+    return o.jsxs(o.Fragment, { children: [o.jsx("span", { ref: ph, style: { display: "none" } }), Rr.createPortal(o.jsx("div", { ...rest, ref: box, "data-ddb-float": "1", className: className, style: st, children: children }), document.body)] });
+}
+function ddbFloatPos(anchor, w, minH) { const vw = window.innerWidth, vh = window.innerHeight; let r = { left: 8, top: 8, bottom: 8 }; try { r = anchor.getBoundingClientRect(); } catch (e) {} const left = Math.max(8, Math.min(vw - w - 8, r.left)); const below = vh - r.bottom - 14, above = r.top - 14; if (below >= Math.min(minH, above) || below >= 420) return { left, top: r.bottom + 6, maxHeight: Math.max(160, below) }; const mh = Math.max(160, above); return { left, top: Math.max(8, r.top - 6 - mh), maxHeight: mh }; }
+function DDBAiRulesPop({ sym, dispatch, onInsert, onClose, anchor }) {
     const fb = sym.feedback || "~~", al = sym.alarm || "!!";
     const ref = O.useRef(null);
+    const [pos, setPos] = O.useState(() => ddbFloatPos(anchor && anchor.current, 320, 520));
+    O.useEffect(() => { const up = () => setPos(ddbFloatPos(anchor && anchor.current, 320, 520)); window.addEventListener("resize", up); window.addEventListener("scroll", up, true); return () => { window.removeEventListener("resize", up); window.removeEventListener("scroll", up, true); }; }, []);
     O.useEffect(() => { const h = e => { if (ref.current && !ref.current.contains(e.target) && !(e.target.closest && e.target.closest("[data-ddb-aihelp]"))) onClose(); }; const k = e => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }; document.addEventListener("mousedown", h); document.addEventListener("keydown", k, true); return () => { document.removeEventListener("mousedown", h); document.removeEventListener("keydown", k, true); }; }, []);
     const setSym = (key, v) => { v = String(v || "").replace(/\s/g, "").slice(0, 4); if (/^\d/.test(v)) return; const other = key === "feedback" ? al : fb; if (v && v === other) return; dispatch({ type: "UPDATE_SETTINGS", settings: { memoSymbols: { ...sym, [key]: v } } }); };
     const fixSym = (key, def) => { if (!String(sym[key] || "").trim()) dispatch({ type: "UPDATE_SETTINGS", settings: { memoSymbols: { ...sym, [key]: def } } }); };
@@ -2160,7 +2175,7 @@ function DDBAiRulesPop({ sym, dispatch, onInsert, onClose }) {
     const row = (n, title, desc) => o.jsxs("div", { style: { display: "flex", gap: 8, padding: "6px 0", borderTop: n > 1 ? "1px solid rgba(255,255,255,.08)" : "none" }, children: [o.jsx("span", { style: { flex: "0 0 18px", height: 18, borderRadius: 9, background: "rgba(56,189,248,.22)", color: "#bae6fd", fontSize: 10.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }, children: n }), o.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [o.jsx("div", { style: { color: "#fff", fontWeight: 600, fontSize: 12 }, children: title }), o.jsx("div", { style: { color: "rgba(255,255,255,.85)", fontSize: 11.5, lineHeight: 1.55, marginTop: 2 }, children: desc })] })] });
     const btn = (label, snip, tip, accent, ph) => o.jsx("button", { onClick: () => onInsert(snip, ph), title: tip, style: { padding: "4px 8px", borderRadius: 6, border: "1px solid " + (accent || "rgba(255,255,255,.25)"), background: "rgba(255,255,255,.07)", color: "#fff", fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" }, children: label });
     const symIn = (key, def, val) => o.jsx("input", { type: "text", value: sym[key] == null ? def : sym[key], onChange: e => setSym(key, e.target.value), onBlur: () => fixSym(key, def), title: "눌러서 원하는 기호로 바꾸기 (최대 4글자, 숫자로 시작 불가)", style: { width: 46, padding: "1px 4px", borderRadius: 5, border: "1px solid #fbbf24", background: "#0b0f15", color: "#fde68a", fontSize: 12.5, fontWeight: 700, textAlign: "center", fontFamily: "Consolas,monospace" } });
-    return o.jsxs("div", { ref: ref, "data-ddb-aipop": "1", onMouseDown: e => e.stopPropagation(), className: "absolute left-0 top-7 z-[80] rounded-xl shadow-2xl", style: { width: 320, maxHeight: "70vh", overflowY: "auto", background: "#161c26", border: "1px solid rgba(255,255,255,.22)", padding: "10px 12px", textAlign: "left" }, children: [
+    return Rr.createPortal(o.jsxs("div", { ref: ref, "data-ddb-aipop": "1", onMouseDown: e => e.stopPropagation(), className: "rounded-xl shadow-2xl", style: { position: "fixed", left: pos.left, top: pos.top, zIndex: 2147483400, width: 320, maxHeight: pos.maxHeight, overflowY: "auto", background: "#161c26", border: "1px solid rgba(255,255,255,.22)", padding: "10px 12px", textAlign: "left" }, children: [
         o.jsxs("div", { style: { display: "flex", alignItems: "center", marginBottom: 4 }, children: [o.jsx("span", { style: { color: "#fff", fontWeight: 700, fontSize: 13, flex: 1 }, children: "🤖 AI메모 사용 규칙" }), o.jsx("button", { onClick: onClose, title: "닫기 (Esc)", style: { background: "transparent", border: "none", color: "rgba(255,255,255,.85)", fontSize: 14, cursor: "pointer" }, children: "✕" })] }),
         row(1, "엔터 두 번(빈 줄) = 일정 나누기", "빈 줄로 나눈 묶음 하나가 일정 1개가 됩니다."),
         row(2, "첫 줄 = 제목, 나머지 줄 = 메모", "묶음의 첫 줄은 일정 제목, 그 아래 줄들은 일정 메모로 들어갑니다."),
@@ -2178,7 +2193,7 @@ function DDBAiRulesPop({ sym, dispatch, onInsert, onClose }) {
             btn("🔔 다음 주 월", al + "mo ", "다음 주 월요일 알림", "#f87171", "알림 내용")
         ] }),
         o.jsx("div", { style: { display: "flex", gap: 4, marginTop: 6, alignItems: "center" }, children: [o.jsx("span", { style: { color: "rgba(255,255,255,.85)", fontSize: 11, marginRight: 2 }, children: "색 일정:" }, "l")].concat(DDB_QT_ORDER.slice(0, 8).map((nm, i) => o.jsx("button", { onClick: () => onInsert((i + 1) + "*", "일정 제목"), title: (i + 1) + "* → " + nm + " 색 일정", style: { width: 22, height: 22, borderRadius: 11, border: "1px solid rgba(255,255,255,.35)", background: qt[nm], color: "#111", fontSize: 10.5, fontWeight: 800, cursor: "pointer", padding: 0 }, children: i + 1 }, nm))) })
-    ] });
+    ] }), document.body);
 }
 function DDBAiMemoCard({ tab }) {
     const { state, dispatch } = vt();
@@ -2195,6 +2210,7 @@ function DDBAiMemoCard({ tab }) {
     const cnt = ddbAiLines(txt).length;
     const fileNow = () => { const ls = ddbAiLines(txt); if (!ls.length) return; const tc = ddbTeamWriteCtx(); if (tc && !(tc.caps && tc.caps.event)) { alert("팀 캘린더에 쓰기 권한이 없어 일정을 추가할 수 없어요. (읽기 전용 멤버)\n팀 관리에서 운영자에게 권한을 요청하세요."); return; } ddbAiFlush({ ...tab, aiText: txt, aiDate: today }, dispatch, state.settings, true); setTxt(""); setResetN(n => n + 1); };
     const edWrap = O.useRef(null);
+    const helpBtn = O.useRef(null), palBtn = O.useRef(null);
     const aiInsert = (snip, ph) => { const sp = ddbSplitFmt(txt); const body = String(sp.body || "").replace(/\s+$/, ""); const nb = (body ? body + "\n\n" : "") + snip + (ph || ""); save(ddbJoinFmt(nb, sp.fmt)); setResetN(n => n + 1); setTimeout(() => { try { const ts = edWrap.current ? edWrap.current.querySelectorAll("textarea") : []; const ta = ts[ts.length - 1]; if (ta) { ta.focus(); const L = ta.value.length; const P = ph && ta.value.endsWith(ph) ? L - ph.length : L; ta.setSelectionRange(P, L); } } catch (e) {} }, 80); };
     const chipHex = qt[colorName] || tab.color || "#22c55e";
     const rec = (state.aiDaily || {})[today] || {};
@@ -2203,21 +2219,21 @@ function DDBAiMemoCard({ tab }) {
     return o.jsxs("div", { className: "flex flex-col h-full", style: { minHeight: 0 }, children: [
         o.jsxs("div", { className: "flex items-center gap-1.5 px-2.5 py-1.5 border-b border-white/10 flex-shrink-0", children: [
             o.jsxs("div", { className: "relative flex-shrink-0", children: [
-                o.jsx("button", { onClick: () => setTip(v => !v), title: "AI메모 사용법·명령어 (클릭)", "data-ddb-aihelp": "1", className: "w-5 h-5 rounded-full border text-[11px] font-bold flex items-center justify-center cursor-pointer select-none " + (tip ? "bg-sky-500 border-sky-300 text-white" : "bg-white/10 border-white/30 text-white/85 hover:bg-white/20"), children: "i" }),
-                tip ? o.jsx(DDBAiRulesPop, { sym: (state.settings && state.settings.memoSymbols) || {}, dispatch: dispatch, onInsert: aiInsert, onClose: () => setTip(false) }) : null
+                o.jsx("button", { ref: helpBtn, onClick: () => setTip(v => !v), title: "AI메모 사용법·명령어 (클릭)", "data-ddb-aihelp": "1", className: "w-5 h-5 rounded-full border text-[11px] font-bold flex items-center justify-center cursor-pointer select-none " + (tip ? "bg-sky-500 border-sky-300 text-white" : "bg-white/10 border-white/30 text-white/85 hover:bg-white/20"), children: "i" }),
+                tip ? o.jsx(DDBAiRulesPop, { sym: (state.settings && state.settings.memoSymbols) || {}, dispatch: dispatch, onInsert: aiInsert, onClose: () => setTip(false), anchor: helpBtn }) : null
             ] }),
             o.jsxs("div", { className: "relative flex-shrink-0", children: [
-                o.jsxs("button", { onClick: () => setPalOpen(v => !v), title: "일정 색 선택", className: "flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/8 border border-white/15 hover:bg-white/15 cursor-pointer", children: [
+                o.jsxs("button", { ref: palBtn, "data-ddb-palbtn": "1", onClick: () => setPalOpen(v => !v), title: "일정 색 선택", className: "flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/8 border border-white/15 hover:bg-white/15 cursor-pointer", children: [
                     o.jsx("span", { className: "w-3 h-3 rounded-full border border-white/30", style: { background: chipHex } }),
                     o.jsx("span", { className: "text-white/50 text-[10px]", children: "▾" })
                 ] }),
-                palOpen ? o.jsxs("div", { className: "absolute left-0 top-6 z-[60] p-2 rounded-lg bg-neutral-900 border border-white/15 shadow-xl", style: { width: 238 }, children: [
-                    o.jsx("div", { className: "text-white/70 text-[10px] leading-snug mb-1.5 text-center", children: "줄 맨 앞에 번호+* 를 쓰면 그 색 일정이 돼요 (예: 2*회의 → 연두). 아래 색을 누르면 기본 색으로 지정." }),
+                palOpen ? Rr.createPortal(o.jsxs("div", { "data-ddb-palpop": "1", className: "p-2 rounded-lg border border-white/20 shadow-xl", style: { position: "fixed", ...ddbFloatPos(palBtn.current, 238, 90), zIndex: 2147483400, width: 238, background: "#161c26" }, children: [
+                    o.jsx("div", { className: "text-white/85 text-[10px] leading-snug mb-1.5 text-center", children: "줄 맨 앞에 번호+* 를 쓰면 그 색 일정이 돼요 (예: 2*회의 → 연두). 아래 색을 누르면 기본 색으로 지정." }),
                     o.jsx("div", { style: { display: "flex", gap: 3, justifyContent: "space-between" }, children: Object.keys(qt).map((nm, i) => o.jsxs("button", { onClick: () => { setColor(nm); setPalOpen(false); }, title: (i + 1) + "* → " + nm, className: "flex flex-col items-center gap-0.5 bg-transparent border-none cursor-pointer p-0", children: [
                         o.jsx("span", { className: "text-[10px] font-bold leading-none " + (colorName === nm ? "text-white" : "text-white/45"), children: String(i + 1) }),
                         o.jsx("span", { className: "rounded-full border " + (colorName === nm ? "border-white" : "border-white/20"), style: { width: 18, height: 18, background: qt[nm] } })
                     ] }, nm)) })
-                ] }) : null
+                ] }), document.body) : null
             ] }),
             o.jsx("button", { onClick: () => ddbSpellCheck(ddbSplitFmt(txt).body), title: "맞춤법 검사 (검사기 열고 붙여넣기)", className: "ml-auto px-1.5 py-0.5 rounded text-[10px] bg-white/8 hover:bg-white/15 text-white/65 border-none cursor-pointer whitespace-nowrap", children: "🔤 맞춤법" }),
             o.jsx("span", { className: "text-white/80 text-[10px]", children: "빈 줄 = 일정 구분" })
@@ -3513,7 +3529,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.78";
+const DDB_VERSION = "1.00.79";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4552,8 +4568,7 @@ function AT() {
             })]
         }), o.jsxs("div", {
             className: "px-3 py-2 border-b border-white/10 flex-shrink-0 relative",
-            children: [h && o.jsxs("div", {
-                className: "absolute top-full left-0 mt-1 px-2.5 py-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1.5 flex-wrap shadow-2xl z-50",
+            children: [h && o.jsxs(DDBPortalPop, { className: "px-2.5 py-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1.5 flex-wrap shadow-2xl",
                 style: {
                     minWidth: 196
                 },
@@ -4638,7 +4653,7 @@ function AT() {
                         }) : o.jsx(Rf, {
                             size: 12
                         })
-                    }), o.jsxs("div", { className: "relative flex-shrink-0", children: [o.jsx("button", { onClick: () => setCe(G => G === F.id ? null : F.id), title: "색상 변경", className: "w-3.5 h-3.5 rounded-sm border border-white/40 hover:scale-110 transition-transform", style: { background: F.color || "#888" } }), ce === F.id ? o.jsxs(o.Fragment, { children: [o.jsx("div", { className: "fixed inset-0", style: { zIndex: 55 }, onClick: () => setCe(null) }), o.jsxs("div", { className: "absolute top-full left-0 mt-1 p-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1 flex-wrap shadow-2xl", style: { zIndex: 56, minWidth: 150 }, children: [...NT.map(col => o.jsx("button", { onClick: () => { t({ type: "UPDATE_TODO", todo: { ...F, color: col } }); setCe(null); }, className: "w-5 h-5 rounded-full border-2 " + (F.color === col ? "border-white" : "border-transparent"), style: { background: col } }, col)), o.jsx("input", { type: "color", value: F.color || "#888888", onChange: G => t({ type: "UPDATE_TODO", todo: { ...F, color: G.target.value } }), className: "w-5 h-5 cursor-pointer bg-transparent border-0", title: "직접 선택" })] })] }) : null] }), z ? o.jsx("input", {
+                    }), o.jsxs("div", { className: "relative flex-shrink-0", children: [o.jsx("button", { onClick: () => setCe(G => G === F.id ? null : F.id), title: "색상 변경", className: "w-3.5 h-3.5 rounded-sm border border-white/40 hover:scale-110 transition-transform", style: { background: F.color || "#888" } }), ce === F.id ? o.jsxs(o.Fragment, { children: [o.jsx("div", { className: "fixed inset-0", style: { zIndex: 55 }, onClick: () => setCe(null) }), o.jsxs(DDBPortalPop, { className: "p-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1 flex-wrap shadow-2xl", style: { zIndex: 56, minWidth: 150 }, children: [...NT.map(col => o.jsx("button", { onClick: () => { t({ type: "UPDATE_TODO", todo: { ...F, color: col } }); setCe(null); }, className: "w-5 h-5 rounded-full border-2 " + (F.color === col ? "border-white" : "border-transparent"), style: { background: col } }, col)), o.jsx("input", { type: "color", value: F.color || "#888888", onChange: G => t({ type: "UPDATE_TODO", todo: { ...F, color: G.target.value } }), className: "w-5 h-5 cursor-pointer bg-transparent border-0", title: "직접 선택" })] })] }) : null] }), z ? o.jsx("input", {
                         autoFocus: !0,
                         value: p,
                         onChange: G => m(G.target.value),
@@ -5063,7 +5078,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v515"
+                children: "v516"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -8278,7 +8293,7 @@ function fd({
                         size: 12
                     })
                 })]
-            }), o.jsxs("div", { className: "flex items-center gap-1.5 relative", children: [o.jsx("button", { onClick: () => setDoCe(doCe === "__add" ? null : "__add"), title: "색상 선택", className: "w-4 h-4 rounded-sm border border-white/40 flex-shrink-0", style: { background: doColor } }), doCe === "__add" && o.jsxs("div", { className: "absolute top-full left-0 mt-1 p-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1 flex-wrap shadow-2xl", style: { zIndex: 2147483300, minWidth: 140 }, children: [...DODO_PAL.map(col => o.jsx("button", { onClick: () => { setDoColor(col); setDoCe(null); }, className: "w-5 h-5 rounded-full border-2 " + (doColor === col ? "border-white" : "border-transparent"), style: { background: col } }, col)), o.jsx("input", { type: "color", value: doColor, onChange: e => setDoColor(e.target.value), className: "w-5 h-5 cursor-pointer bg-transparent border-0", title: "직접 선택" })] }), o.jsx("input", {
+            }), o.jsxs("div", { className: "flex items-center gap-1.5 relative", children: [o.jsx("button", { onClick: () => setDoCe(doCe === "__add" ? null : "__add"), title: "색상 선택", className: "w-4 h-4 rounded-sm border border-white/40 flex-shrink-0", style: { background: doColor } }), doCe === "__add" && o.jsxs(DDBPortalPop, { className: "p-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1 flex-wrap shadow-2xl", style: { zIndex: 2147483300, minWidth: 140 }, children: [...DODO_PAL.map(col => o.jsx("button", { onClick: () => { setDoColor(col); setDoCe(null); }, className: "w-5 h-5 rounded-full border-2 " + (doColor === col ? "border-white" : "border-transparent"), style: { background: col } }, col)), o.jsx("input", { type: "color", value: doColor, onChange: e => setDoColor(e.target.value), className: "w-5 h-5 cursor-pointer bg-transparent border-0", title: "직접 선택" })] }), o.jsx("input", {
                 placeholder: DDBTR("할 일 입력 후 Enter"),
                 className: "flex-1 min-w-0 bg-white/10 border border-white/20 rounded px-2 py-1 text-xs text-white placeholder-white/30 focus:outline-none focus:border-yellow-400",
                 onKeyDown: S => {
@@ -8316,7 +8331,7 @@ function fd({
                     children: [o.jsx("span", {
                         className: "flex-shrink-0",
                         children: S.checked ? "☑" : "☐"
-                    }), o.jsxs("div", { className: "relative flex-shrink-0", onClick: e => e.stopPropagation(), children: [o.jsx("button", { onClick: () => setDoCe(doCe === S.id ? null : S.id), title: "색상 변경", className: "w-3 h-3 rounded-sm border border-white/40 block", style: { background: S.color || "#888" } }), doCe === S.id && o.jsxs("div", { className: "absolute top-full left-0 mt-1 p-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1 flex-wrap shadow-2xl", style: { zIndex: 2147483300, minWidth: 140 }, children: [...DODO_PAL.map(col => o.jsx("button", { onClick: () => { n({ type: "UPDATE_DODO", id: S.id, patch: { color: col } }); setDoCe(null); }, className: "w-5 h-5 rounded-full border-2 " + (S.color === col ? "border-white" : "border-transparent"), style: { background: col } }, col)), o.jsx("input", { type: "color", value: S.color || "#888888", onChange: e => n({ type: "UPDATE_DODO", id: S.id, patch: { color: e.target.value } }), className: "w-5 h-5 cursor-pointer bg-transparent border-0" })] })] }), o.jsx("span", {
+                    }), o.jsxs("div", { className: "relative flex-shrink-0", onClick: e => e.stopPropagation(), children: [o.jsx("button", { onClick: () => setDoCe(doCe === S.id ? null : S.id), title: "색상 변경", className: "w-3 h-3 rounded-sm border border-white/40 block", style: { background: S.color || "#888" } }), doCe === S.id && o.jsxs(DDBPortalPop, { className: "p-2 bg-gray-900 border border-white/25 rounded-lg flex gap-1 flex-wrap shadow-2xl", style: { zIndex: 2147483300, minWidth: 140 }, children: [...DODO_PAL.map(col => o.jsx("button", { onClick: () => { n({ type: "UPDATE_DODO", id: S.id, patch: { color: col } }); setDoCe(null); }, className: "w-5 h-5 rounded-full border-2 " + (S.color === col ? "border-white" : "border-transparent"), style: { background: col } }, col)), o.jsx("input", { type: "color", value: S.color || "#888888", onChange: e => n({ type: "UPDATE_DODO", id: S.id, patch: { color: e.target.value } }), className: "w-5 h-5 cursor-pointer bg-transparent border-0" })] })] }), o.jsx("span", {
                         className: "flex-1 min-w-0 truncate",
                         children: S.text
                     }), o.jsx("button", {
@@ -17541,8 +17556,7 @@ function GO() {
                         className: "font-mono text-[11px] text-white/90 font-medium",
                         children: [i, "×"]
                     })]
-                }), c && o.jsx("div", {
-                    className: "absolute bottom-full left-0 right-0 mb-1 rounded-lg z-50 shadow-2xl p-1.5",
+                }), c && o.jsx(DDBPortalPop, { up: true, matchW: true, className: "rounded-lg shadow-2xl p-1.5",
                     style: {
                         background: "#111827",
                         border: "1px solid rgba(255,255,255,0.18)"
