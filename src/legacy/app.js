@@ -3529,7 +3529,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.80";
+const DDB_VERSION = "1.00.81";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5078,7 +5078,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v517"
+                children: "v518"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -18778,12 +18778,15 @@ function UP9() {
         const cmp = (l, c) => { const u = String(l).split(".").map(Number), h = String(c).split(".").map(Number); for (let d = 0; d < 3; d++) { if ((u[d] ?? 0) > (h[d] ?? 0)) return 1; if ((u[d] ?? 0) < (h[d] ?? 0)) return -1; } return 0; };
         const decide = n => { if (!n || !n.latest_version) return; const a = localStorage.getItem("ddb_skip_ver"); if (cmp(n.latest_version, DDB_VERSION) > 0 && a !== n.latest_version) t(n); };
         const fallbackMeta = () => { try { const r = $a(); if (!r) return; r.from("app_meta").select("latest_version,download_url,notes").eq("id", 1).single().then(({ data: n }) => decide(n)).catch(() => {}); } catch {} };
-        try {
-            fetch("https://api.github.com/repos/" + DDB_REPO + "/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+        let _tm = null, _dead = false;
+        const check = () => { if (_dead) return; try {
+            fetch("https://api.github.com/repos/" + DDB_REPO + "/releases/latest", { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" })
                 .then(res => res.ok ? res.json() : Promise.reject(res.status))
-                .then(j => { const ver = String(j.tag_name || "").replace(/^v/i, "").trim(); if (!ver) return fallbackMeta(); const assets = Array.isArray(j.assets) ? j.assets : []; const ua = (navigator.userAgent || ""); let pick; if (/Mac/i.test(ua)) pick = a => /\.dmg$/i.test(a.name); else if (/Windows NT (5|6\.0|6\.1)/i.test(ua)) pick = a => /win7/i.test(a.name) && /\.exe$/i.test(a.name); else pick = a => /win10-11/i.test(a.name) && /\.exe$/i.test(a.name); const inst = assets.filter(a => a && a.name && /\.(exe|dmg)$/i.test(a.name)); const hit = inst.find(pick) || inst.find(a => /win10-11.*\.exe$/i.test(a.name)) || inst[0]; const dl = (hit && hit.browser_download_url) ? hit.browser_download_url : (j.html_url || ("https://github.com/" + DDB_REPO + "/releases/latest")); decide({ latest_version: ver, download_url: dl, notes: String(j.body || "").split("\n").filter(x => x.trim()).slice(0, 6).join("\n").trim() }); })
-                .catch(() => fallbackMeta());
-        } catch { fallbackMeta(); }
+                .then(j => { const ver = String(j.tag_name || "").replace(/^v/i, "").trim(); if (!ver) return fallbackMeta(); const assets = Array.isArray(j.assets) ? j.assets : []; const ua = (navigator.userAgent || ""); let pick; if (/Mac/i.test(ua)) pick = a => /\.dmg$/i.test(a.name); else if (/Windows NT (5|6\.0|6\.1)/i.test(ua)) pick = a => /win7/i.test(a.name) && /\.exe$/i.test(a.name); else pick = a => /win10-11/i.test(a.name) && /\.exe$/i.test(a.name); const inst = assets.filter(a => a && a.name && /\.(exe|dmg)$/i.test(a.name)); const hit = inst.find(pick) || (/Mac/i.test(ua) ? null : inst.find(a => /win10-11.*\.exe$/i.test(a.name))); if (!hit || !hit.browser_download_url) { if (cmp(ver, DDB_VERSION) > 0) { _tm = setTimeout(check, 4 * 60 * 1000); } return; } decide({ latest_version: ver, download_url: hit.browser_download_url, notes: "" }); _tm = setTimeout(check, 60 * 60 * 1000); })
+                .catch(() => { fallbackMeta(); _tm = setTimeout(check, 60 * 60 * 1000); });
+        } catch { fallbackMeta(); } };
+        check();
+        return () => { _dead = true; if (_tm) clearTimeout(_tm); };
     }, []), e ? o.jsxs("div", {
         style: {
             position: "fixed",
@@ -18840,6 +18843,7 @@ function UP9() {
                         window.open(u, "_blank");
                         return;
                     }
+                    if (nat && nat.updateInstall) { setUpS({ busy: !1, err: "설치파일이 아직 준비 중이에요. 몇 분 뒤 다시 알려드릴게요." }); setTimeout(() => t(null), 4000); return; }
                     if (u && /^https?:\/\//i.test(u)) window.open(u, "_blank");
                     else alert(DDBTR("다운로드 링크가 아직 준비되지 않았습니다. 관리자에게 문의하세요."));
                     t(null)
