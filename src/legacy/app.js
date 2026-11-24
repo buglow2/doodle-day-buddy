@@ -1384,6 +1384,10 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
     const doSaveNow = O.useCallback(() => { const c = readNow(); if (!c) return false; if (onSaveNew) onSaveNew(c); else if (onCommit) onCommit(c); pendRef.current = false; setFlashSave(true); setTimeout(() => { try { setFlashSave(false); } catch (e) {} }, 1400); return true; }, [readNow, onSaveNew, onCommit]);
     const doFlushCurrent = O.useCallback(() => { const c = readNow(); if (c && onCommit) onCommit(c); }, [readNow, onCommit]);
     O.useEffect(() => { window.__ddbTblFlushNow = doFlushCurrent; return () => { if (window.__ddbTblFlushNow === doFlushCurrent) window.__ddbTblFlushNow = null; }; }, [doFlushCurrent]);
+    const baseSig = O.useRef(null);
+    const _tsig = O.useCallback(sheets => { try { return JSON.stringify((sheets || []).map(sh => { const out = []; (sh.data || []).forEach((r, ri) => (r || []).forEach((c, ci) => { if (c && (c.v != null || c.f || c.bg || c.fc || c.bl || c.it || c.ht != null || c.mc)) out.push([ri, ci, c.v, c.m, c.f, c.bg, c.fc, c.bl, c.it, c.fs, c.ht, c.vt, c.ct && c.ct.fa, c.mc && c.mc.rs]); })); const cf = sh.config || {}; return [sh.name, out, cf.merge || null, cf.borderInfo || null, cf.columnlen || null]; })); } catch (e) { return null; } }, []);
+    O.useEffect(() => { const t = setTimeout(() => { try { baseSig.current = _tsig(wbRef.current && wbRef.current.getAllSheets()); } catch (e) {} }, 900); return () => clearTimeout(t); }, []);
+    O.useEffect(() => { const dirty = () => { try { const ae = document.activeElement; if (ae && typeof ae.blur === "function") ae.blur(); } catch (e) {} if (baseSig.current == null) return !!pendRef.current; let cur = null; try { cur = _tsig(wbRef.current && wbRef.current.getAllSheets()); } catch (e) {} return cur == null ? !!pendRef.current : cur !== baseSig.current; }; const saveNew = () => { const ok = doSaveNow(); try { baseSig.current = _tsig(wbRef.current && wbRef.current.getAllSheets()); } catch (e) {} return ok; }; window.__ddbTblDirty = dirty; window.__ddbTblSaveNew = saveNew; return () => { if (window.__ddbTblDirty === dirty) window.__ddbTblDirty = null; if (window.__ddbTblSaveNew === saveNew) window.__ddbTblSaveNew = null; }; }, [doSaveNow]);
     const sel = () => { try { const s = wbRef.current && wbRef.current.getSelection(); return (s && s[0]) || null; } catch (e) { return null; } };
     const fmt = (attr, val) => { const r = sel(); if (r && wbRef.current) try { wbRef.current.setCellFormatByRange(attr, val, r); } catch (e) {} };
     const openFmtDialog = () => { try { const r = sel(); if (r && wbRef.current) { const row = r.row[0], col = r.column[0]; const g = a => { try { return wbRef.current.getCellValue(row, col, { type: a }); } catch (e) { return void 0; } }; setFmtInit({ ff: g("ff"), fs: g("fs"), bl: g("bl"), it: g("it"), un: g("un"), cl: g("cl"), fc: g("fc"), ht: g("ht"), vt: g("vt"), tb: g("tb"), bg: g("bg") }); } else setFmtInit({}); } catch (e) { setFmtInit({}); } setFmtOpen(true); };
@@ -1454,22 +1458,34 @@ function DDBTableDropZones() {
     const ctx = O.useContext(Wv);
     const [on, setOn] = O.useState(false);
     const [overId, setOverId] = O.useState(null);
-    O.useEffect(() => { const h = e => { setOn(!!(e && e.detail && e.detail.on)); if (!(e && e.detail && e.detail.on)) setOverId(null); }; window.addEventListener("ddb-tabledrag", h); return () => window.removeEventListener("ddb-tabledrag", h); }, []);
+    const [drag, setDrag] = O.useState(null);
+    O.useEffect(() => { const h = e => { const d = (e && e.detail) || {}; setOn(!!d.on); setDrag(d.on ? d : null); if (!d.on) setOverId(null); }; window.addEventListener("ddb-tabledrag", h); return () => window.removeEventListener("ddb-tabledrag", h); }, []);
     if (!on || !ctx || !ctx.state) return null;
     const dispatch = ctx.dispatch;
     const cats = (ctx.state.memoTabs || []).filter(tb => tb.id !== "calendar");
-    if (!cats.length) return null;
+    const rc = drag && drag.rect;
+    const above = !rc || rc.top >= 250;
+    const trashTop = rc ? (above ? rc.top - 92 : rc.bottom + 22) : null;
+    const foldTop = rc ? (above ? Math.max(6, rc.top - 236) : rc.bottom + 108) : 232;
+    const trashLeft = rc ? Math.max(8, Math.min(window.innerWidth - 120, rc.left + rc.width / 2 - 56)) : 0;
+    const dropTrash = e => { e.preventDefault(); setOverId(null); try { const raw = e.dataTransfer.getData("application/ddb-table"); const d = raw ? JSON.parse(raw) : drag; if (d && d.id) window.dispatchEvent(new CustomEvent("ddb-table-trash", { detail: { id: d.id } })); } catch (er) {} window.dispatchEvent(new CustomEvent("ddb-tabledrag", { detail: { on: false } })); };
+    const trashEl = rc ? o.jsxs("div", { "data-ddb-tabletrash": "1", onDragOver: e => { e.preventDefault(); try { e.dataTransfer.dropEffect = "move"; } catch (er) {} if (overId !== "__trash") setOverId("__trash"); }, onDragLeave: () => setOverId(p2 => p2 === "__trash" ? null : p2), onDrop: dropTrash, style: { position: "fixed", left: trashLeft, top: trashTop, width: 112, height: 70, zIndex: 2147483361, borderRadius: 14, border: "2px dashed #f87171", background: overId === "__trash" ? "#7f1d1d" : "#2a1215", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, boxShadow: "0 10px 28px rgba(0,0,0,0.6)", transform: overId === "__trash" ? "scale(1.1)" : "none", transition: "transform .08s, background .08s" }, children: [o.jsx("span", { style: { fontSize: 24, lineHeight: 1 }, children: "🗑" }), o.jsx("span", { style: { color: "#fecaca", fontSize: 12, fontWeight: 700 }, children: "여기 놓으면 버리기" })] }) : null;
+    if (!cats.length) return trashEl ? Rr.createPortal(trashEl, document.body) : null;
     const handleDrop = catId => e => { e.preventDefault(); setOverId(null); try { const raw = e.dataTransfer.getData("application/ddb-table"); if (!raw) return; const d = JSON.parse(raw); const md = ddbTabToMd(d.content); const head = d.name ? ("[表] " + d.name + "\n") : ""; dispatch({ type: "ADD_MEMO_ITEM", tabId: catId, item: { id: Ft(), content: head + md, createdAt: new Date().toISOString() } }); window.dispatchEvent(new CustomEvent("ddb-table-filed", { detail: { id: d.id } })); } catch (er) {} };
-    return Rr.createPortal(o.jsxs("div", { style: { position: "fixed", top: 232, left: 0, right: 0, zIndex: 2147483360, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, pointerEvents: "none" }, children: [
-        o.jsx("div", { style: { pointerEvents: "none", background: "#0b1020", color: "#fff", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.25)", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }, children: "📁 이 표를 넣을 메모 폴더로 끌어놓으세요" }),
+    return Rr.createPortal(o.jsxs(O.Fragment, { children: [trashEl, o.jsxs("div", { style: { position: "fixed", top: foldTop, left: 0, right: 0, zIndex: 2147483360, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, pointerEvents: "none" }, children: [
+        o.jsx("div", { style: { pointerEvents: "none", background: "#0b1020", color: "#fff", fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.25)", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }, children: "📁 메모 폴더에 놓으면 메모로 저장 · 🗑 에 놓으면 버리기" }),
         o.jsx("div", { style: { pointerEvents: "auto", display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", maxWidth: "94vw", padding: "4px 12px" }, children: cats.map(c => o.jsxs("div", { onDragOver: e => { e.preventDefault(); if (overId !== c.id) setOverId(c.id); }, onDragLeave: () => setOverId(p2 => p2 === c.id ? null : p2), onDrop: handleDrop(c.id), style: { minWidth: 116, minHeight: 60, borderRadius: 12, border: "2px dashed " + (c.color || "#8b8bff"), background: overId === c.id ? "#1d2740" : "#12151f", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, boxShadow: "0 10px 28px rgba(0,0,0,0.6)", transform: overId === c.id ? "scale(1.06)" : "none", transition: "transform 0.08s" }, children: [o.jsx("span", { style: { fontSize: 20 }, children: "📁" }), o.jsx("span", { style: { color: "#fff", fontSize: 12, fontWeight: 700, padding: "0 8px", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 150 }, children: c.title || "메모" })] }, c.id)) })
-    ] }), document.body);
+    ] })] }), document.body);
 }
+function ddbNextTblName(list) { let mx = 0; (list || []).forEach(t => { const m = /^표\s*(\d+)$/.exec(String((t && t.name) || "").trim()); if (m) mx = Math.max(mx, +m[1]); }); return "표 " + (Math.max(mx, (list || []).length) + 1); }
 function DDBTableWindow() {
     const [open, setOpen] = O.useState(false);
     const [tables, setTables] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_tables") || "null"); if (Array.isArray(v) && v.length) return v.map(t => (t.content != null) ? t : { id: t.id || ("t" + Date.now() + Math.random()), name: t.name || "표", content: ddbGridToMd((t.cells && t.cells[0]) || ["열1", "열2", "열3"], (t.cells || []).slice(1)) }); } catch {} return [{ id: "t" + Date.now(), name: "표 1", content: ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]) }]; });
     const [ti, setTi] = O.useState(0);
     const [askClose, setAskClose] = O.useState(false);
+    const [trashUndo, setTrashUndo] = O.useState(null);
+    const _undoT = O.useRef(null);
+    const openAsk = () => { let d = true; try { d = window.__ddbTblDirty ? !!window.__ddbTblDirty() : true; } catch (e) {} if (!d) { setAskClose(false); setOpen(false); return; } setAskClose(true); };
     const tablesRef = O.useRef(tables); tablesRef.current = tables;
     const snapRef = O.useRef(null);
     const _syncT = O.useRef(null);
@@ -1477,37 +1493,42 @@ function DDBTableWindow() {
     const _dh = ddbDragH(() => geo, setGeo);
     O.useEffect(() => { try { localStorage.setItem("ddb_table_geo", JSON.stringify(geo)); } catch {} }, [geo]);
     O.useEffect(() => { const h = ev => { try { snapRef.current = JSON.parse(JSON.stringify(tablesRef.current)); } catch (e) { snapRef.current = null; } try { const fid = ev && ev.detail && ev.detail.id; if (fid) { const ix = (tablesRef.current || []).findIndex(x => x.id === fid); if (ix >= 0) setTi(ix); } } catch (e) {} setAskClose(false); setOpen(true); }; window.addEventListener("ddb-open-table", h); return () => window.removeEventListener("ddb-open-table", h); }, []);
-    O.useEffect(() => { if (!open) return; const k = e => { if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "x" || e.key === "X" || e.key === "ㅌ" || e.code === "KeyX")) { e.preventDefault(); e.stopPropagation(); setAskClose(true); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, [open]);
+    O.useEffect(() => { if (!open) return; const k = e => { if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "x" || e.key === "X" || e.key === "ㅌ" || e.code === "KeyX")) { e.preventDefault(); e.stopPropagation(); openAsk(); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, [open]);
     const saveTables = t => { setTables(t); try { localStorage.setItem("ddb_tables", JSON.stringify(t)); } catch {} try { if (_syncT.current) clearTimeout(_syncT.current); _syncT.current = setTimeout(() => { try { window.__ddbFinalSync && window.__ddbFinalSync(); } catch (e) {} }, 1500); } catch (e) {} };
     const tab = tables[Math.min(ti, tables.length - 1)] || tables[0];
     const _blank = () => ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]);
     O.useEffect(() => { const h = e => { const fid = e && e.detail && e.detail.id; if (!fid) return; const nf = (tablesRef.current || []).filter(x => x.id !== fid); saveTables(nf.length ? nf : [{ id: "t" + Date.now(), name: "표 1", content: _blank() }]); setTi(0); }; window.addEventListener("ddb-table-filed", h); return () => window.removeEventListener("ddb-table-filed", h); }, []);
+    O.useEffect(() => { const h = e => { const fid = e && e.detail && e.detail.id; if (!fid) return; const cur = tablesRef.current || []; const ix = cur.findIndex(x => x.id === fid); if (ix < 0) return; const gone = cur[ix]; const nf = cur.filter(x => x.id !== fid); saveTables(nf.length ? nf : [{ id: "t" + Date.now(), name: "표 1", content: _blank() }]); setTi(Math.max(0, Math.min(ix, nf.length - 1))); setTrashUndo({ tab: gone, ix: ix }); if (_undoT.current) clearTimeout(_undoT.current); _undoT.current = setTimeout(() => setTrashUndo(null), 8000); }; window.addEventListener("ddb-table-trash", h); return () => window.removeEventListener("ddb-table-trash", h); }, []);
+    const undoTrash = () => { const u = trashUndo; if (!u) return; const cur = (tablesRef.current || []).slice(); const onlyBlank = cur.length === 1 && cur[0].name === "표 1" && u.tab.id !== cur[0].id && cur[0].content === _blank(); const base = onlyBlank ? [] : cur; base.splice(Math.min(u.ix, base.length), 0, u.tab); saveTables(base); setTi(Math.min(u.ix, base.length - 1)); setTrashUndo(null); };
     function saveContent(nc) { const t = tables.slice(); const idx = Math.min(ti, t.length - 1); t[idx] = { id: t[idx].id, name: t[idx].name, content: nc }; saveTables(t); }
-    function addSavedTab(content) { const base = tablesRef.current || []; const t = [...base, { id: "t" + Date.now() + Math.random().toString(36).slice(2, 5), name: "표 " + (base.length + 1), content: content }]; saveTables(t); setTi(t.length - 1); }
-    function newTable() { const t = [...tables, { id: "t" + Date.now(), name: "표 " + (tables.length + 1), content: _blank() }]; saveTables(t); setTi(t.length - 1); }
+    function addSavedTab(content) { const base = tablesRef.current || []; const t = [...base, { id: "t" + Date.now() + Math.random().toString(36).slice(2, 5), name: ddbNextTblName(base), content: content }]; saveTables(t); setTi(t.length - 1); }
+    function newTable() { const t = [...tables, { id: "t" + Date.now(), name: ddbNextTblName(tables), content: _blank() }]; saveTables(t); setTi(t.length - 1); }
     function delTable() { if (tables.length <= 1) { saveTables([{ id: "t" + Date.now(), name: "표 1", content: _blank() }]); setTi(0); return; } if (!window.confirm("이 표를 삭제할까요?")) return; const t = tables.filter((_, i) => i !== ti); saveTables(t); setTi(Math.max(0, ti - 1)); }
     function renameTable() { const nm = window.prompt("표 이름", tab.name); if (nm == null) return; const t = tables.slice(); t[ti] = { ...tab, name: nm }; saveTables(t); }
-    function resize(e) { e.preventDefault(); e.stopPropagation(); const sx = e.clientX, sy = e.clientY, ow = geo.w, oh = geo.h; const mm = ev => setGeo(g => ({ ...g, w: Math.max(360, ow + ev.clientX - sx), h: Math.max(240, oh + ev.clientY - sy) })); const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
+    function resize(e, dir) { e.preventDefault(); e.stopPropagation(); dir = dir || "se"; const sx = e.clientX, sy = e.clientY, g0 = { ...geo }; const cur = { e: "ew-resize", w: "ew-resize", s: "ns-resize", n: "ns-resize", se: "nwse-resize", nw: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize" }[dir]; const ov = document.createElement("div"); ov.style.cssText = "position:fixed;inset:0;z-index:2147483646;cursor:" + cur; document.body.appendChild(ov); const mm = ev => { const dx = ev.clientX - sx, dy = ev.clientY - sy; setGeo(() => { const g = { ...g0 }; if (dir.indexOf("e") >= 0) g.w = Math.max(360, g0.w + dx); if (dir.indexOf("s") >= 0) g.h = Math.max(240, g0.h + dy); if (dir.indexOf("w") >= 0) { const w = Math.max(360, g0.w - dx); g.x = g0.x + (g0.w - w); g.w = w; } if (dir.indexOf("n") >= 0) { const h = Math.max(240, g0.h - dy); g.y = Math.max(0, g0.y + (g0.h - h)); g.h = h; } return g; }); }; const mu = () => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); try { ov.remove(); } catch (er) {} }; document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); }
+    const _rzH = (dir, st) => o.jsx("div", { "data-ddb-rz": dir, onMouseDown: e => resize(e, dir), style: { position: "absolute", zIndex: 6, cursor: { e: "ew-resize", w: "ew-resize", s: "ns-resize", n: "ns-resize", se: "nwse-resize", nw: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize" }[dir], ...st } }, "rz-" + dir);
     if (!open) return null;
     return Rr.createPortal(o.jsxs("div", { className: "fixed rounded-xl shadow-2xl flex flex-col overflow-hidden", style: { zIndex: 2147483350, left: geo.x, top: geo.y, width: geo.w, height: geo.h, backgroundColor: "#0f1420", border: "1px solid rgba(255,255,255,0.18)" }, children: [
         o.jsxs("div", { onMouseDown: _dh.drag, style: { cursor: "grab" }, className: "flex items-center gap-2 px-3 py-2 border-b border-white/10 select-none flex-shrink-0 bg-white/5", children: [
             o.jsx("span", { className: "text-white font-semibold text-sm", children: "▦ 표" }),
-            o.jsx("div", { className: "flex items-center gap-1 overflow-x-auto flex-1", children: tables.map((tb, i) => o.jsx("button", { draggable: true, onDragStart: e => { try { e.dataTransfer.setData("application/ddb-table", JSON.stringify({ id: tb.id, name: tb.name, content: tb.content })); e.dataTransfer.effectAllowed = "copy"; } catch (er) {} window.dispatchEvent(new CustomEvent("ddb-tabledrag", { detail: { on: true } })); }, onDragEnd: () => window.dispatchEvent(new CustomEvent("ddb-tabledrag", { detail: { on: false } })), onClick: () => setTi(i), onDoubleClick: () => { if (i === ti) renameTable(); }, title: "더블클릭: 이름 변경 · 드래그: 메모로 보내기", className: "px-2 py-0.5 rounded text-xs whitespace-nowrap cursor-pointer border " + (i === ti ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"), children: tb.name }, tb.id)) }),
+            o.jsx("div", { className: "flex items-center gap-1 overflow-x-auto flex-1", children: tables.map((tb, i) => o.jsx("button", { draggable: true, onDragStart: e => { try { e.dataTransfer.setData("application/ddb-table", JSON.stringify({ id: tb.id, name: tb.name, content: tb.content })); e.dataTransfer.effectAllowed = "copyMove"; } catch (er) {} let rc = null; try { const b = e.currentTarget.getBoundingClientRect(); rc = { left: b.left, top: b.top, bottom: b.bottom, width: b.width }; } catch (er) {} window.dispatchEvent(new CustomEvent("ddb-tabledrag", { detail: { on: true, rect: rc, id: tb.id, name: tb.name } })); }, onDragEnd: () => window.dispatchEvent(new CustomEvent("ddb-tabledrag", { detail: { on: false } })), onClick: () => setTi(i), onDoubleClick: () => { if (i === ti) renameTable(); }, title: "더블클릭: 이름 변경 · 끌기: 위쪽 🗑에 놓으면 버리기, 📁 메모 폴더에 놓으면 메모로 저장", className: "px-2 py-0.5 rounded text-xs whitespace-nowrap cursor-pointer border " + (i === ti ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"), children: tb.name }, tb.id)) }),
             o.jsx("button", { onClick: newTable, title: "새 표", className: "px-2 py-0.5 rounded text-xs bg-white/10 text-white/70 hover:bg-white/20 cursor-pointer border-none", children: "＋" }),
             o.jsx("button", { onClick: () => { try { window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: tab.name || "표", html: ddbBlocksToPrintHtml(ddbTabToMd(tab.content)), landscape: true } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤)", className: "px-2 py-0.5 rounded text-xs bg-green-600/70 text-white hover:bg-green-600 cursor-pointer border-none", children: "🖨 인쇄" }),
             o.jsx("button", { onClick: delTable, title: "이 표 삭제", className: "px-1.5 py-0.5 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none", children: "🗑" }),
-            o.jsx("button", { onClick: () => setAskClose(true), title: "닫기 (Alt+X · 저장 확인)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
+            o.jsx("button", { onClick: openAsk, title: "닫기 (Alt+X · 고친 내용은 새 탭으로 저장)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
         ] }),
         o.jsx("div", { className: "flex-1 overflow-hidden", style: { minHeight: 0, position: "relative" }, children: o.jsx(DDBLibGrid, { content: tab.content, onCommit: saveContent, onSaveNew: addSavedTab }, "lib-" + tab.id) }),
-        o.jsx("div", { onMouseDown: resize, className: "absolute bottom-0 right-0 cursor-nwse-resize", style: { width: 18, height: 18, zIndex: 5 }, children: o.jsx("div", { style: { position: "absolute", right: 3, bottom: 3, width: 8, height: 8, borderRight: "2px solid rgba(255,255,255,0.4)", borderBottom: "2px solid rgba(255,255,255,0.4)" } }) }),
+        _rzH("e", { top: 10, bottom: 10, right: 0, width: 6 }), _rzH("w", { top: 10, bottom: 10, left: 0, width: 6 }), _rzH("s", { left: 10, right: 10, bottom: 0, height: 6 }), _rzH("n", { left: 10, right: 10, top: 0, height: 4 }), _rzH("sw", { left: 0, bottom: 0, width: 12, height: 12 }), _rzH("ne", { right: 0, top: 0, width: 12, height: 8 }), _rzH("nw", { left: 0, top: 0, width: 12, height: 8 }),
+        o.jsx("div", { "data-ddb-rz": "se", onMouseDown: e => resize(e, "se"), title: "끌어서 창 크기 조절 (가장자리 어디서나 가능)", style: { position: "absolute", right: 0, bottom: 0, width: 22, height: 22, zIndex: 7, cursor: "nwse-resize", background: "linear-gradient(135deg, transparent 50%, rgba(56,189,248,0.35) 50%)", borderBottomRightRadius: 10 }, children: o.jsx("svg", { width: 14, height: 14, viewBox: "0 0 14 14", style: { position: "absolute", right: 3, bottom: 3, pointerEvents: "none" }, children: o.jsx("path", { d: "M13 3 L3 13 M13 7 L7 13 M13 11 L11 13", stroke: "#e0f2fe", strokeWidth: 1.6, strokeLinecap: "round" }) }) }),
+        trashUndo ? o.jsxs("div", { "data-ddb-trashundo": "1", style: { position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", zIndex: 21, background: "#1e2432", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "6px 10px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 24px rgba(0,0,0,.6)" }, children: [o.jsx("span", { style: { color: "#fff", fontSize: 12 }, children: "🗑 '" + (trashUndo.tab.name || "표") + "' 버렸어요" }), o.jsx("button", { onClick: undoTrash, style: { background: "#3b82f6", color: "#fff", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: 12, cursor: "pointer", fontWeight: 700 }, children: "되돌리기" })] }) : null,
         askClose ? o.jsxs("div", { className: "absolute inset-0 flex items-center justify-center", style: { zIndex: 20, background: "rgba(0,0,0,0.5)" }, children: [o.jsxs("div", { className: "rounded-xl p-4 flex flex-col gap-3", style: { background: "#1e2432", border: "1px solid rgba(255,255,255,0.2)", width: 300 }, children: [
             o.jsx("div", { className: "text-white text-sm font-semibold", children: "표 창을 닫을까요?" }),
-            o.jsx("div", { className: "text-white/60 text-xs", children: "마지막 작업 내용을 저장하시겠습니까?" }),
+            o.jsxs("div", { className: "text-white/85 text-xs", style: { lineHeight: 1.6 }, children: ["고치거나 붙여넣은 내용이 있어요.", o.jsx("br", {}), "새 탭 ", o.jsx("b", { className: "text-white", children: "'" + ddbNextTblName(tables) + "'" }), "(으)로 저장하고, 원래 ", o.jsx("b", { className: "text-white", children: "'" + ((tab && tab.name) || "표") + "'" }), "은 그대로 둡니다."] }),
             o.jsxs("div", { className: "flex gap-2 mt-1", children: [
-                o.jsx("button", { onClick: () => { try { window.__ddbTblFlushNow && window.__ddbTblFlushNow(); } catch (e) {} setAskClose(false); setOpen(false); }, className: "flex-1 px-3 py-2 rounded text-xs cursor-pointer border-none text-white", style: { background: "#16a34a" }, children: "예 (저장하고 닫기)" }),
-                o.jsx("button", { onClick: () => { setAskClose(false); setOpen(false); }, className: "flex-1 px-3 py-2 rounded text-xs cursor-pointer border text-white/80", style: { background: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.2)" }, children: "아니오 (저장 안 함)" })
+                o.jsx("button", { onClick: () => { try { if (window.__ddbTblSaveNew) window.__ddbTblSaveNew(); else if (window.__ddbTblFlushNow) window.__ddbTblFlushNow(); } catch (e) {} setAskClose(false); setOpen(false); }, className: "flex-1 px-3 py-2 rounded text-xs cursor-pointer border-none text-white", style: { background: "#16a34a" }, children: "예 (새 탭으로 저장)" }),
+                o.jsx("button", { onClick: () => { setAskClose(false); setOpen(false); }, className: "flex-1 px-3 py-2 rounded text-xs cursor-pointer border text-white/85", style: { background: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.2)" }, children: "아니오 (저장 안 함)" })
             ] }),
-            o.jsx("button", { onClick: () => setAskClose(false), className: "text-white/50 hover:text-white/80 text-xs cursor-pointer bg-transparent border-none", children: "취소 (계속 편집)" })
+            o.jsx("button", { onClick: () => setAskClose(false), className: "text-white/80 hover:text-white text-xs cursor-pointer bg-transparent border-none", children: "취소 (계속 편집)" })
         ] })] }) : null
     ] }), document.body);
 }
@@ -2042,7 +2063,7 @@ function ddbAiFlush(tab, dispatch, settings, force) {
     let n = 0;
     lines.forEach((ln, ix) => {
         const raw = String(ln).trim();
-        if (fbSym && (raw === fbSym || raw.startsWith(fbSym + " "))) {
+        if (fbSym && raw.startsWith(fbSym)) {
             const text = raw.slice(fbSym.length).trim();
             if (text) { dispatch({ type: "ADD_FEEDBACK_MEMO", memo: { id: "fb" + Date.now().toString(36) + ix, content: text, color: tab.aiColorName || "green", tabTitle: tab.title, createdAt: new Date().toISOString(), isDismissed: false } }); n++; }
             return;
@@ -2129,6 +2150,36 @@ function DDBAiFlusher() {
     if (!msg) return null;
     return Rr.createPortal(o.jsx("div", { style: { position: "fixed", left: "50%", bottom: 60, transform: "translateX(-50%)", zIndex: 2147483600, background: "rgba(16,185,129,0.96)", color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13, boxShadow: "0 8px 24px rgba(0,0,0,0.45)" }, children: "🤖 " + msg }), document.body);
 }
+function DDBAiRulesPop({ sym, dispatch, onInsert, onClose }) {
+    const fb = sym.feedback || "~~", al = sym.alarm || "!!";
+    const ref = O.useRef(null);
+    O.useEffect(() => { const h = e => { if (ref.current && !ref.current.contains(e.target) && !(e.target.closest && e.target.closest("[data-ddb-aihelp]"))) onClose(); }; const k = e => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }; document.addEventListener("mousedown", h); document.addEventListener("keydown", k, true); return () => { document.removeEventListener("mousedown", h); document.removeEventListener("keydown", k, true); }; }, []);
+    const setSym = (key, v) => { v = String(v || "").replace(/\s/g, "").slice(0, 4); if (/^\d/.test(v)) return; const other = key === "feedback" ? al : fb; if (v && v === other) return; dispatch({ type: "UPDATE_SETTINGS", settings: { memoSymbols: { ...sym, [key]: v } } }); };
+    const fixSym = (key, def) => { if (!String(sym[key] || "").trim()) dispatch({ type: "UPDATE_SETTINGS", settings: { memoSymbols: { ...sym, [key]: def } } }); };
+    const code = t => o.jsx("code", { style: { background: "#0b0f15", border: "1px solid rgba(255,255,255,.22)", borderRadius: 4, padding: "0 5px", color: "#fde68a", fontFamily: "Consolas,monospace", fontSize: 11.5 }, children: t });
+    const row = (n, title, desc) => o.jsxs("div", { style: { display: "flex", gap: 8, padding: "6px 0", borderTop: n > 1 ? "1px solid rgba(255,255,255,.08)" : "none" }, children: [o.jsx("span", { style: { flex: "0 0 18px", height: 18, borderRadius: 9, background: "rgba(56,189,248,.22)", color: "#bae6fd", fontSize: 10.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }, children: n }), o.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [o.jsx("div", { style: { color: "#fff", fontWeight: 600, fontSize: 12 }, children: title }), o.jsx("div", { style: { color: "rgba(255,255,255,.85)", fontSize: 11.5, lineHeight: 1.55, marginTop: 2 }, children: desc })] })] });
+    const btn = (label, snip, tip, accent, ph) => o.jsx("button", { onClick: () => onInsert(snip, ph), title: tip, style: { padding: "4px 8px", borderRadius: 6, border: "1px solid " + (accent || "rgba(255,255,255,.25)"), background: "rgba(255,255,255,.07)", color: "#fff", fontSize: 11.5, cursor: "pointer", whiteSpace: "nowrap" }, children: label });
+    const symIn = (key, def, val) => o.jsx("input", { type: "text", value: sym[key] == null ? def : sym[key], onChange: e => setSym(key, e.target.value), onBlur: () => fixSym(key, def), title: "눌러서 원하는 기호로 바꾸기 (최대 4글자, 숫자로 시작 불가)", style: { width: 46, padding: "1px 4px", borderRadius: 5, border: "1px solid #fbbf24", background: "#0b0f15", color: "#fde68a", fontSize: 12.5, fontWeight: 700, textAlign: "center", fontFamily: "Consolas,monospace" } });
+    return o.jsxs("div", { ref: ref, "data-ddb-aipop": "1", onMouseDown: e => e.stopPropagation(), className: "absolute left-0 top-7 z-[80] rounded-xl shadow-2xl", style: { width: 320, maxHeight: "70vh", overflowY: "auto", background: "#161c26", border: "1px solid rgba(255,255,255,.22)", padding: "10px 12px", textAlign: "left" }, children: [
+        o.jsxs("div", { style: { display: "flex", alignItems: "center", marginBottom: 4 }, children: [o.jsx("span", { style: { color: "#fff", fontWeight: 700, fontSize: 13, flex: 1 }, children: "🤖 AI메모 사용 규칙" }), o.jsx("button", { onClick: onClose, title: "닫기 (Esc)", style: { background: "transparent", border: "none", color: "rgba(255,255,255,.85)", fontSize: 14, cursor: "pointer" }, children: "✕" })] }),
+        row(1, "엔터 두 번(빈 줄) = 일정 나누기", "빈 줄로 나눈 묶음 하나가 일정 1개가 됩니다."),
+        row(2, "첫 줄 = 제목, 나머지 줄 = 메모", "묶음의 첫 줄은 일정 제목, 그 아래 줄들은 일정 메모로 들어갑니다."),
+        row(3, "자동 정리", ["낮 12시(또는 다음 날)에 달력의 그날 날짜로 옮겨집니다. 바로 옮기려면 아래 ", code("지금 정리"), "."]),
+        row(4, "색 지정", ["첫 줄 맨 앞에 ", code("번호*"), " (예: ", code("2*회의"), " → 연두). 1분홍 2연두 3파랑 4노랑 5보라 6주황 7빨강 8청록"]),
+        row(5, o.jsxs("span", { children: ["피드백 ", symIn("feedback", "~~"), o.jsx("span", { style: { color: "rgba(255,255,255,.7)", fontWeight: 400, fontSize: 10.5, marginLeft: 6 }, children: "← 눌러서 기호 변경" })] }), [code(fb + " 내용"), " → 달력 대신 피드백 메모로 저장"]),
+        row(6, o.jsxs("span", { children: ["알림 ", symIn("alarm", "!!"), o.jsx("span", { style: { color: "rgba(255,255,255,.7)", fontWeight: 400, fontSize: 10.5, marginLeft: 6 }, children: "← 눌러서 기호 변경" })] }), [code(al + " 내용"), " 오늘 · ", code(al + "7 내용"), " 7일 뒤 · ", code(al + "mo 내용"), " 다음 주 월요일 (tu·we·th·fr·sa·su)"]),
+        row(7, "표 붙여넣기", "엑셀·한글 표를 붙여넣으면 오늘의 표로 따로 저장됩니다."),
+        o.jsx("div", { style: { color: "#fff", fontWeight: 700, fontSize: 12, marginTop: 8, marginBottom: 5, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.15)" }, children: "✍ 눌러서 바로 넣기 (메모 끝에 새 묶음으로)" }),
+        o.jsxs("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 }, children: [
+            btn("＋ 다음 일정", "", "빈 줄을 넣고 새 일정 제목 자리로 이동 (바로 입력하면 바뀝니다)", null, "일정 제목"),
+            btn("💬 피드백", fb + " ", "피드백 기호를 넣습니다 (바로 입력하면 '내용'이 바뀝니다)", "#a78bfa", "피드백 내용"),
+            btn("🔔 오늘 알림", al + " ", "오늘 알림", "#f87171", "알림 내용"),
+            btn("🔔 7일 뒤", al + "7 ", "7일 뒤 알림 (숫자를 바꾸면 그 날짜 수만큼 뒤)", "#f87171", "알림 내용"),
+            btn("🔔 다음 주 월", al + "mo ", "다음 주 월요일 알림", "#f87171", "알림 내용")
+        ] }),
+        o.jsx("div", { style: { display: "flex", gap: 4, marginTop: 6, alignItems: "center" }, children: [o.jsx("span", { style: { color: "rgba(255,255,255,.85)", fontSize: 11, marginRight: 2 }, children: "색 일정:" }, "l")].concat(DDB_QT_ORDER.slice(0, 8).map((nm, i) => o.jsx("button", { onClick: () => onInsert((i + 1) + "*", "일정 제목"), title: (i + 1) + "* → " + nm + " 색 일정", style: { width: 22, height: 22, borderRadius: 11, border: "1px solid rgba(255,255,255,.35)", background: qt[nm], color: "#111", fontSize: 10.5, fontWeight: 800, cursor: "pointer", padding: 0 }, children: i + 1 }, nm))) })
+    ] });
+}
 function DDBAiMemoCard({ tab }) {
     const { state, dispatch } = vt();
     const _aiClean = s => String(s == null ? "" : s).replace(/^\*[ \t]*\r?\n?/, "");
@@ -2143,15 +2194,17 @@ function DDBAiMemoCard({ tab }) {
     const setColor = nm => dispatch({ type: "UPDATE_MEMO_TAB", tab: { ...tab, aiColorName: nm, color: qt[nm] || tab.color } });
     const cnt = ddbAiLines(txt).length;
     const fileNow = () => { const ls = ddbAiLines(txt); if (!ls.length) return; const tc = ddbTeamWriteCtx(); if (tc && !(tc.caps && tc.caps.event)) { alert("팀 캘린더에 쓰기 권한이 없어 일정을 추가할 수 없어요. (읽기 전용 멤버)\n팀 관리에서 운영자에게 권한을 요청하세요."); return; } ddbAiFlush({ ...tab, aiText: txt, aiDate: today }, dispatch, state.settings, true); setTxt(""); setResetN(n => n + 1); };
+    const edWrap = O.useRef(null);
+    const aiInsert = (snip, ph) => { const sp = ddbSplitFmt(txt); const body = String(sp.body || "").replace(/\s+$/, ""); const nb = (body ? body + "\n\n" : "") + snip + (ph || ""); save(ddbJoinFmt(nb, sp.fmt)); setResetN(n => n + 1); setTimeout(() => { try { const ts = edWrap.current ? edWrap.current.querySelectorAll("textarea") : []; const ta = ts[ts.length - 1]; if (ta) { ta.focus(); const L = ta.value.length; const P = ph && ta.value.endsWith(ph) ? L - ph.length : L; ta.setSelectionRange(P, L); } } catch (e) {} }, 80); };
     const chipHex = qt[colorName] || tab.color || "#22c55e";
     const rec = (state.aiDaily || {})[today] || {};
     const tCnt = (rec.tables || []).length, iCnt = (rec.images || []).length;
     const onPasteTbl = e => { try { const html = e.clipboardData.getData("text/html"); const plain = e.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (md) { e.preventDefault(); dispatch({ type: "AI_DAILY_ADD", day: today, kind: "tables", item: String(md).trim() }); } } catch (er) {} };
     return o.jsxs("div", { className: "flex flex-col h-full", style: { minHeight: 0 }, children: [
         o.jsxs("div", { className: "flex items-center gap-1.5 px-2.5 py-1.5 border-b border-white/10 flex-shrink-0", children: [
-            o.jsxs("div", { className: "relative flex-shrink-0", onMouseEnter: () => setTip(true), onMouseLeave: () => setTip(false), children: [
-                o.jsx("div", { className: "w-4 h-4 rounded-full bg-white/10 border border-white/25 text-white/70 text-[10px] flex items-center justify-center cursor-help select-none", children: "i" }),
-                o.jsx("div", { className: "absolute left-0 top-5 z-[60] px-2.5 py-2 rounded-lg border border-white/20 text-white/90 text-[11px] leading-relaxed shadow-2xl pointer-events-none", style: { opacity: tip ? 1 : 0, transition: "opacity 0.3s ease", visibility: tip ? "visible" : "hidden", width: 250, maxWidth: "none", whiteSpace: "normal", background: "#14181f" }, children: "🤖 한 줄 = 일정 1개 (자정에 그날 날짜로 자동 정리) · 줄 맨 앞에 색 번호를 붙이면 그 색으로: 1*분홍 2*연두 3*파랑 4*노랑 5*보라 6*주황 7*빨강 8*청록 (예: 1*회의) · 표를 붙여넣으면 표로 바로 들어갑니다" })
+            o.jsxs("div", { className: "relative flex-shrink-0", children: [
+                o.jsx("button", { onClick: () => setTip(v => !v), title: "AI메모 사용법·명령어 (클릭)", "data-ddb-aihelp": "1", className: "w-5 h-5 rounded-full border text-[11px] font-bold flex items-center justify-center cursor-pointer select-none " + (tip ? "bg-sky-500 border-sky-300 text-white" : "bg-white/10 border-white/30 text-white/85 hover:bg-white/20"), children: "i" }),
+                tip ? o.jsx(DDBAiRulesPop, { sym: (state.settings && state.settings.memoSymbols) || {}, dispatch: dispatch, onInsert: aiInsert, onClose: () => setTip(false) }) : null
             ] }),
             o.jsxs("div", { className: "relative flex-shrink-0", children: [
                 o.jsxs("button", { onClick: () => setPalOpen(v => !v), title: "일정 색 선택", className: "flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/8 border border-white/15 hover:bg-white/15 cursor-pointer", children: [
@@ -2167,10 +2220,10 @@ function DDBAiMemoCard({ tab }) {
                 ] }) : null
             ] }),
             o.jsx("button", { onClick: () => ddbSpellCheck(ddbSplitFmt(txt).body), title: "맞춤법 검사 (검사기 열고 붙여넣기)", className: "ml-auto px-1.5 py-0.5 rounded text-[10px] bg-white/8 hover:bg-white/15 text-white/65 border-none cursor-pointer whitespace-nowrap", children: "🔤 맞춤법" }),
-            o.jsx("span", { className: "text-white/35 text-[10px]", children: "한 줄 = 일정" })
+            o.jsx("span", { className: "text-white/80 text-[10px]", children: "빈 줄 = 일정 구분" })
         ] }),
         (tCnt || iCnt) ? o.jsxs("div", { className: "px-2.5 py-1 text-[11px] flex items-center gap-2 flex-shrink-0 border-b border-white/5", children: [o.jsxs("span", { className: "text-sky-300", children: ["📊 오늘 표 ", tCnt] }), o.jsxs("span", { className: "text-purple-300", children: ["🖼 이미지 ", iCnt] }), o.jsx("span", { className: "text-white/30", children: "(메모 상세 → AI메모에서 날짜별로 보기)" })] }) : null,
-        o.jsx("div", { className: "flex-1 min-h-0 overflow-auto px-2 py-1", style: { borderLeft: "3px solid " + chipHex }, children: o.jsx(DDBDocEditor, { content: txt, onCommit: save, fontSize: 13, itemId: "aimemo-" + tab.id, maxH: "none", soloOn: true, simpleTables: true }, "aim-" + tab.id + "-" + resetN) }),
+        o.jsx("div", { ref: edWrap, className: "flex-1 min-h-0 overflow-auto px-2 py-1", style: { borderLeft: "3px solid " + chipHex }, children: o.jsx(DDBDocEditor, { content: txt, onCommit: save, fontSize: 13, itemId: "aimemo-" + tab.id, maxH: "none", soloOn: true, simpleTables: true }, "aim-" + tab.id + "-" + resetN) }),
         o.jsxs("div", { className: "flex items-center gap-2 px-2.5 py-1.5 border-t border-white/10 flex-shrink-0", children: [o.jsxs("span", { className: "text-white/80 text-[11px] flex-1", title: "엔터 두 번(빈 줄)으로 나눈 묶음마다 일정 1개가 됩니다", children: ["일정 ", cnt, "개 (빈 줄로 구분) · 오늘 ", today] }), o.jsx("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-ai-digest")), title: "날짜별 하루 요약 보기 (일정·표·이미지)", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer bg-white/8 border-white/20 text-white/70 hover:bg-white/15", children: "🗓 요약" }), o.jsx("button", { onClick: fileNow, disabled: !cnt, title: "지금 바로 오늘 날짜 일정으로 정리", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer disabled:opacity-40 " + (cnt ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100 hover:bg-emerald-500/40" : "bg-white/5 border-white/15 text-white/40"), children: "지금 정리" })] })
     ] });
 }
@@ -3460,7 +3513,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.77";
+const DDB_VERSION = "1.00.78";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5010,7 +5063,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v514"
+                children: "v515"
             }), (() => {
                 const S = [{
                     k: "cal",
