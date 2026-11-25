@@ -1309,46 +1309,305 @@ function ddbLoadFortune(content) { const s = String(content || ""); if (s.starts
 function ddbTabToMd(content) { const s = String(content || ""); if (s.startsWith("DDBFS:")) { try { return ddbFortuneToMd(JSON.parse(s.slice(6))) || ddbGridToMd(["열1"], []); } catch (e) { return ddbGridToMd(["열1"], []); } } return content; }
 const FS_FONTS = ["맑은 고딕", "굴림", "돋움", "바탕", "궁서", "Arial", "Times New Roman", "Courier New"];
 const FS_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48];
+// ===== 셀 서식 대화상자 (엑셀 '셀 서식' 재현, v522) =====
+// 무늬 채우기: FortuneSheet는 bg를 캔버스 fillStyle에 그대로 넣음 → "ddbpat:무늬:무늬색:배경색" 문자열을 캔버스 무늬(CanvasPattern)로 바꿔 그림
+const DDB_PATS = [
+    ["solid", "단색"], ["g75", "75% 회색"], ["g50", "50% 회색"], ["g25", "25% 회색"], ["g125", "12.5% 회색"], ["g625", "6.25% 회색"],
+    ["hs", "가로 줄무늬"], ["vs", "세로 줄무늬"], ["rd", "역대각선 줄무늬"], ["dd", "대각선 줄무늬"], ["dc", "대각선 크로스 해치"], ["tdc", "굵은 대각선 크로스 해치"],
+    ["ht", "얇은 가로 줄무늬"], ["vt", "얇은 세로 줄무늬"], ["rdt", "얇은 역대각선 줄무늬"], ["ddt", "얇은 대각선 줄무늬"], ["hct", "얇은 가로 크로스 해치"], ["dct", "얇은 대각선 크로스 해치"]
+];
+function ddbPatOn(id, x, y) {
+    switch (id) {
+        case "solid": return true;
+        case "g75": return !(x % 2 === 0 && y % 2 === 0);
+        case "g50": return (x + y) % 2 === 0;
+        case "g25": return x % 2 === 0 && y % 2 === 0;
+        case "g125": return x % 4 === 0 && y % 2 === 0;
+        case "g625": return x % 4 === 0 && y % 4 === 0;
+        case "hs": return y % 4 < 2;
+        case "vs": return x % 4 < 2;
+        case "rd": return (x + y) % 4 < 2;
+        case "dd": return (x - y + 8) % 4 < 2;
+        case "dc": return (x + y) % 4 === 0 || (x - y + 8) % 4 === 0;
+        case "tdc": return (x + y) % 4 < 2 || (x - y + 8) % 4 < 1;
+        case "ht": return y % 4 === 0;
+        case "vt": return x % 4 === 0;
+        case "rdt": return (x + y) % 4 === 0;
+        case "ddt": return (x - y + 8) % 4 === 0;
+        case "hct": return y % 4 === 0 || x % 4 === 0;
+        case "dct": return (x + y) % 8 === 0 || (x - y + 8) % 8 === 0;
+        default: return false;
+    }
+}
+function ddbPatCanvas(id, fg, bg) { const c = document.createElement("canvas"); c.width = 8; c.height = 8; const g = c.getContext("2d"); if (!g) return c; g.fillStyle = bg || "#ffffff"; g.fillRect(0, 0, 8, 8); g.fillStyle = fg || "#000000"; for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) if (ddbPatOn(id, x, y)) g.fillRect(x, y, 1, 1); return c; }
+const _ddbPatUrl = {};
+function ddbPatUrl(id, fg, bg) { const k = id + fg + bg; if (_ddbPatUrl[k]) return _ddbPatUrl[k]; try { return (_ddbPatUrl[k] = ddbPatCanvas(id, fg, bg).toDataURL()); } catch (e) { return ""; } }
+function ddbParsePat(v) { const m = /^ddbpat:([a-z0-9]+):([^:]+):(.+)$/.exec(String(v || "")); return m ? { id: m[1], fg: m[2], bg: m[3] } : null; }
+(function ddbInstallPatternFill() {
+    try {
+        if (typeof window === "undefined" || window.__ddbPatFill || !window.CanvasRenderingContext2D) return;
+        const P = window.CanvasRenderingContext2D.prototype; const d = Object.getOwnPropertyDescriptor(P, "fillStyle"); if (!d || !d.set) return;
+        const cache = new WeakMap();
+        Object.defineProperty(P, "fillStyle", { configurable: true, get() { return d.get.call(this); }, set(v) {
+            if (typeof v === "string" && v.indexOf("ddbpat:") === 0) { const p = ddbParsePat(v); if (p) { try { let m = cache.get(this); if (!m) { m = {}; cache.set(this, m); } if (!m[v]) m[v] = this.createPattern(ddbPatCanvas(p.id, p.fg, p.bg), "repeat"); if (m[v]) { d.set.call(this, m[v]); return; } } catch (e) {} d.set.call(this, p.bg); return; } }
+            d.set.call(this, v);
+        } });
+        window.__ddbPatFill = 1;
+    } catch (e) {}
+})();
+function ddbShade(hex, f) { try { const n = parseInt(String(hex).slice(1), 16); let r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255; if (f > 0) { r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; } else { r *= 1 + f; g *= 1 + f; b *= 1 + f; } const h = v => ("0" + Math.round(v).toString(16)).slice(-2); return "#" + h(r) + h(g) + h(b); } catch (e) { return hex; } }
+// 엑셀 테두리 선 스타일 (FortuneSheet style 번호)
+const DDB_BSTYLES = [["1", "얇은 실선", 1, ""], ["2", "가는 점선(헤어)", 1, "1 2"], ["3", "점선", 1, "2 2"], ["4", "파선", 1, "4 3"], ["5", "파선-점선", 1, "6 2 2 2"], ["6", "파선-점선-점선", 1, "6 2 2 2 2 2"], ["8", "중간 실선", 2, ""], ["9", "중간 파선", 2, "5 3"], ["10", "중간 파선-점선", 2, "7 2 2 2"], ["11", "중간 파선-점선-점선", 2, "7 2 2 2 2 2"], ["12", "기울어진 파선-점선", 2, "7 2 3 2"], ["13", "굵은 실선", 3, ""], ["7", "이중 실선", 1, "dbl"]];
+function ddbBLine(st, color, x1, y1, x2, y2, key) {
+    const s = DDB_BSTYLES.find(z => z[0] === String(st)) || DDB_BSTYLES[0];
+    if (s[3] === "dbl") { const hz = y1 === y2; return o.jsxs("g", { children: [o.jsx("line", { x1: hz ? x1 : x1 - 1.5, y1: hz ? y1 - 1.5 : y1, x2: hz ? x2 : x2 - 1.5, y2: hz ? y2 - 1.5 : y2, stroke: color, strokeWidth: 1 }), o.jsx("line", { x1: hz ? x1 : x1 + 1.5, y1: hz ? y1 + 1.5 : y1, x2: hz ? x2 : x2 + 1.5, y2: hz ? y2 + 1.5 : y2, stroke: color, strokeWidth: 1 })] }, key); }
+    return o.jsx("line", { x1, y1, x2, y2, stroke: color, strokeWidth: s[2], strokeDasharray: s[3] || void 0 }, key);
+}
+// 표시 형식
+const DDB_NUMCATS = ["일반", "숫자", "통화", "회계", "날짜", "시간", "백분율", "분수", "지수", "텍스트", "기타", "사용자 지정"];
+const DDB_CUR = [["₩", "₩ 한국어"], ["$", "$ 영어(미국)"], ["¥", "¥ 일본어"], ["€", "€ 유로"], ["£", "£ 영국"], ["", "없음"]];
+const DDB_DATEF = ["yyyy-mm-dd", "yyyy\"년\" m\"월\" d\"일\"", "yyyy\"년\" m\"월\" d\"일\" aaaa", "m/d", "yy-mm-dd", "mm\"월\" dd\"일\"", "yyyy/mm/dd", "yyyy.mm.dd", "d-mmm-yy", "mmm-yy"];
+const DDB_TIMEF = ["h:mm", "h:mm:ss", "AM/PM h:mm", "AM/PM h:mm:ss", "h\"시\" mm\"분\"", "h\"시\" mm\"분\" ss\"초\"", "yyyy-mm-dd h:mm"];
+const DDB_FRACF = [["# ?/?", "한 자릿수 분모 (1/4)"], ["# ??/??", "두 자릿수 분모 (21/25)"], ["# ???/???", "세 자릿수 분모 (312/943)"], ["# ?/2", "2분의 (1/2)"], ["# ?/4", "4분의 (2/4)"], ["# ?/8", "8분의 (4/8)"], ["# ??/16", "16분의 (8/16)"], ["# ?/10", "10분의 (3/10)"], ["# ??/100", "100분의 (30/100)"]];
+const DDB_ETCF = [["00000", "우편번호 (5자리)"], ["000-000", "우편번호 (구)"], ["000-0000-0000", "전화번호 (휴대폰)"], ["00-000-0000", "전화번호 (지역)"], ["000000-0000000", "주민등록번호"], ["[DBNum1]G/표준", "숫자(한자)"], ["[DBNum4]G/표준", "숫자(한글)"]];
+const DDB_CUSTOMF = ["General", "0", "0.00", "#,##0", "#,##0.00", "_-* #,##0_-;-* #,##0_-;_-* \"-\"_-;_-@_-", "_-* #,##0.00_-;-* #,##0.00_-;_-* \"-\"??_-;_-@_-", "_-\"₩\"* #,##0_-;-\"₩\"* #,##0_-;_-\"₩\"* \"-\"_-;_-@_-", "\"₩\"#,##0;-\"₩\"#,##0", "\"₩\"#,##0;[Red]-\"₩\"#,##0", "#,##0;-#,##0", "#,##0;[Red]-#,##0", "#,##0.00;-#,##0.00", "#,##0.00;[Red]-#,##0.00", "0%", "0.00%", "0.00E+00", "##0.0E+0", "# ?/?", "# ??/??", "yyyy-mm-dd", "yyyy\"년\" m\"월\" d\"일\"", "m/d", "h:mm", "h:mm:ss", "AM/PM h:mm", "yyyy-mm-dd h:mm", "mm:ss", "[h]:mm:ss", "@"];
+function ddbFmtKo(f) { return String(f || "").replace(/\[Red\]/g, "[빨강]").replace(/\[Blue\]/g, "[파랑]").replace(/^General$/, "G/표준"); }
+function ddbFmtEn(f) { return String(f || "").replace(/\[빨강\]/g, "[Red]").replace(/\[파랑\]/g, "[Blue]").replace(/^G\/표준$/, "General"); }
+function ddbFmtSample(fa, v) { try { if (fa === "@" || fa === "General") return String(v); return XLSX.SSF.format(ddbFmtEn(fa).replace(/\[DBNum\d\]G\/표준/, "General"), v); } catch (e) { return "(형식 오류)"; } }
+function ddbNumFa(cat, o2) {
+    const dec = Math.max(0, Math.min(30, o2.dec | 0)), d = dec ? "." + "0".repeat(dec) : "";
+    if (cat === "숫자") { const b = (o2.sep ? "#,##0" : "0") + d; return [b + ";-" + b, b + ";[Red]" + b, b + "_);(" + b + ")", b + "_);[Red](" + b + ")", b + ";[Red]-" + b][o2.neg | 0]; }
+    if (cat === "통화") { const s = o2.sym ? "\"" + o2.sym + "\"" : ""; const b = s + "#,##0" + d; return [b + ";-" + b, b + ";[Red]" + b, b + ";(" + b + ")", b + ";[Red](" + b + ")", b + ";[Red]-" + b][o2.neg | 0]; }
+    if (cat === "회계") { const s = o2.sym ? "\"" + o2.sym + "\"* " : "* "; return "_-" + s + "#,##0" + d + "_-;-" + s + "#,##0" + d + "_-;_-" + s + "\"-\"" + (dec ? "?".repeat(dec) : "") + "_-;_-@_-"; }
+    if (cat === "백분율") return "0" + d + "%";
+    if (cat === "지수") return "0" + d + "E+00";
+    return "General";
+}
+function ddbGuessCat(fa) {
+    const f = String(fa || "General");
+    if (f === "General" || f === "") return { cat: "일반" }; if (f === "@") return { cat: "텍스트" };
+    if (DDB_DATEF.includes(f)) return { cat: "날짜", pick: f }; if (DDB_TIMEF.includes(f)) return { cat: "시간", pick: f };
+    if (DDB_FRACF.some(z => z[0] === f)) return { cat: "분수", pick: f }; if (DDB_ETCF.some(z => z[0] === f)) return { cat: "기타", pick: f };
+    const decOf = x => ((String(x).split(";")[0].split(".")[1] || "").match(/0/g) || []).length;
+    const pos = f.split(";")[0], negp = f.split(";")[1] || "";
+    const negIx = !negp ? 0 : /\[Red\]\(/.test(negp) ? 3 : /\(/.test(negp) ? 2 : /\[Red\]-/.test(negp) ? 4 : /\[Red\]/.test(negp) ? 1 : 0;
+    if (/^_-/.test(f) && /\* #,##0/.test(f)) { const sm = /"([^"]+)"\*/.exec(f); return { cat: "회계", dec: decOf(f.replace(/^_-[^#]*/, "")), sym: sm ? sm[1] : "" }; }
+    if (/^"([^"]+)"#,##0(\.0+)?$/.test(pos)) { const sm = /^"([^"]+)"/.exec(pos); return { cat: "통화", dec: decOf(pos), sym: sm[1], neg: negIx }; }
+    if (/^(#,##0|0)(\.0+)?(_\))?$/.test(pos)) return { cat: "숫자", dec: decOf(pos), sep: /#,##/.test(pos), neg: negIx };
+    if (/%$/.test(f)) return { cat: "백분율", dec: ((f.split(".")[1] || "").match(/0/g) || []).length };
+    if (/E\+/.test(f)) return { cat: "지수", dec: ((f.split(".")[1] || "").match(/0/g) || []).length };
+    return { cat: "사용자 지정", custom: f };
+}
 function DDBCellFmtDialog({ apply, mergeToggle, applyBorder, init, close }) {
-    const [tab, setTab] = O.useState("num");
-    const [ff, setFf] = O.useState(init.ff || "");
-    const [fs, setFs] = O.useState(init.fs || 11);
-    const [bl, setBl] = O.useState(!!init.bl);
-    const [itc, setItc] = O.useState(!!init.it);
-    const [un, setUn] = O.useState(!!init.un);
-    const [cl, setCl] = O.useState(!!init.cl);
-    const [fc, setFc] = O.useState(init.fc || "#000000");
-    const [ht, setHt] = O.useState(init.ht == null ? 1 : init.ht);
-    const [vt, setVt] = O.useState(init.vt == null ? 0 : init.vt);
-    const [wrap, setWrap] = O.useState(!!(init.tb && init.tb !== 0));
-    const [bg, setBg] = O.useState(init.bg || "");
-    const [num, setNum] = O.useState("일반");
+    const I = init || {};
+    const [tab, setTab] = O.useState(I._tab || "num");
+    const dirty = O.useRef({});
+    const mark = k => { dirty.current[k] = true; };
+    // ---- 표시 형식
+    const g0 = ddbGuessCat(I.ct && I.ct.fa);
+    const [cat, setCat] = O.useState(g0.cat);
+    const [dec, setDec] = O.useState(g0.dec != null ? g0.dec : 2);
+    const [sep, setSep] = O.useState(g0.sep != null ? g0.sep : true);
+    const [neg, setNeg] = O.useState(g0.neg || 0);
+    const [sym, setSym] = O.useState(g0.sym != null ? g0.sym : "₩");
+    const [pick, setPick] = O.useState(g0.pick || "");
+    const [custom, setCustom] = O.useState(ddbFmtKo(g0.custom || (I.ct && I.ct.fa) || "General"));
+    const sampleV = (typeof I.v === "number") ? I.v : (I.v != null && I.v !== "" && !isNaN(Number(I.v)) ? Number(I.v) : null);
+    const curFa = (() => { if (cat === "일반") return "General"; if (cat === "텍스트") return "@"; if (cat === "날짜") return pick || DDB_DATEF[0]; if (cat === "시간") return pick || DDB_TIMEF[0]; if (cat === "분수") return pick || DDB_FRACF[0][0]; if (cat === "기타") return pick || DDB_ETCF[0][0]; if (cat === "사용자 지정") return ddbFmtEn(custom); return ddbNumFa(cat, { dec, sep, neg, sym }); })();
+    const isDate = cat === "날짜" || cat === "시간" || (cat === "사용자 지정" && /[ymdhs]/i.test(curFa.replace(/"[^"]*"/g, "")) && !/[#0?]/.test(curFa));
+    const demoV = sampleV != null ? sampleV : (isDate ? 46351.5 : (cat === "텍스트" || cat === "일반" ? (I.v != null && I.v !== "" ? I.v : 1234.5) : -1234.567));
+    const sampleTxt = cat === "텍스트" ? String(I.v != null && I.v !== "" ? I.v : "텍스트") : ddbFmtSample(curFa, demoV);
+    const redNeg = /\[Red\]/.test(curFa) && Number(demoV) < 0;
+    // ---- 맞춤
+    const H0 = I.ht == null ? "general" : ({ 1: "left", 0: "center", 2: "right" })[I.ht] || "general";
+    const V0 = I.vt == null ? "bottom" : ({ 1: "top", 0: "middle", 2: "bottom" })[I.vt] || "bottom";
+    const [hA, setHA] = O.useState(H0), [vA, setVA] = O.useState(V0);
+    const [wrap, setWrap] = O.useState(String(I.tb) === "2");
     const [doMerge, setDoMerge] = O.useState(false);
-    const [bc, setBc] = O.useState("#000000");
+    const ang0 = (() => { const rt = I.rt != null ? Number(I.rt) : ({ "1": 45, "2": 135, "4": 90, "5": 180 })[String(I.tr)] || 0; return rt > 90 ? 90 - rt : rt; })();
+    const [ang, setAng] = O.useState(ang0);
+    const [vert, setVert] = O.useState(String(I.tr) === "3");
+    const [tdir, setTdir] = O.useState("ctx");
+    // ---- 글꼴
+    const [ff, setFf] = O.useState(I.ff || "맑은 고딕");
+    const [fs, setFs] = O.useState(I.fs || 11);
+    const [bl, setBl] = O.useState(!!Number(I.bl));
+    const [itc, setItc] = O.useState(!!Number(I.it));
+    const [un, setUn] = O.useState(Number(I.un) || 0);
+    const [cl, setCl] = O.useState(!!Number(I.cl));
+    const [fc, setFc] = O.useState(I.fc || "#000000");
+    const [defFont, setDefFont] = O.useState(false);
+    // ---- 테두리
+    const nR = Math.max(1, I.nR || 1), nC = Math.max(1, I.nC || 1);
     const [bs, setBs] = O.useState("1");
-    const PAL = ["#ffffff","#000000","#e7e6e6","#44546a","#4472c4","#ed7d31","#a5a5a5","#ffc000","#5b9bd5","#70ad47","#c0504d","#9bbb59","#ff0000","#ffc000","#ffff00","#92d050","#00b050","#00b0f0","#0070c0","#7030a0"];
-    const NUM = [["일반","General","g"],["숫자","#,##0.00","n"],["통화","¤#,##0.00","n"],["회계","¤ #,##0.00","n"],["날짜","yyyy-MM-dd","d"],["시간","hh:mm:ss","d"],["백분율","0.00%","n"],["분수","# ?/?","n"],["지수","0.00E+00","n"],["텍스트","@","s"]];
+    const [bc, setBc] = O.useState("#000000");
+    const [edges, setEdges] = O.useState(() => I.edges || {});
+    const edgesChanged = O.useRef(false);
+    const setEdge = (k, on) => { edgesChanged.current = true; setEdges(e => { const n = { ...e }; if (on === false || (on == null && n[k] && n[k].style === bs && n[k].color === bc)) delete n[k]; else n[k] = { style: bs, color: bc }; return n; }); };
+    const preset = p => { edgesChanged.current = true; setEdges(e => { const s = { style: bs, color: bc }; if (p === "none") return {}; if (p === "outline") return { ...e, top: s, bottom: s, left: s, right: s }; return { ...e, ...(nR > 1 ? { ih: s } : {}), ...(nC > 1 ? { iv: s } : {}) }; }); };
+    // ---- 채우기
+    const pat0 = ddbParsePat(I.bg);
+    const [bg, setBg] = O.useState(pat0 ? (pat0.bg === "#ffffff" ? "" : pat0.bg) : (I.bg || ""));
+    const [patId, setPatId] = O.useState(pat0 ? pat0.id : "");
+    const [patFg, setPatFg] = O.useState(pat0 ? pat0.fg : "#000000");
+    const [patOpen, setPatOpen] = O.useState(false);
+    const bgValue = patId ? ("ddbpat:" + patId + ":" + patFg + ":" + (bg || "#ffffff")) : (bg || null);
     const onOk = () => { try {
-        apply("ff", ff || null); apply("fs", Number(fs) || 11); apply("bl", bl ? 1 : 0); apply("it", itc ? 1 : 0); apply("un", un ? 1 : 0); apply("cl", cl ? 1 : 0); apply("fc", fc); apply("ht", ht); apply("vt", vt); apply("tb", wrap ? 1 : 0); if (bg) apply("bg", bg);
-        const nc = NUM.find(x => x[0] === num); if (nc) { if (nc[2] === "g") apply("ct", { fa: "General", t: "g" }); else apply("ct", { fa: nc[1], t: nc[2] }); }
+        const D = dirty.current;
+        if (D.num) apply("ct", cat === "일반" ? { fa: "General", t: "g" } : cat === "텍스트" ? { fa: "@", t: "s" } : { fa: curFa, t: isDate ? "d" : "n" });
+        if (D.ha) { const m = { general: null, left: 1, center: 0, right: 2, fill: 1, justify: 1, cas: 0, dist: 0 }; apply("ht", m[hA]); if (hA === "justify") apply("tb", "2"); }
+        if (D.va) apply("vt", ({ top: 1, middle: 0, bottom: 2, justify: 1, dist: 0 })[vA]);
+        if (D.wrap) apply("tb", wrap ? "2" : "1");
+        if (D.rot) { if (vert) { apply("tr", "3"); apply("rt", null); } else { apply("tr", null); apply("rt", ang >= 0 ? ang : 90 - ang); } }
+        if (D.font) { apply("ff", ff || null); apply("fs", Number(fs) || 11); apply("bl", bl ? 1 : 0); apply("it", itc ? 1 : 0); apply("un", un); apply("cl", cl ? 1 : 0); apply("fc", fc); }
+        if (D.fill) apply("bg", bgValue);
+        if (edgesChanged.current && applyBorder) { applyBorder("border-none", "#000000", "1"); const map = { top: "border-top", bottom: "border-bottom", left: "border-left", right: "border-right", ih: "border-horizontal", iv: "border-vertical", diag: "border-slash" }; Object.keys(edges).forEach(k => { const e = edges[k]; if (e && map[k]) applyBorder(map[k], e.color, e.style); }); }
         if (doMerge && mergeToggle) mergeToggle();
     } catch (e) {} close(); };
-    const lab = t => o.jsx("div", { style: { fontSize: 12, color: "#605e5c", marginBottom: 4, fontWeight: 600 }, children: t });
-    const selBox = (val, setV, opts) => o.jsx("select", { value: val, onChange: e => setV(e.target.value), style: { width: "100%", height: 26, border: "1px solid #a19f9d", borderRadius: 3, fontSize: 13, padding: "0 4px" }, children: opts.map(o2 => o.jsx("option", { value: o2[0], children: o2[1] }, String(o2[0]))) });
-    const chk = (v, setV, t) => o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", marginBottom: 6 }, children: [o.jsx("input", { type: "checkbox", checked: v, onChange: e => setV(e.target.checked) }), t] });
+    // ---- 공통 UI
+    const C = { line: "#c8c6c4", tx: "#201f1e", sub: "#3b3a39" };
+    const lab = (t, mt) => o.jsx("div", { style: { fontSize: 12.5, color: C.tx, marginBottom: 4, marginTop: mt || 0 }, children: t });
+    const group = (t, children, st) => o.jsxs("fieldset", { style: { border: "1px solid #d2d0ce", borderRadius: 3, padding: "6px 10px 10px", margin: 0, ...(st || {}) }, children: [o.jsx("legend", { style: { fontSize: 12.5, color: C.tx, padding: "0 4px" }, children: t }), children] });
+    const listBox = (items, cur, onPick, h, render) => o.jsx("div", { style: { border: "1px solid #a19f9d", height: h || 180, overflowY: "auto", background: "#fff" }, children: items.map((it, ix) => { const k = Array.isArray(it) ? it[0] : it; const on = cur === k; return o.jsx("div", { onMouseDown: e => e.preventDefault(), onClick: () => onPick(k), style: { padding: "2px 7px", cursor: "default", fontSize: 12.5, background: on ? "#0078d4" : "transparent", color: on ? "#fff" : C.tx, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, children: render ? render(it, on) : (Array.isArray(it) ? it[1] : it) }, k + ":" + ix); }) });
+    const sel = (val, onCh, opts, w) => o.jsx("select", { value: val, onChange: e => onCh(e.target.value), style: { width: w || "100%", height: 26, border: "1px solid #a19f9d", borderRadius: 2, fontSize: 12.5, padding: "0 4px", background: "#fff", color: C.tx }, children: opts.map(o2 => o.jsx("option", { value: o2[0], children: o2[1] }, String(o2[0]))) });
+    const chk = (v, onCh, t, dis, note) => o.jsxs("label", { title: note || "", style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, cursor: dis ? "not-allowed" : "pointer", marginBottom: 5, color: dis ? "#8a8886" : C.tx }, children: [o.jsx("input", { type: "checkbox", checked: v, disabled: !!dis, onChange: e => onCh(e.target.checked) }), t, dis ? o.jsx("span", { style: { fontSize: 10.5, color: "#8a8886" }, children: "(이 표에선 미지원)" }) : null] });
+    const spin = (v, onCh, min, max, w, dis) => o.jsx("input", { type: "number", value: v, min, max, disabled: !!dis, onChange: e => onCh(Math.max(min, Math.min(max, Number(e.target.value) || 0))), style: { width: w || 60, height: 24, border: "1px solid #a19f9d", borderRadius: 2, fontSize: 12.5, padding: "0 4px", background: dis ? "#f3f2f1" : "#fff", color: C.tx } });
+    const note = t => o.jsx("div", { style: { fontSize: 11, color: "#605e5c", marginTop: 4, lineHeight: 1.45 }, children: t });
     let body = null;
-    if (tab === "num") body = o.jsxs("div", { style: { display: "flex", gap: 16 }, children: [o.jsxs("div", { style: { width: 150 }, children: [lab("범주(C):"), o.jsx("div", { style: { border: "1px solid #a19f9d", height: 230, overflowY: "auto", background: "#fff" }, children: NUM.map(c => o.jsx("div", { onClick: () => setNum(c[0]), style: { padding: "4px 8px", cursor: "pointer", fontSize: 13, background: num === c[0] ? "#cce4ff" : "transparent" }, children: c[0] }, c[0])) })] }), o.jsx("div", { style: { flex: 1, fontSize: 12, color: "#444", paddingTop: 22 }, children: "범주를 고르면 선택한 셀에 그 표시 형식이 적용됩니다." })] });
-    else if (tab === "align") body = o.jsxs("div", { style: { display: "flex", gap: 24 }, children: [o.jsxs("div", { style: { flex: 1 }, children: [lab("텍스트 맞춤"), o.jsx("div", { style: { marginBottom: 8 }, children: selBox(ht, v => setHt(Number(v)), [[1, "가로: 일반/왼쪽"], [0, "가로: 가운데"], [2, "가로: 오른쪽"]]) }), o.jsx("div", { style: { marginBottom: 14 }, children: selBox(vt, v => setVt(Number(v)), [[0, "세로: 가운데"], [1, "세로: 위"], [2, "세로: 아래"]]) }), lab("텍스트 조정"), chk(wrap, setWrap, "자동 줄 바꿈(W)"), chk(doMerge, setDoMerge, "셀 병합(M)")] })] });
-    else if (tab === "font") body = o.jsxs("div", { children: [o.jsxs("div", { style: { display: "flex", gap: 12 }, children: [o.jsxs("div", { style: { flex: 2 }, children: [lab("글꼴(F):"), selBox(ff, setFf, FS_FONTS.map(f => [f, f]))] }), o.jsxs("div", { style: { width: 90 }, children: [lab("크기(S):"), selBox(fs, v => setFs(Number(v)), FS_SIZES.map(z => [z, z]))] })] }), o.jsxs("div", { style: { display: "flex", gap: 18, marginTop: 14 }, children: [o.jsxs("div", { children: [lab("글꼴 스타일"), chk(bl, setBl, "굵게(B)"), chk(itc, setItc, "기울임(I)")] }), o.jsxs("div", { children: [lab("효과"), chk(un, setUn, "밑줄(U)"), chk(cl, setCl, "취소선(K)")] }), o.jsxs("div", { children: [lab("색(C):"), o.jsx("input", { type: "color", value: fc, onChange: e => setFc(e.target.value), style: { width: 60, height: 28, border: "1px solid #a19f9d", cursor: "pointer" } })] })] })] });
-    else if (tab === "fill") body = o.jsxs("div", { children: [lab("배경색(C):"), o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }, children: [o.jsx("button", { onClick: () => setBg(""), style: { padding: "4px 10px", border: "1px solid #a19f9d", borderRadius: 3, background: "#fff", cursor: "pointer", fontSize: 12 }, children: "색 없음" }), o.jsx("span", { style: { width: 26, height: 20, border: "1px solid #a19f9d", background: bg || "transparent", display: "inline-block" } })] }), o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(10, 22px)", gap: 4 }, children: PAL.map(c => o.jsx("div", { onClick: () => setBg(c), style: { width: 22, height: 22, background: c, border: bg === c ? "2px solid #0078d4" : "1px solid #c8c6c4", cursor: "pointer" } }, c)) })] });
-    else if (tab === "border") body = o.jsxs("div", { style: { display: "flex", gap: 24 }, children: [o.jsxs("div", { style: { width: 150 }, children: [lab("선 스타일(S):"), selBox(bs, setBs, [["1", "얇은 실선"], ["2", "가는 실선"], ["3", "점선"], ["4", "파선"], ["7", "굵은 실선"]]), o.jsx("div", { style: { height: 12 } }), lab("색(C):"), o.jsx("input", { type: "color", value: bc, onChange: e => setBc(e.target.value), style: { width: 64, height: 28, border: "1px solid #a19f9d", cursor: "pointer" } })] }), o.jsxs("div", { style: { flex: 1 }, children: [lab("미리 설정"), o.jsx("div", { style: { display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }, children: [["border-none", "없음"], ["border-outside", "윤곽선"], ["border-inside", "안쪽"], ["border-all", "모두 테두리"]].map(x => o.jsx("button", { onClick: () => applyBorder(x[0], bc, bs), style: { padding: "7px 12px", border: "1px solid #8a8886", borderRadius: 4, background: "#fff", cursor: "pointer", fontSize: 13 }, children: x[1] }, x[0])) }), lab("테두리 (클릭하면 바로 적용)"), o.jsx("div", { style: { display: "grid", gridTemplateColumns: "48px 130px 48px", gridTemplateRows: "32px 64px 32px", gap: 6, alignItems: "center", justifyItems: "center" }, children: [o.jsx("div", {}), o.jsx("button", { onClick: () => applyBorder("border-top", bc, bs), title: "위쪽", style: { padding: "4px 6px", border: "1px solid #a19f9d", borderRadius: 4, background: "#fff", cursor: "pointer", fontSize: 12, minWidth: 40 }, children: "⎺ 위" }), o.jsx("div", {}), o.jsx("button", { onClick: () => applyBorder("border-left", bc, bs), title: "왼쪽", style: { padding: "4px 6px", border: "1px solid #a19f9d", borderRadius: 4, background: "#fff", cursor: "pointer", fontSize: 12, minWidth: 40 }, children: "⎪ 왼" }), o.jsx("div", { style: { width: 128, height: 62, border: "1px solid #c8c6c4", display: "flex", alignItems: "center", justifyContent: "center", color: "#605e5c", fontSize: 13, background: "#fafafa" }, children: "텍스트" }), o.jsx("button", { onClick: () => applyBorder("border-right", bc, bs), title: "오른쪽", style: { padding: "4px 6px", border: "1px solid #a19f9d", borderRadius: 4, background: "#fff", cursor: "pointer", fontSize: 12, minWidth: 40 }, children: "오 ⎪" }), o.jsx("button", { onClick: () => applyBorder("border-vertical", bc, bs), title: "안쪽 세로", style: { padding: "4px 6px", border: "1px solid #a19f9d", borderRadius: 4, background: "#fff", cursor: "pointer", fontSize: 12, minWidth: 40 }, children: "⎪⎪" }), o.jsx("button", { onClick: () => applyBorder("border-bottom", bc, bs), title: "아래쪽", style: { padding: "4px 6px", border: "1px solid #a19f9d", borderRadius: 4, background: "#fff", cursor: "pointer", fontSize: 12, minWidth: 40 }, children: "⎯ 아래" }), o.jsx("button", { onClick: () => applyBorder("border-horizontal", bc, bs), title: "안쪽 가로", style: { padding: "4px 6px", border: "1px solid #a19f9d", borderRadius: 4, background: "#fff", cursor: "pointer", fontSize: 12, minWidth: 40 }, children: "═" })] })] })] });
-    else body = o.jsxs("div", { children: [o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }, children: [o.jsx("input", { type: "checkbox", defaultChecked: true, readOnly: true }), "잠금(L)"] }), o.jsx("div", { style: { fontSize: 12, color: "#605e5c", marginTop: 6 }, children: "셀 잠금/수식 숨기기는 정보용입니다(현재 미지원)." })] });
-    const tb2 = (k, t) => o.jsx("button", { onClick: () => setTab(k), style: { padding: "5px 12px", fontSize: 13, cursor: "pointer", border: "1px solid #c8c6c4", background: tab === k ? "#fff" : "#f3f2f1", color: "#201f1e", marginRight: -1, borderTopLeftRadius: 4, borderTopRightRadius: 4, borderBottom: tab === k ? "2px solid #fff" : "1px solid #c8c6c4", position: "relative", top: tab === k ? 1 : 0, fontWeight: tab === k ? 700 : 400 }, children: t }, k);
-    return Rr.createPortal(o.jsx("div", { onMouseDown: close, style: { position: "fixed", inset: 0, zIndex: 2147483601, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsxs("div", { onMouseDown: e => e.stopPropagation(), style: { width: 560, maxWidth: "94vw", background: "#f3f2f1", border: "1px solid #a19f9d", borderRadius: 6, boxShadow: "0 20px 60px rgba(0,0,0,0.45)", fontFamily: "'Malgun Gothic',sans-serif", color: "#201f1e", overflow: "hidden" }, children: [
-        o.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e1dfdd" }, children: [o.jsx("span", { style: { fontWeight: 700, fontSize: 14 }, children: "셀 서식" }), o.jsx("button", { onClick: close, style: { border: "none", background: "transparent", fontSize: 16, cursor: "pointer", color: "#605e5c" }, children: "✕" })] }),
+    if (tab === "num") {
+        const right = [];
+        right.push(group("보기", o.jsx("div", { "data-ddb-fmtsample": "1", style: { height: 22, fontSize: 13, color: redNeg ? "#d13438" : C.tx, padding: "2px 4px", fontFamily: "'Malgun Gothic',sans-serif" }, children: sampleTxt }), { marginBottom: 10 }));
+        const decRow = o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }, children: [o.jsx("span", { style: { fontSize: 12.5, width: 110 }, children: "소수 자릿수(D):" }), spin(dec, v => { setDec(v); mark("num"); }, 0, 30)] });
+        const symRow = o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }, children: [o.jsx("span", { style: { fontSize: 12.5, width: 110 }, children: "기호(S):" }), sel(sym, v => { setSym(v); mark("num"); }, DDB_CUR, 170)] });
+        const negList = (base) => { const rows = [0, 1, 2, 3].map(i => { const f = ddbNumFa(base, { dec, sep, neg: i, sym }); const t = ddbFmtSample(f, -1234.1); return [String(i), t, /\[Red\]/.test(f)]; }); return o.jsxs("div", { children: [lab("음수(N):"), listBox(rows.map(r => [r[0], r[1]]), String(neg), k => { setNeg(Number(k)); mark("num"); }, 92, (it, on) => o.jsx("span", { style: { color: on ? "#fff" : (rows[Number(it[0])][2] ? "#d13438" : C.tx) }, children: it[1] }))] }); };
+        if (cat === "일반") right.push(note("일반 서식 셀에는 특정 서식이 지정되지 않습니다. 숫자는 입력한 그대로, 글자는 왼쪽 정렬로 보입니다."));
+        else if (cat === "숫자") right.push(decRow, chk(sep, v => { setSep(v); mark("num"); }, "1000 단위 구분 기호(,) 사용(U)"), negList("숫자"), note("숫자 서식은 일반적인 숫자 표시에 사용합니다. 통화 및 회계 서식은 금액 표시에 사용합니다."));
+        else if (cat === "통화") right.push(decRow, symRow, negList("통화"), note("통화 서식은 일반 금액에 사용합니다. 열에서 소수점을 맞추려면 회계 서식을 사용하세요."));
+        else if (cat === "회계") right.push(decRow, symRow, note("회계 서식은 통화 기호와 소수점을 열에 맞춰 정렬합니다. 0은 '-'로 표시됩니다."));
+        else if (cat === "백분율" || cat === "지수") right.push(decRow, note(cat === "백분율" ? "셀 값에 100을 곱한 결과를 % 기호와 함께 표시합니다." : "아주 크거나 작은 숫자를 지수 형태(1.23E+05)로 표시합니다."));
+        else if (cat === "날짜" || cat === "시간") { const L = cat === "날짜" ? DDB_DATEF : DDB_TIMEF; right.push(lab("형식(T):"), listBox(L.map(f => [f, ddbFmtSample(f, sampleV != null ? sampleV : 46351.5)]), pick || L[0], k => { setPick(k); mark("num"); }, 150), note(cat === "날짜" ? "날짜 서식은 날짜 일련 번호를 날짜 값으로 표시합니다." : "시간 서식은 날짜 일련 번호를 시간 값으로 표시합니다.")); }
+        else if (cat === "분수") right.push(lab("형식(T):"), listBox(DDB_FRACF, pick || DDB_FRACF[0][0], k => { setPick(k); mark("num"); }, 160));
+        else if (cat === "기타") right.push(lab("형식(T):"), listBox(DDB_ETCF, pick || DDB_ETCF[0][0], k => { setPick(k); mark("num"); }, 150), note("우편번호·전화번호·주민등록번호처럼 자릿수가 정해진 숫자를 표시할 때 사용합니다."));
+        else if (cat === "텍스트") right.push(note("텍스트 서식 셀에서는 숫자도 텍스트로 처리되며 입력한 그대로 표시됩니다."));
+        else if (cat === "사용자 지정") right.push(lab("형식(T):"), o.jsx("input", { "data-ddb-fmtcustom": "1", value: custom, onChange: e => { setCustom(e.target.value); mark("num"); }, style: { width: "100%", height: 24, border: "1px solid #a19f9d", fontSize: 12.5, padding: "0 5px", marginBottom: 4, boxSizing: "border-box", color: C.tx } }), listBox(DDB_CUSTOMF.map(f => [ddbFmtKo(f), ddbFmtKo(f)]), custom, k => { setCustom(k); mark("num"); }, 150), note("기존 형식 중 하나를 선택한 후 변형시킵니다. 예: #,##0\"원\"  /  0.0\"kg\"  /  yyyy-mm-dd"));
+        body = o.jsxs("div", { style: { display: "flex", gap: 14 }, children: [o.jsxs("div", { style: { width: 132, flexShrink: 0 }, children: [lab("범주(C):"), listBox(DDB_NUMCATS, cat, k => { setCat(k); mark("num"); if (k === "사용자 지정") setCustom(ddbFmtKo(curFa)); setPick(""); }, 292)] }), o.jsx("div", { style: { flex: 1, minWidth: 0 }, children: right })] });
+    } else if (tab === "align") {
+        const hOpts = [["general", "일반"], ["left", "왼쪽 (들여쓰기)"], ["center", "가운데"], ["right", "오른쪽 (들여쓰기)"], ["fill", "채우기"], ["justify", "양쪽 맞춤"], ["cas", "선택 영역의 가운데로"], ["dist", "균등 분할 (들여쓰기)"]];
+        const vOpts = [["top", "위쪽"], ["middle", "가운데"], ["bottom", "아래쪽"], ["justify", "양쪽 맞춤"], ["dist", "균등 분할"]];
+        const approx = { fill: "※ 이 표에선 '왼쪽'으로 표시돼요", justify: "※ 이 표에선 '왼쪽 + 자동 줄 바꿈'으로 표시돼요", cas: "※ 이 표에선 '가운데'로 표시돼요 (여러 칸에 걸치려면 셀 병합)", dist: "※ 이 표에선 '가운데'로 표시돼요" };
+        const dial = (() => { const W = 120, Hh = 140, cx = 14, cy = 70, R = 52; const dots = []; for (let a = -90; a <= 90; a += 15) { const r = a * Math.PI / 180; const x = cx + R * Math.cos(r), y = cy - R * Math.sin(r); dots.push(o.jsx("circle", { cx: x, cy: y, r: a % 45 === 0 ? 3 : 1.6, fill: "#201f1e", style: { cursor: "pointer" }, onClick: () => { setAng(a); setVert(false); mark("rot"); } }, a)); } const rr = ang * Math.PI / 180; const ex = cx + R * Math.cos(rr), ey = cy - R * Math.sin(rr); return o.jsxs("svg", { width: W, height: Hh, style: { display: "block", cursor: "pointer", opacity: vert ? .35 : 1 }, onClick: e => { const b = e.currentTarget.getBoundingClientRect(); const dx = e.clientX - b.left - cx, dy = cy - (e.clientY - b.top); if (dx < 4) return; let a = Math.round(Math.atan2(dy, dx) * 180 / Math.PI); a = Math.max(-90, Math.min(90, a)); setAng(a); setVert(false); mark("rot"); }, children: [o.jsx("path", { d: "M" + cx + " " + (cy - R) + " A" + R + " " + R + " 0 0 1 " + cx + " " + (cy + R), fill: "none", stroke: "#e1dfdd" }), ...dots, o.jsx("line", { x1: cx + 34 * Math.cos(rr), y1: cy - 34 * Math.sin(rr), x2: ex, y2: ey, stroke: "#201f1e" }), o.jsx("text", { x: cx + 4, y: cy + 4, fontSize: 12, fill: "#201f1e", transform: "rotate(" + (-ang) + " " + cx + " " + cy + ")", children: "텍스트" }), o.jsx("circle", { cx: ex, cy: ey, r: 4, fill: "#d13438" })] }); })();
+        body = o.jsxs("div", { style: { display: "flex", gap: 14 }, children: [
+            o.jsxs("div", { style: { flex: 1 }, children: [
+                group("텍스트 맞춤", o.jsxs("div", { children: [
+                    o.jsxs("div", { style: { display: "flex", gap: 12, alignItems: "flex-end" }, children: [o.jsxs("div", { style: { flex: 1 }, children: [lab("가로(H):"), sel(hA, v => { setHA(v); mark("ha"); }, hOpts)] }), o.jsxs("div", { children: [lab("들여쓰기(I):"), spin(0, () => {}, 0, 15, 56, true)] })] }),
+                    approx[hA] ? note(approx[hA]) : null,
+                    lab("세로(V):", 8), sel(vA, v => { setVA(v); mark("va"); }, vOpts, 200), (vA === "justify" || vA === "dist") ? note(vA === "justify" ? "※ 이 표에선 '위쪽'으로 표시돼요" : "※ 이 표에선 '가운데'로 표시돼요") : null
+                ] }), { marginBottom: 10 }),
+                group("텍스트 조정", o.jsxs("div", { children: [chk(wrap, v => { setWrap(v); mark("wrap"); }, "자동 줄 바꿈(W)"), chk(false, () => {}, "셀에 맞춤(K)", true, "글자를 칸 크기에 맞게 줄이는 기능은 이 표에서 지원하지 않습니다"), chk(doMerge, setDoMerge, "셀 병합(M)")] }), { marginBottom: 10 }),
+                group("텍스트 방향", o.jsxs("div", { children: [lab("방향(T):"), sel(tdir, setTdir, [["ctx", "텍스트 방향대로"], ["ltr", "왼쪽에서 오른쪽"], ["rtl", "오른쪽에서 왼쪽"]], 200)] }))
+            ] }),
+            group("방향", o.jsxs("div", { style: { display: "flex", flexDirection: "column", alignItems: "center" }, children: [
+                o.jsxs("div", { style: { display: "flex", gap: 6 }, children: [
+                    o.jsx("div", { title: "세로 쓰기", onClick: () => { setVert(v => !v); mark("rot"); }, style: { width: 26, height: 140, border: "1px solid " + (vert ? "#0078d4" : "#c8c6c4"), background: vert ? "#cce4f7" : "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontSize: 12, lineHeight: 1.15, cursor: "pointer", color: C.tx }, children: ["텍", "스", "트"].map(ch => o.jsx("span", { children: ch }, ch)) }),
+                    dial
+                ] }),
+                o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 6 }, children: [spin(ang, v => { setAng(v); setVert(false); mark("rot"); }, -90, 90, 56), o.jsx("span", { style: { fontSize: 12.5 }, children: "도(D)" })] })
+            ] }), { width: 168, flexShrink: 0 })
+        ] });
+    } else if (tab === "font") {
+        const styles = [["0", "보통"], ["1", "기울임꼴"], ["2", "굵게"], ["3", "굵은 기울임꼴"]];
+        const stCur = String((bl ? 2 : 0) + (itc ? 1 : 0));
+        const fonts = Array.from(new Set(["맑은 고딕", "굴림", "돋움", "바탕", "궁서", "나눔고딕", "Arial", "Times New Roman", "Courier New", "Consolas", "Verdana", "Tahoma"].concat(typeof FS_FONTS !== "undefined" ? FS_FONTS : []))).filter(Boolean);
+        const sizes = typeof FS_SIZES !== "undefined" ? FS_SIZES : [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
+        const F = v => { mark("font"); setDefFont(false); return v; };
+        body = o.jsxs("div", { children: [
+            o.jsxs("div", { style: { display: "flex", gap: 12 }, children: [
+                o.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [lab("글꼴(F):"), o.jsx("input", { value: ff, onChange: e => setFf(F(e.target.value)), style: { width: "100%", height: 24, border: "1px solid #a19f9d", fontSize: 12.5, padding: "0 5px", boxSizing: "border-box", color: C.tx } }), listBox(fonts.map(f => [f, f]), ff, k => setFf(F(k)), 112, it => o.jsx("span", { style: { fontFamily: "'" + it[0] + "'" }, children: it[1] }))] }),
+                o.jsxs("div", { style: { width: 130 }, children: [lab("글꼴 스타일(O):"), o.jsx("input", { readOnly: true, value: styles[Number(stCur)][1], style: { width: "100%", height: 24, border: "1px solid #a19f9d", fontSize: 12.5, padding: "0 5px", boxSizing: "border-box", color: C.tx } }), listBox(styles, stCur, k => { F(0); const n = Number(k); setBl(n >= 2); setItc(n % 2 === 1); }, 112)] }),
+                o.jsxs("div", { style: { width: 70 }, children: [lab("크기(S):"), o.jsx("input", { value: fs, onChange: e => setFs(F(e.target.value)), style: { width: "100%", height: 24, border: "1px solid #a19f9d", fontSize: 12.5, padding: "0 5px", boxSizing: "border-box", color: C.tx } }), listBox(sizes.map(z => [String(z), String(z)]), String(fs), k => setFs(F(Number(k))), 112)] })
+            ] }),
+            o.jsxs("div", { style: { display: "flex", gap: 12, marginTop: 10, alignItems: "flex-end" }, children: [
+                o.jsxs("div", { style: { flex: 1 }, children: [lab("밑줄(U):"), sel(String(un), v => setUn(F(Number(v))), [["0", "없음"], ["1", "실선"], ["2", "이중 실선"], ["3", "회계용 실선"], ["4", "회계용 이중 실선"]])] }),
+                o.jsxs("div", { style: { width: 130 }, children: [lab("색(C):"), o.jsxs("div", { style: { display: "flex", gap: 4 }, children: [o.jsx("input", { type: "color", value: fc, onChange: e => setFc(F(e.target.value)), style: { width: 70, height: 26, border: "1px solid #a19f9d", padding: 1, cursor: "pointer" } }), o.jsx("button", { onClick: () => setFc(F("#000000")), style: { fontSize: 11.5, border: "1px solid #a19f9d", background: "#fff", cursor: "pointer", padding: "0 6px", color: C.tx }, children: "자동" })] })] }),
+                o.jsx("div", { style: { width: 70 }, children: chk(defFont, v => { setDefFont(v); if (v) { mark("font"); setFf("맑은 고딕"); setFs(11); setBl(false); setItc(false); setUn(0); setCl(false); setFc("#000000"); } }, "기본 글꼴(N)") })
+            ] }),
+            o.jsxs("div", { style: { display: "flex", gap: 12, marginTop: 10 }, children: [
+                group("효과", o.jsxs("div", { children: [chk(cl, v => setCl(F(v)), "취소선(K)"), chk(false, () => {}, "위 첨자(E)", true), chk(false, () => {}, "아래 첨자(B)", true)] }), { width: 190 }),
+                group("미리 보기", o.jsx("div", { "data-ddb-fontpreview": "1", style: { height: 62, display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", border: "1px solid #e1dfdd", overflow: "hidden" }, children: o.jsx("span", { style: { fontFamily: "'" + ff + "'", fontSize: Math.min(40, Number(fs) || 11) * 1.333 + "px", fontWeight: bl ? 700 : 400, fontStyle: itc ? "italic" : "normal", textDecoration: [un ? "underline" : "", cl ? "line-through" : ""].join(" ").trim() || "none", textDecorationStyle: (un === 2 || un === 4) ? "double" : "solid", color: fc, whiteSpace: "nowrap" }, children: ff || "가나다 AaBbCc" }) }), { flex: 1 })
+            ] }),
+            note("화면과 인쇄에 같은 글꼴이 사용됩니다. (컴퓨터에 설치되지 않은 글꼴은 비슷한 글꼴로 대신 표시됩니다)")
+        ] });
+    } else if (tab === "border") {
+        const PW = 170, PH = 110, x0 = 14, y0 = 12, x1 = x0 + PW, y1 = y0 + PH, mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+        const lines = [];
+        const E = edges;
+        if (E.top) lines.push(ddbBLine(E.top.style, E.top.color, x0, y0, x1, y0, "t")); if (E.bottom) lines.push(ddbBLine(E.bottom.style, E.bottom.color, x0, y1, x1, y1, "b"));
+        if (E.left) lines.push(ddbBLine(E.left.style, E.left.color, x0, y0, x0, y1, "l")); if (E.right) lines.push(ddbBLine(E.right.style, E.right.color, x1, y0, x1, y1, "r"));
+        if (E.ih) lines.push(ddbBLine(E.ih.style, E.ih.color, x0, my, x1, my, "ih")); if (E.iv) lines.push(ddbBLine(E.iv.style, E.iv.color, mx, y0, mx, y1, "iv"));
+        if (E.diag) lines.push(ddbBLine(E.diag.style, E.diag.color, x0, y0, x1, y1, "dg"));
+        const multiR = nR > 1, multiC = nC > 1;
+        const corner = (x, y, dx, dy, k) => o.jsx("path", { d: "M" + (x + dx * 6) + " " + y + " L" + x + " " + y + " L" + x + " " + (y + dy * 6), stroke: "#a19f9d", fill: "none" }, k);
+        const hit = (k, x, y, w, h) => o.jsx("rect", { x, y, width: w, height: h, fill: "transparent", style: { cursor: "pointer" }, onClick: () => setEdge(k) }, "h" + k);
+        const ebtn = (k, icon, title, dis) => o.jsx("button", { title: title + (dis ? " (여러 칸을 선택했을 때만)" : ""), disabled: !!dis, onClick: () => setEdge(k), style: { width: 28, height: 26, border: "1px solid " + (E[k] ? "#0078d4" : "#a19f9d"), background: E[k] ? "#cce4f7" : "#fff", cursor: dis ? "not-allowed" : "pointer", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", opacity: dis ? .4 : 1 }, children: o.jsx("svg", { width: 18, height: 18, viewBox: "0 0 18 18", children: [o.jsx("rect", { x: 2.5, y: 2.5, width: 13, height: 13, fill: "none", stroke: "#a19f9d", strokeDasharray: "1 1.5" }, "f"), icon] }) }, k);
+        const L = (x1_, y1_, x2_, y2_) => o.jsx("line", { x1: x1_, y1: y1_, x2: x2_, y2: y2_, stroke: "#201f1e", strokeWidth: 1.6 }, "i");
+        const pbtn = (p, label, icon, dis) => o.jsxs("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }, children: [o.jsx("button", { disabled: !!dis, onClick: () => preset(p), title: label, style: { width: 44, height: 40, border: "1px solid #a19f9d", background: "#f3f2f1", cursor: dis ? "not-allowed" : "pointer", opacity: dis ? .4 : 1, display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsxs("svg", { width: 30, height: 30, viewBox: "0 0 30 30", children: [o.jsx("rect", { x: 3, y: 3, width: 24, height: 24, fill: "#fff", stroke: "#c8c6c4", strokeDasharray: "1.5 1.5" }), o.jsx("line", { x1: 15, y1: 3, x2: 15, y2: 27, stroke: "#c8c6c4", strokeDasharray: "1.5 1.5" }), o.jsx("line", { x1: 3, y1: 15, x2: 27, y2: 15, stroke: "#c8c6c4", strokeDasharray: "1.5 1.5" }), icon] }) }), o.jsx("span", { style: { fontSize: 11.5, color: dis ? "#8a8886" : C.tx }, children: label })] }, p);
+        body = o.jsxs("div", { style: { display: "flex", gap: 14 }, children: [
+            group("선", o.jsxs("div", { children: [lab("스타일(S):"),
+                o.jsx("div", { "data-ddb-bstyles": "1", style: { border: "1px solid #a19f9d", background: "#fff", padding: 4, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, width: 150 }, children: [o.jsx("div", { onClick: () => preset("none"), title: "테두리 지우기", style: { height: 20, fontSize: 11.5, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", border: "1px solid transparent", color: C.tx }, children: "없음" }, "none")].concat(DDB_BSTYLES.map(s => o.jsx("div", { title: s[1], onClick: () => setBs(s[0]), style: { height: 20, border: "1px solid " + (bs === s[0] ? "#0078d4" : "transparent"), background: bs === s[0] ? "#cce4f7" : "transparent", cursor: "pointer", display: "flex", alignItems: "center" }, children: o.jsx("svg", { width: 64, height: 12, children: ddbBLine(s[0], "#000", 4, 6, 60, 6, "x") }) }, s[0]))) }),
+                lab("색(C):", 10), o.jsxs("div", { style: { display: "flex", gap: 4 }, children: [o.jsx("input", { type: "color", value: bc, onChange: e => setBc(e.target.value), style: { width: 90, height: 26, border: "1px solid #a19f9d", padding: 1, cursor: "pointer" } }), o.jsx("button", { onClick: () => setBc("#000000"), style: { fontSize: 11.5, border: "1px solid #a19f9d", background: "#fff", cursor: "pointer", color: C.tx }, children: "자동" })] })
+            ] }), { width: 172, flexShrink: 0 }),
+            o.jsxs("div", { style: { flex: 1 }, children: [
+                group("미리 설정", o.jsxs("div", { style: { display: "flex", gap: 18, justifyContent: "center" }, children: [
+                    pbtn("none", "없음(N)", null),
+                    pbtn("outline", "윤곽선(O)", o.jsx("rect", { x: 3, y: 3, width: 24, height: 24, fill: "none", stroke: "#201f1e", strokeWidth: 1.6 })),
+                    pbtn("inside", "안쪽(I)", o.jsxs("g", { children: [o.jsx("line", { x1: 15, y1: 3, x2: 15, y2: 27, stroke: "#201f1e", strokeWidth: 1.6 }), o.jsx("line", { x1: 3, y1: 15, x2: 27, y2: 15, stroke: "#201f1e", strokeWidth: 1.6 })] }), !(multiR || multiC))
+                ] }), { marginBottom: 8 }),
+                group("테두리", o.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+                    o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 10, paddingTop: 6 }, children: [ebtn("top", L(2.5, 2.5, 15.5, 2.5), "위쪽 테두리"), ebtn("ih", L(2.5, 9, 15.5, 9), "안쪽 가로 테두리", !multiR), ebtn("bottom", L(2.5, 15.5, 15.5, 15.5), "아래쪽 테두리")] }),
+                    o.jsxs("div", { children: [
+                        o.jsxs("svg", { "data-ddb-bpreview": "1", width: PW + 28, height: PH + 24, style: { background: "#fff", border: "1px solid #e1dfdd", display: "block" }, children: [corner(x0 - 2, y0 - 2, -1, -1, "c1"), corner(x1 + 2, y0 - 2, 1, -1, "c2"), corner(x0 - 2, y1 + 2, -1, 1, "c3"), corner(x1 + 2, y1 + 2, 1, 1, "c4"), multiC ? o.jsx("line", { x1: mx, y1: y0 - 6, x2: mx, y2: y0 - 1, stroke: "#a19f9d" }, "mc") : null, multiR ? o.jsx("line", { x1: x0 - 6, y1: my, x2: x0 - 1, y2: my, stroke: "#a19f9d" }, "mr") : null,
+                            ...(multiR || multiC ? [[x0 + (multiC ? PW / 4 : PW / 2), y0 + (multiR ? PH / 4 : PH / 2)], ...(multiC ? [[x0 + PW * 3 / 4, y0 + (multiR ? PH / 4 : PH / 2)]] : []), ...(multiR ? [[x0 + (multiC ? PW / 4 : PW / 2), y0 + PH * 3 / 4]] : []), ...(multiR && multiC ? [[x0 + PW * 3 / 4, y0 + PH * 3 / 4]] : [])] : [[mx, my]]).map((p, i) => o.jsx("text", { x: p[0], y: p[1] + 4, fontSize: 12, textAnchor: "middle", fill: "#201f1e", children: "텍스트" }, "tx" + i)),
+                            ...lines, hit("top", x0, y0 - 6, PW, 12), hit("bottom", x0, y1 - 6, PW, 12), hit("left", x0 - 6, y0, 12, PH), hit("right", x1 - 6, y0, 12, PH), multiR ? hit("ih", x0 + 12, my - 6, PW - 24, 12) : null, multiC ? hit("iv", mx - 6, y0 + 12, 12, PH - 24) : null] }),
+                        o.jsxs("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 8 }, children: [ebtn("diag", L(2.5, 2.5, 15.5, 15.5), "대각선 (↘)", multiR || multiC), ebtn("left", L(2.5, 2.5, 2.5, 15.5), "왼쪽 테두리"), ebtn("iv", L(9, 2.5, 9, 15.5), "안쪽 세로 테두리", !multiC), ebtn("right", L(15.5, 2.5, 15.5, 15.5), "오른쪽 테두리")] })
+                    ] })
+                ] }))
+            ] })
+        ] });
+        body = o.jsxs("div", { children: [body, note("왼쪽에서 선 스타일·색을 고른 뒤, 미리 설정·테두리 단추를 누르거나 미리 보기 안의 선 위치를 클릭하세요. 같은 선을 다시 누르면 지워집니다. '확인'을 눌러야 표에 적용됩니다.")] });
+    } else if (tab === "fill") {
+        const theme = ["#ffffff", "#000000", "#e7e6e6", "#44546a", "#4472c4", "#ed7d31", "#a5a5a5", "#ffc000", "#5b9bd5", "#70ad47"];
+        const tints = [0.8, 0.6, 0.4, -0.25, -0.5];
+        const std = ["#c00000", "#ff0000", "#ffc000", "#ffff00", "#92d050", "#00b050", "#00b0f0", "#0070c0", "#002060", "#7030a0"];
+        const sw = (c, k) => o.jsx("div", { title: c, onClick: () => { setBg(c); mark("fill"); }, style: { width: 18, height: 18, background: c, border: bg === c ? "2px solid #0078d4" : "1px solid #c8c6c4", boxSizing: "border-box", cursor: "pointer" } }, k);
+        const prevStyle = patId ? { backgroundImage: "url(" + ddbPatUrl(patId, patFg, bg || "#ffffff") + ")", backgroundRepeat: "repeat", imageRendering: "pixelated", backgroundSize: "8px 8px" } : { background: bg || "#fff" };
+        body = o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
+            o.jsxs("div", { style: { display: "flex", gap: 18 }, children: [
+                o.jsxs("div", { children: [lab("배경색(C):"), o.jsx("button", { onClick: () => { setBg(""); mark("fill"); }, style: { width: 206, height: 24, border: "1px solid " + (!bg ? "#0078d4" : "#a19f9d"), background: !bg ? "#cce4f7" : "#fff", fontSize: 12.5, cursor: "pointer", marginBottom: 6, color: C.tx }, children: "색 없음" }),
+                    o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(10, 18px)", gap: 3, marginBottom: 6 }, children: theme.map((c, i) => sw(c, "t" + i)) }),
+                    o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(10, 18px)", gap: 3, marginBottom: 6 }, children: tints.flatMap((f, r) => theme.map((c, i) => { const cc = i === 0 ? ddbShade("#ffffff", -[0.05, 0.15, 0.25, 0.35, 0.5][r]) : i === 1 ? ddbShade("#000000", [0.5, 0.35, 0.25, 0.15, 0.05][r]) : ddbShade(c, f); return sw(cc, "s" + r + i); })) }),
+                    o.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(10, 18px)", gap: 3 }, children: std.map((c, i) => sw(c, "d" + i)) }),
+                    o.jsxs("div", { style: { display: "flex", gap: 6, marginTop: 8, alignItems: "center" }, children: [o.jsx("span", { style: { fontSize: 12.5 }, children: "다른 색(M):" }), o.jsx("input", { type: "color", value: bg || "#ffffff", onChange: e => { setBg(e.target.value); mark("fill"); }, style: { width: 60, height: 24, border: "1px solid #a19f9d", padding: 1, cursor: "pointer" } })] })
+                ] }),
+                o.jsxs("div", { style: { flex: 1 }, children: [
+                    lab("무늬 색(A):"), o.jsxs("div", { style: { display: "flex", gap: 4, marginBottom: 10 }, children: [o.jsx("input", { type: "color", value: patFg, onChange: e => { setPatFg(e.target.value); mark("fill"); }, style: { width: 90, height: 26, border: "1px solid #a19f9d", padding: 1, cursor: "pointer" } }), o.jsx("button", { onClick: () => { setPatFg("#000000"); mark("fill"); }, style: { fontSize: 11.5, border: "1px solid #a19f9d", background: "#fff", cursor: "pointer", color: C.tx }, children: "자동" })] }),
+                    lab("무늬 스타일(P):"),
+                    o.jsxs("div", { style: { position: "relative" }, children: [
+                        o.jsxs("button", { "data-ddb-patbtn": "1", onClick: () => setPatOpen(v => !v), style: { width: 180, height: 26, border: "1px solid #a19f9d", background: "#fff", display: "flex", alignItems: "center", gap: 6, padding: "0 6px", cursor: "pointer", color: C.tx, fontSize: 12 }, children: [o.jsx("span", { style: { width: 40, height: 16, border: "1px solid #c8c6c4", backgroundImage: patId ? "url(" + ddbPatUrl(patId, patFg, "#ffffff") + ")" : "none", backgroundSize: "8px 8px", imageRendering: "pixelated" } }), o.jsx("span", { style: { flex: 1, textAlign: "left" }, children: patId ? (DDB_PATS.find(p => p[0] === patId) || [0, ""])[1] : "없음" }), "▾"] }),
+                        patOpen ? o.jsxs(DDBPortalPop, { "data-ddb-patgrid": "1", style: { zIndex: 2147483660, background: "#fff", border: "1px solid #a19f9d", boxShadow: "0 6px 18px rgba(0,0,0,.25)", padding: 6, display: "grid", gridTemplateColumns: "repeat(6, 26px)", gap: 4 }, children: [o.jsx("div", { title: "없음", onClick: () => { setPatId(""); setPatOpen(false); mark("fill"); }, style: { gridColumn: "1 / span 6", height: 20, border: "1px solid " + (!patId ? "#0078d4" : "#c8c6c4"), fontSize: 11.5, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.tx }, children: "무늬 없음" }, "none")].concat(DDB_PATS.map(p => o.jsx("div", { title: p[1], onClick: () => { setPatId(p[0]); setPatOpen(false); mark("fill"); }, style: { width: 26, height: 22, border: patId === p[0] ? "2px solid #0078d4" : "1px solid #c8c6c4", boxSizing: "border-box", backgroundImage: "url(" + ddbPatUrl(p[0], patFg, "#ffffff") + ")", backgroundSize: "8px 8px", imageRendering: "pixelated", cursor: "pointer" } }, p[0]))) }) : null
+                    ] }),
+                    note("무늬는 배경색 위에 무늬 색으로 그려집니다.")
+                ] })
+            ] }),
+            group("보기", o.jsx("div", { "data-ddb-fillpreview": "1", style: { height: 46, border: "1px solid #e1dfdd", ...prevStyle } }))
+        ] });
+    } else body = o.jsxs("div", { children: [chk(true, () => {}, "잠금(L)", true), chk(false, () => {}, "숨김(I)", true), note("워크시트를 보호해야 셀 잠금이나 수식 숨기기가 적용됩니다. (이 표에서는 시트 보호를 지원하지 않아 정보용입니다)")] });
+    const tb2 = (k, t) => o.jsx("button", { onClick: () => setTab(k), style: { padding: "5px 12px", fontSize: 12.5, cursor: "pointer", border: "1px solid #c8c6c4", background: tab === k ? "#fff" : "#f3f2f1", color: C.tx, marginRight: -1, borderTopLeftRadius: 3, borderTopRightRadius: 3, borderBottom: tab === k ? "1px solid #fff" : "1px solid #c8c6c4", position: "relative", top: 1, zIndex: tab === k ? 2 : 1 }, children: t }, k);
+    O.useEffect(() => { const k = e => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); } else if (e.key === "Enter" && !(e.target && e.target.tagName === "TEXTAREA")) { e.preventDefault(); e.stopPropagation(); onOk(); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); });
+    return Rr.createPortal(o.jsx("div", { onMouseDown: close, style: { position: "fixed", inset: 0, zIndex: 2147483601, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsxs("div", { "data-ddb-cellfmt": "1", onMouseDown: e => e.stopPropagation(), style: { width: 640, maxWidth: "96vw", maxHeight: "94vh", display: "flex", flexDirection: "column", background: "#f3f2f1", border: "1px solid #a19f9d", borderRadius: 6, boxShadow: "0 20px 60px rgba(0,0,0,0.45)", fontFamily: "'Malgun Gothic',sans-serif", color: C.tx, overflow: "hidden" }, children: [
+        o.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e1dfdd" }, children: [o.jsx("span", { style: { fontWeight: 700, fontSize: 14 }, children: "셀 서식" }), o.jsx("button", { onClick: close, style: { border: "none", background: "transparent", fontSize: 16, cursor: "pointer", color: "#3b3a39" }, children: "✕" })] }),
         o.jsx("div", { style: { display: "flex", padding: "8px 12px 0", background: "#f3f2f1" }, children: [tb2("num", "표시 형식"), tb2("align", "맞춤"), tb2("font", "글꼴"), tb2("border", "테두리"), tb2("fill", "채우기"), tb2("protect", "보호")] }),
-        o.jsx("div", { style: { background: "#fff", padding: 18, minHeight: 272, borderTop: "1px solid #c8c6c4" }, children: body }),
-        o.jsxs("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, padding: "10px 14px", background: "#f3f2f1", borderTop: "1px solid #e1dfdd" }, children: [o.jsx("button", { onClick: onOk, style: { padding: "6px 22px", background: "#fff", border: "1px solid #8a8886", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700 }, children: "확인" }), o.jsx("button", { onClick: close, style: { padding: "6px 22px", background: "#fff", border: "1px solid #8a8886", borderRadius: 3, cursor: "pointer", fontSize: 13 }, children: "취소" })] })
+        o.jsx("div", { style: { background: "#fff", padding: 14, minHeight: 360, borderTop: "1px solid #c8c6c4", overflowY: "auto", flex: 1 }, children: body }),
+        o.jsxs("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, padding: "10px 14px", background: "#f3f2f1", borderTop: "1px solid #e1dfdd" }, children: [o.jsx("button", { onClick: onOk, style: { padding: "6px 22px", background: "#fff", border: "1px solid #0078d4", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700, color: C.tx }, children: "확인" }), o.jsx("button", { onClick: close, style: { padding: "6px 22px", background: "#fff", border: "1px solid #8a8886", borderRadius: 3, cursor: "pointer", fontSize: 13, color: C.tx }, children: "취소" })] })
     ] }) }), document.body);
 }
 function DDBLibGrid({ content, onCommit, onSaveNew }) {
@@ -1390,7 +1649,7 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
     O.useEffect(() => { const dirty = () => { try { const ae = document.activeElement; if (ae && typeof ae.blur === "function") ae.blur(); } catch (e) {} if (baseSig.current == null) return !!pendRef.current; let cur = null; try { cur = _tsig(wbRef.current && wbRef.current.getAllSheets()); } catch (e) {} return cur == null ? !!pendRef.current : cur !== baseSig.current; }; const saveNew = () => { const ok = doSaveNow(); try { baseSig.current = _tsig(wbRef.current && wbRef.current.getAllSheets()); } catch (e) {} return ok; }; window.__ddbTblDirty = dirty; window.__ddbTblSaveNew = saveNew; return () => { if (window.__ddbTblDirty === dirty) window.__ddbTblDirty = null; if (window.__ddbTblSaveNew === saveNew) window.__ddbTblSaveNew = null; }; }, [doSaveNow]);
     const sel = () => { try { const s = wbRef.current && wbRef.current.getSelection(); return (s && s[0]) || null; } catch (e) { return null; } };
     const fmt = (attr, val) => { const r = sel(); if (r && wbRef.current) try { wbRef.current.setCellFormatByRange(attr, val, r); } catch (e) {} };
-    const openFmtDialog = () => { try { const r = sel(); if (r && wbRef.current) { const row = r.row[0], col = r.column[0]; const g = a => { try { return wbRef.current.getCellValue(row, col, { type: a }); } catch (e) { return void 0; } }; setFmtInit({ ff: g("ff"), fs: g("fs"), bl: g("bl"), it: g("it"), un: g("un"), cl: g("cl"), fc: g("fc"), ht: g("ht"), vt: g("vt"), tb: g("tb"), bg: g("bg") }); } else setFmtInit({}); } catch (e) { setFmtInit({}); } setFmtOpen(true); };
+    const openFmtDialog = () => { try { const r = sel(); if (r && wbRef.current) { const row = r.row[0], col = r.column[0]; const g = a => { try { return wbRef.current.getCellValue(row, col, { type: a }); } catch (e) { return void 0; } }; const edges = {}; try { const r1 = r.row[0], r2 = r.row[1], c1 = r.column[0], c2 = r.column[1]; const shs = wbRef.current.getAllSheets() || []; const sh = shs.find(x => x && x.status == 1) || shs[0]; const bi = (sh && sh.config && sh.config.borderInfo) || []; const ov = rg => rg && rg.row && rg.column && !(rg.row[1] < r1 || rg.row[0] > r2 || rg.column[1] < c1 || rg.column[0] > c2); bi.forEach(b => { if (!b) return; if (b.rangeType === "cell" && b.value) { const v = b.value, ri = v.row_index, ci = v.col_index; if (ri < r1 || ri > r2 || ci < c1 || ci > c2) return; if (v.t && ri === r1) edges.top = { style: String(v.t.style), color: v.t.color }; if (v.b && ri === r2) edges.bottom = { style: String(v.b.style), color: v.b.color }; if (v.l && ci === c1) edges.left = { style: String(v.l.style), color: v.l.color }; if (v.r && ci === c2) edges.right = { style: String(v.r.style), color: v.r.color }; return; } if (!(b.range || []).some(ov)) return; const e = { style: String(b.style || "1"), color: b.color || "#000000" }; const t = b.borderType; if (t === "border-none") { Object.keys(edges).forEach(k => delete edges[k]); return; } if (t === "border-all" || t === "border-outside" || t === "border-top") edges.top = e; if (t === "border-all" || t === "border-outside" || t === "border-bottom") edges.bottom = e; if (t === "border-all" || t === "border-outside" || t === "border-left") edges.left = e; if (t === "border-all" || t === "border-outside" || t === "border-right") edges.right = e; if ((t === "border-all" || t === "border-inside" || t === "border-horizontal") && r2 > r1) edges.ih = e; if ((t === "border-all" || t === "border-inside" || t === "border-vertical") && c2 > c1) edges.iv = e; if (t === "border-slash") edges.diag = e; }); } catch (e) {} setFmtInit({ ff: g("ff"), fs: g("fs"), bl: g("bl"), it: g("it"), un: g("un"), cl: g("cl"), fc: g("fc"), ht: g("ht"), vt: g("vt"), tb: g("tb"), bg: g("bg"), tr: g("tr"), rt: g("rt"), ct: g("ct"), v: g("v"), nR: r.row[1] - r.row[0] + 1, nC: r.column[1] - r.column[0] + 1, edges: edges }); } else setFmtInit({}); } catch (e) { setFmtInit({}); } setFmtOpen(true); };
     const applyBorder = (bt, color, style) => { try { const r = sel(); if (!r || !wbRef.current) return; const rng = [{ row: [r.row[0], r.row[1]], column: [r.column[0], r.column[1]] }]; const list = Array.isArray(bt) ? bt : [bt]; list.forEach(t => { if (!t) return; try { wbRef.current.setCellFormat(r.row[0], r.column[0], "bd", { borderType: t, color: color || "#000000", style: String(style || "1"), range: rng }); } catch (e) {} }); if (onCommit) { try { onCommit("DDBFS:" + JSON.stringify(wbRef.current.getAllSheets())); } catch (e) {} } } catch (e) {} };
     const sortRange = asc => { try { const ae = document.activeElement; if (ae && ae.blur) ae.blur(); } catch (e) {} try { const r = sel(); if (!r || !wbRef.current) return; const cells = wbRef.current.getCellsByRange(r); if (!cells || !cells.length) return; const rows = cells.map(row => (row || []).map(c => c ? (c.v != null ? c.v : (c.m != null ? c.m : "")) : "")); rows.sort((a, b) => { const av = a[0], bv = b[0]; const an = Number(av), bn = Number(bv); let cmp; if (av !== "" && bv !== "" && !isNaN(an) && !isNaN(bn)) cmp = an - bn; else cmp = String(av).localeCompare(String(bv), "ko"); return asc ? cmp : -cmp; }); wbRef.current.setCellValuesByRange(rows, r); } catch (e) {} };
     const toggle = attr => { const r = sel(); if (!r || !wbRef.current) return; let cur = 0; try { cur = wbRef.current.getCellValue(r.row[0], r.column[0], { type: attr }); } catch (e) {} fmt(attr, cur ? 0 : 1); };
@@ -1442,7 +1701,7 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
     const fxDesc = d => { const parts = String(d || "").split(/\s{2,}/); return { ko: parts[0] || "", ex: parts[1] || "" }; };
     const fxPanel = fxHelp ? o.jsx("div", { style: { position: "absolute", top: 6, right: 14, zIndex: 40, width: 300, maxWidth: "70%", background: "#1e293b", color: "#e7ecf3", border: "1px solid #3b4a5e", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", padding: "8px 10px", fontSize: 12 }, children: o.jsx("div", { style: { display: "flex", flexDirection: "column", gap: 5 }, children: fxHelp.items.map((f, idx) => { const dd = fxDesc(f[1]); return o.jsxs("div", { style: { lineHeight: 1.5 }, children: [o.jsxs("div", { children: [o.jsx("span", { style: { fontWeight: 700, color: "#7dd3fc" }, children: f[0] }), o.jsx("span", { style: { color: "#cbd5e1" }, children: " — " + dd.ko })] }), dd.ex ? o.jsx("div", { style: { color: "#94a3b8", fontFamily: "monospace", fontSize: 11 }, children: dd.ex }) : null] }, f[0] + idx); }) }) }) : null;
     const _run = fn => () => { setCtxM(null); try { fn && fn(); } catch (e) {} };
-    const _FSM = [["✂", "잘라내기(T)", doCut], ["⧉", "복사(C)", doCopy], ["📋", "붙여넣기", doPaste], ["📋", "선택하여 붙여넣기(S)…", doPaste], ["sep"], ["＋", "삽입(I)…", () => insRC("row")], ["✕", "삭제(D)…", () => delRC("row")], ["⌫", "내용 지우기(N)", clearRange], ["sep"], ["📊", "빠른 분석(Q)", null], ["✇", "필터(E)", null], ["↕", "정렬(O)", null, [["텍스트 오름차순", () => sortRange(true)], ["텍스트 내림차순", () => sortRange(false)]]], ["sep"], ["▦", "표/범위에서 데이터 가져오기(G)…", null], ["🗨", "메모 삽입(M)", null], ["🎨", "셀 서식(F)…", () => { try { const r = sel(); if (r && wbRef.current) { const row = r.row[0], col = r.column[0]; const g = a => { try { return wbRef.current.getCellValue(row, col, { type: a }); } catch (e) { return void 0; } }; setFmtInit({ ff: g("ff"), fs: g("fs"), bl: g("bl"), it: g("it"), un: g("un"), cl: g("cl"), fc: g("fc"), ht: g("ht"), vt: g("vt"), tb: g("tb"), bg: g("bg") }); } else setFmtInit({}); } catch (e) { setFmtInit({}); } setFmtOpen(true); }], ["▾", "드롭다운 목록에서 선택(K)…", null], ["☰", "윗줄 필드 표시(S)", null], ["□", "이름 정의(A)…", null], ["🔗", "링크(I)…", null], ["↗", "하이퍼링크 열기(O)", null]];
+    const _FSM = [["✂", "잘라내기(T)", doCut], ["⧉", "복사(C)", doCopy], ["📋", "붙여넣기", doPaste], ["📋", "선택하여 붙여넣기(S)…", doPaste], ["sep"], ["＋", "삽입(I)…", () => insRC("row")], ["✕", "삭제(D)…", () => delRC("row")], ["⌫", "내용 지우기(N)", clearRange], ["sep"], ["📊", "빠른 분석(Q)", null], ["✇", "필터(E)", null], ["↕", "정렬(O)", null, [["텍스트 오름차순", () => sortRange(true)], ["텍스트 내림차순", () => sortRange(false)]]], ["sep"], ["▦", "표/범위에서 데이터 가져오기(G)…", null], ["🗨", "메모 삽입(M)", null], ["🎨", "셀 서식(F)…", () => { try { const r = sel(); if (r && wbRef.current) { const row = r.row[0], col = r.column[0]; const g = a => { try { return wbRef.current.getCellValue(row, col, { type: a }); } catch (e) { return void 0; } }; const edges = {}; try { const r1 = r.row[0], r2 = r.row[1], c1 = r.column[0], c2 = r.column[1]; const shs = wbRef.current.getAllSheets() || []; const sh = shs.find(x => x && x.status == 1) || shs[0]; const bi = (sh && sh.config && sh.config.borderInfo) || []; const ov = rg => rg && rg.row && rg.column && !(rg.row[1] < r1 || rg.row[0] > r2 || rg.column[1] < c1 || rg.column[0] > c2); bi.forEach(b => { if (!b) return; if (b.rangeType === "cell" && b.value) { const v = b.value, ri = v.row_index, ci = v.col_index; if (ri < r1 || ri > r2 || ci < c1 || ci > c2) return; if (v.t && ri === r1) edges.top = { style: String(v.t.style), color: v.t.color }; if (v.b && ri === r2) edges.bottom = { style: String(v.b.style), color: v.b.color }; if (v.l && ci === c1) edges.left = { style: String(v.l.style), color: v.l.color }; if (v.r && ci === c2) edges.right = { style: String(v.r.style), color: v.r.color }; return; } if (!(b.range || []).some(ov)) return; const e = { style: String(b.style || "1"), color: b.color || "#000000" }; const t = b.borderType; if (t === "border-none") { Object.keys(edges).forEach(k => delete edges[k]); return; } if (t === "border-all" || t === "border-outside" || t === "border-top") edges.top = e; if (t === "border-all" || t === "border-outside" || t === "border-bottom") edges.bottom = e; if (t === "border-all" || t === "border-outside" || t === "border-left") edges.left = e; if (t === "border-all" || t === "border-outside" || t === "border-right") edges.right = e; if ((t === "border-all" || t === "border-inside" || t === "border-horizontal") && r2 > r1) edges.ih = e; if ((t === "border-all" || t === "border-inside" || t === "border-vertical") && c2 > c1) edges.iv = e; if (t === "border-slash") edges.diag = e; }); } catch (e) {} setFmtInit({ ff: g("ff"), fs: g("fs"), bl: g("bl"), it: g("it"), un: g("un"), cl: g("cl"), fc: g("fc"), ht: g("ht"), vt: g("vt"), tb: g("tb"), bg: g("bg"), tr: g("tr"), rt: g("rt"), ct: g("ct"), v: g("v"), nR: r.row[1] - r.row[0] + 1, nC: r.column[1] - r.column[0] + 1, edges: edges }); } else setFmtInit({}); } catch (e) { setFmtInit({}); } setFmtOpen(true); }], ["▾", "드롭다운 목록에서 선택(K)…", null], ["☰", "윗줄 필드 표시(S)", null], ["□", "이름 정의(A)…", null], ["🔗", "링크(I)…", null], ["↗", "하이퍼링크 열기(O)", null]];
     const ctxMenuEl = ctxM ? Rr.createPortal(o.jsx("div", { "data-ddbfsctx": "1", onMouseDown: e => e.stopPropagation(), style: { position: "fixed", left: Math.min(ctxM.x, window.innerWidth - 252), top: Math.min(ctxM.y, window.innerHeight - 560), zIndex: 2147483600, minWidth: 238, background: "#ffffff", border: "1px solid #c8c6c4", borderRadius: 6, boxShadow: "0 10px 30px rgba(0,0,0,0.28)", padding: "4px 0", fontFamily: "'Malgun Gothic',sans-serif" }, children: _FSM.map((it, i) => it[0] === "sep" ? o.jsx("div", { style: { height: 1, background: "#e6e6e6", margin: "4px 0" } }, "s" + i) : (() => { const act = it[2] || it[3]; return o.jsxs("div", { onClick: it[2] ? _run(it[2]) : void 0, onMouseEnter: e => { setSubI(it[3] ? i : -1); if (act) e.currentTarget.style.background = "#eef3fb"; }, onMouseLeave: e => { e.currentTarget.style.background = "transparent"; }, style: { position: "relative", display: "flex", alignItems: "center", gap: 10, padding: "5px 14px", cursor: act ? "pointer" : "default", color: act ? "#201f1e" : "#b3b0ad", fontSize: 13, whiteSpace: "nowrap" }, children: [o.jsx("span", { style: { width: 16, textAlign: "center", fontSize: 13, opacity: act ? 0.85 : 0.4 }, children: it[0] }), o.jsx("span", { style: { flex: 1 }, children: it[1] }), it[3] ? o.jsx("span", { style: { opacity: 0.5, fontSize: 11 }, children: "▸" }) : null, (subI === i && it[3]) ? o.jsx("div", { "data-ddbfsctx": "1", onMouseDown: e => e.stopPropagation(), style: { position: "absolute", left: "100%", top: -5, background: "#ffffff", border: "1px solid #c8c6c4", borderRadius: 6, boxShadow: "0 8px 24px rgba(0,0,0,0.25)", padding: "4px 0", minWidth: 150 }, children: it[3].map((su, j) => o.jsx("div", { onClick: _run(su[1]), onMouseEnter: e => e.currentTarget.style.background = "#eef3fb", onMouseLeave: e => e.currentTarget.style.background = "transparent", style: { padding: "5px 14px", cursor: "pointer", fontSize: 13, whiteSpace: "nowrap", color: "#201f1e" }, children: su[0] }, j)) }) : null] }, "m" + i); })()) }), document.body) : null;
     return o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", width: "100%" }, children: [
         ribbon,
@@ -3538,7 +3797,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.84";
+const DDB_VERSION = "1.00.85";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5087,7 +5346,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v521"
+                children: "v522"
             }), (() => {
                 const S = [{
                     k: "cal",
