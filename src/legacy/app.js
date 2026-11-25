@@ -1610,11 +1610,281 @@ function DDBCellFmtDialog({ apply, mergeToggle, applyBorder, init, close }) {
         o.jsxs("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, padding: "10px 14px", background: "#f3f2f1", borderTop: "1px solid #e1dfdd" }, children: [o.jsx("button", { onClick: onOk, style: { padding: "6px 22px", background: "#fff", border: "1px solid #0078d4", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700, color: C.tx }, children: "확인" }), o.jsx("button", { onClick: close, style: { padding: "6px 22px", background: "#fff", border: "1px solid #8a8886", borderRadius: 3, cursor: "pointer", fontSize: 13, color: C.tx }, children: "취소" })] })
     ] }) }), document.body);
 }
-function DDBLibGrid({ content, onCommit, onSaveNew }) {
+// ===== 표 인쇄 엔진 + 페이지 설정 + 인쇄 미리보기 (엑셀식, v523) =====
+const DDB_PAPER = [["A4", "A4", 210, 297], ["A3", "A3", 297, 420], ["A5", "A5", 148, 210], ["B4", "B4 (JIS)", 257, 364], ["B5", "B5 (JIS)", 182, 257], ["Letter", "Letter", 215.9, 279.4], ["Legal", "Legal", 215.9, 355.6]];
+const DDB_MARGINS = { normal: ["보통", 1.91, 1.91, 1.78, 1.78], wide: ["넓게", 2.54, 2.54, 2.54, 2.54], narrow: ["좁게", 1.91, 1.91, 0.64, 0.64] }; // 위,아래,왼쪽,오른쪽 (cm)
+const DDB_PAGE_DEF = { paper: "A4", orient: "portrait", margin: "normal", m: { t: 1.91, b: 1.91, l: 1.78, r: 1.78 }, centerH: false, centerV: false, scaleMode: "pct", scale: 100, fitW: 1, fitH: 0, area: "", titleRows: "", titleCols: "", breaksR: [], breaksC: [], grid: false, heads: false, order: "down", viewGrid: true, viewHeads: true };
+function ddbPageOf(p) { const q = { ...DDB_PAGE_DEF, ...(p || {}) }; q.m = { ...DDB_PAGE_DEF.m, ...((p && p.m) || {}) }; q.breaksR = Array.isArray(q.breaksR) ? q.breaksR : []; q.breaksC = Array.isArray(q.breaksC) ? q.breaksC : []; return q; }
+function ddbMarginsOf(pg) { const mm = DDB_MARGINS[pg.margin]; return mm ? { t: mm[1], b: mm[2], l: mm[3], r: mm[4] } : pg.m; }
+function ddbColName(c) { let s = ""; c = c + 1; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; }
+function ddbColIdx(s) { let n = 0; for (const ch of String(s).toUpperCase()) { if (ch < "A" || ch > "Z") break; n = n * 26 + (ch.charCodeAt(0) - 64); } return n - 1; }
+function ddbParseRef(t) { // "A1:H30" | "1:3" | "A:B" | "$A$1:$C$5"
+    const s = String(t || "").replace(/\$/g, "").trim().toUpperCase(); if (!s) return null;
+    let m = /^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/.exec(s); if (m) { const c1 = ddbColIdx(m[1]), r1 = +m[2] - 1, c2 = m[3] ? ddbColIdx(m[3]) : c1, r2 = m[4] ? +m[4] - 1 : r1; return { r1: Math.min(r1, r2), r2: Math.max(r1, r2), c1: Math.min(c1, c2), c2: Math.max(c1, c2) }; }
+    m = /^(\d+)(?::(\d+))?$/.exec(s); if (m) { const a = +m[1] - 1, b = m[2] ? +m[2] - 1 : a; return { r1: Math.min(a, b), r2: Math.max(a, b), c1: null, c2: null }; }
+    m = /^([A-Z]+)(?::([A-Z]+))?$/.exec(s); if (m) { const a = ddbColIdx(m[1]), b = m[2] ? ddbColIdx(m[2]) : a; return { r1: null, r2: null, c1: Math.min(a, b), c2: Math.max(a, b) }; }
+    return null;
+}
+function ddbNormSel(r) { if (!r || !r.row || !r.column) return null; const r1 = r.row[0], c1 = r.column[0]; return { row: [r1, r.row[1] != null ? r.row[1] : r1], column: [c1, r.column[1] != null ? r.column[1] : c1] }; }
+function ddbRefStr(r1, c1, r2, c2) { return ddbColName(c1) + (r1 + 1) + ":" + ddbColName(c2) + (r2 + 1); }
+function ddbSheetMatrix(sh) { if (sh && Array.isArray(sh.data) && sh.data.length) return sh.data; const d = []; (sh && sh.celldata || []).forEach(x => { if (!x) return; (d[x.r] = d[x.r] || [])[x.c] = x.v; }); return d; }
+function ddbCellText(cell) { if (cell == null) return ""; if (typeof cell !== "object") return String(cell); if (cell.ct && cell.ct.t === "inlineStr" && Array.isArray(cell.ct.s)) return cell.ct.s.map(x => x && x.v != null ? x.v : "").join(""); if (cell.m != null) return String(cell.m); if (cell.v != null) return String(cell.v); return ""; }
+const DDB_BCSS = { "1": "1px solid", "2": "1px dotted", "3": "1px dotted", "4": "1px dashed", "5": "1px dashed", "6": "1px dashed", "7": "3px double", "8": "2px solid", "9": "2px dashed", "10": "2px dashed", "11": "2px dashed", "12": "2px dashed", "13": "3px solid" };
+function ddbBorderMap(sh) { // "r_c" -> {t,b,l,r,s}
+    const map = {}; const get = (r, c) => (map[r + "_" + c] = map[r + "_" + c] || {}); const bi = (sh && sh.config && sh.config.borderInfo) || [];
+    bi.forEach(b => {
+        if (!b) return;
+        if (b.rangeType === "cell" && b.value) { const v = b.value, e = get(v.row_index, v.col_index); ["l", "r", "t", "b"].forEach(k => { if (v[k]) e[k] = { style: String(v[k].style), color: v[k].color || "#000" }; }); return; }
+        const st = { style: String(b.style || "1"), color: b.color || "#000" }, t = b.borderType;
+        (b.range || []).forEach(rg => { if (!rg || !rg.row || !rg.column) return; const [r1, r2] = rg.row, [c1, c2] = rg.column;
+            if (t === "border-slash") { get(rg.row_focus != null ? rg.row_focus : r1, rg.column_focus != null ? rg.column_focus : c1).s = st; return; }
+            for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) { const e = get(r, c);
+                if (t === "border-none") { delete e.t; delete e.b; delete e.l; delete e.r; delete e.s; const up = map[(r - 1) + "_" + c], dn = map[(r + 1) + "_" + c], lf = map[r + "_" + (c - 1)], rt = map[r + "_" + (c + 1)]; if (r === r1 && up) delete up.b; if (r === r2 && dn) delete dn.t; if (c === c1 && lf) delete lf.r; if (c === c2 && rt) delete rt.l; continue; }
+                const all = t === "border-all";
+                if (all || (t === "border-outside" && r === r1) || (t === "border-top" && r === r1) || ((t === "border-inside" || t === "border-horizontal") && r > r1)) e.t = st;
+                if (all || (t === "border-outside" && r === r2) || (t === "border-bottom" && r === r2) || ((t === "border-inside" || t === "border-horizontal") && r < r2)) e.b = st;
+                if (all || (t === "border-outside" && c === c1) || (t === "border-left" && c === c1) || ((t === "border-inside" || t === "border-vertical") && c > c1)) e.l = st;
+                if (all || (t === "border-outside" && c === c2) || (t === "border-right" && c === c2) || ((t === "border-inside" || t === "border-vertical") && c < c2)) e.r = st;
+            } });
+    });
+    return map;
+}
+function ddbEsc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+// 반환: { pages:[html...], pw, ph, paper, css }
+function ddbBuildPrint(sh, pgIn, opt) {
+    const pg = ddbPageOf(pgIn); opt = opt || {};
+    const P = DDB_PAPER.find(x => x[0] === pg.paper) || DDB_PAPER[0]; const land = pg.orient === "landscape";
+    const PX = 96 / 25.4; const pw = Math.round((land ? P[3] : P[2]) * PX), ph = Math.round((land ? P[2] : P[3]) * PX);
+    const M = ddbMarginsOf(pg); const cm = 96 / 2.54; const ml = M.l * cm, mr = M.r * cm, mt = M.t * cm, mb = M.b * cm; const aw = pw - ml - mr, ah = ph - mt - mb;
+    const data = ddbSheetMatrix(sh) || []; const cfg = (sh && sh.config) || {}; const cl = cfg.columnlen || {}, rl = cfg.rowlen || {}; const rh = cfg.rowhidden || {}, ch = cfg.colhidden || {};
+    const dW = (sh && sh.defaultColWidth) || 73, dH = (sh && sh.defaultRowHeight) || 19;
+    const colW = c => (cl[c] != null ? Number(cl[c]) : dW), rowH = r => (rl[r] != null ? Number(rl[r]) : dH);
+    const bmap = ddbBorderMap(sh);
+    // 인쇄할 범위
+    let R = null;
+    if (opt.range) R = opt.range; else if (pg.area && !opt.ignoreArea) { const a = ddbParseRef(pg.area); if (a && a.r1 != null && a.c1 != null) R = a; }
+    if (!R) { let mr2 = -1, mc2 = -1; data.forEach((row, r) => (row || []).forEach((cell, c) => { if (cell != null && (ddbCellText(cell) !== "" || (typeof cell === "object" && (cell.bg || cell.mc)))) { if (r > mr2) mr2 = r; if (c > mc2) mc2 = c; } })); Object.keys(bmap).forEach(k => { const [r, c] = k.split("_").map(Number); if (r > mr2) mr2 = r; if (c > mc2) mc2 = c; }); Object.values(cfg.merge || {}).forEach(m => { if (m) { mr2 = Math.max(mr2, m.r + m.rs - 1); mc2 = Math.max(mc2, m.c + m.cs - 1); } }); if (mr2 < 0) return { pages: [], pw, ph, paper: P, empty: true }; R = { r1: 0, c1: 0, r2: mr2, c2: mc2 }; }
+    const rows = [], cols = []; for (let r = R.r1; r <= R.r2; r++) if (!rh[r]) rows.push(r); for (let c = R.c1; c <= R.c2; c++) if (!ch[c]) cols.push(c);
+    const tr = ddbParseRef(pg.titleRows), tc = ddbParseRef(pg.titleCols);
+    const tRows = tr && tr.r1 != null ? Array.from({ length: tr.r2 - tr.r1 + 1 }, (_, i) => tr.r1 + i).filter(r => !rh[r]) : [];
+    const tCols = tc && tc.c1 != null ? Array.from({ length: tc.c2 - tc.c1 + 1 }, (_, i) => tc.c1 + i).filter(c => !ch[c]) : [];
+    const HW = pg.heads ? 32 : 0, HH = pg.heads ? 18 : 0;
+    const totW = cols.reduce((a, c) => a + colW(c), 0) + HW, totH = rows.reduce((a, r) => a + rowH(r), 0) + HH;
+    let S = 1;
+    if (pg.scaleMode === "fit") { const fw = Number(pg.fitW) || 0, fh = Number(pg.fitH) || 0; S = Math.min(1, fw ? (aw * fw) / totW : 1, fh ? (ah * fh) / totH : 1); } else S = Math.max(0.1, Math.min(4, (Number(pg.scale) || 100) / 100));
+    if (opt.forceScale) S = opt.forceScale;
+    S = Math.max(0.1, S);
+    // 페이지 나누기
+    const segs = (list, size, headerExtra, avail, breaks, titles) => {
+        const tSize = titles.reduce((a, x) => a + size(x), 0) * S; const out = []; let cur = [], used = 0;
+        const start = () => { cur = []; used = headerExtra + (out.length && titles.length ? tSize : 0); };
+        start();
+        list.forEach(x => { const s = size(x) * S; if (cur.length && (used + s > avail + 0.5 || breaks.includes(x))) { out.push(cur); start(); } cur.push(x); used += s; });
+        if (cur.length) out.push(cur); return out;
+    };
+    const colSegs = segs(cols, colW, HW * S, aw, pg.breaksC || [], tCols);
+    const rowSegs = segs(rows, rowH, HH * S, ah, pg.breaksR || [], tRows);
+    // 병합 영역
+    const merges = Object.values(cfg.merge || {}).filter(Boolean);
+    const mergeAt = {}; merges.forEach(m => { for (let r = m.r; r < m.r + m.rs; r++) for (let c = m.c; c < m.c + m.cs; c++) mergeAt[r + "_" + c] = m; });
+    const cellAt = (r, c) => { const row = data[r]; return row ? row[c] : null; };
+    const bcss = e => e ? (DDB_BCSS[e.style] || "1px solid") + " " + (e.color || "#000") : null;
+    const gridB = pg.grid ? "1px solid #bfbfbf" : "none";
+    const pages = [];
+    const order = [];
+    if (pg.order === "over") rowSegs.forEach((rs, i) => colSegs.forEach((cs, j) => order.push([i, j]))); else colSegs.forEach((cs, j) => rowSegs.forEach((rs, i) => order.push([i, j])));
+    order.forEach(([i, j]) => {
+        let pr = rowSegs[i].slice(), pc = colSegs[j].slice();
+        if (tRows.length && !pr.some(r => tRows.includes(r))) pr = tRows.concat(pr);
+        if (tCols.length && !pc.some(c => tCols.includes(c))) pc = tCols.concat(pc);
+        const tw = pc.reduce((a, c) => a + colW(c) * S, 0) + HW * S, th = pr.reduce((a, r) => a + rowH(r) * S, 0) + HH * S;
+        const left = ml + (pg.centerH ? Math.max(0, (aw - tw) / 2) : 0), top = mt + (pg.centerV ? Math.max(0, (ah - th) / 2) : 0);
+        const prSet = {}; pr.forEach((r, ix) => prSet[r] = ix); const pcSet = {}; pc.forEach((c, ix) => pcSet[c] = ix);
+        let h = "<table style='border-collapse:collapse;table-layout:fixed;width:" + tw.toFixed(2) + "px'><colgroup>" + (HW ? "<col style='width:" + (HW * S).toFixed(2) + "px'>" : "") + pc.map(c => "<col style='width:" + (colW(c) * S).toFixed(2) + "px'>").join("") + "</colgroup>";
+        const fsz = n => (n * 1.3333 * S).toFixed(2) + "px";
+        if (HH) h += "<tr style='height:" + (HH * S).toFixed(2) + "px'>" + (HW ? "<td class='hd'></td>" : "") + pc.map(c => "<td class='hd' style='font-size:" + fsz(9) + "'>" + ddbColName(c) + "</td>").join("") + "</tr>";
+        const done = {};
+        pr.forEach(r => {
+            h += "<tr style='height:" + (rowH(r) * S).toFixed(2) + "px'>" + (HW ? "<td class='hd' style='font-size:" + fsz(9) + "'>" + (r + 1) + "</td>" : "");
+            pc.forEach(c => {
+                if (done[r + "_" + c]) return;
+                const m = mergeAt[r + "_" + c]; let rs = 1, cs = 1, src = cellAt(r, c), srcR = r, srcC = c;
+                if (m) { const vr = pr.filter(x => x >= m.r && x < m.r + m.rs), vc = pc.filter(x => x >= m.c && x < m.c + m.cs); rs = vr.length; cs = vc.length; vr.forEach(x => vc.forEach(y => { done[x + "_" + y] = 1; })); src = cellAt(m.r, m.c); srcR = m.r; srcC = m.c; }
+                const cell = src && typeof src === "object" ? src : (src != null ? { v: src } : null);
+                const txt = cell ? ddbCellText(cell) : "";
+                const st = [];
+                const isNum = cell && ((cell.ct && cell.ct.t === "n") || typeof cell.v === "number");
+                const ht = cell && cell.ht != null ? Number(cell.ht) : null; st.push("text-align:" + (ht === 0 ? "center" : ht === 2 ? "right" : ht === 1 ? "left" : (isNum ? "right" : "left")));
+                const vt = cell && cell.vt != null ? Number(cell.vt) : null; st.push("vertical-align:" + (vt === 1 ? "top" : vt === 2 ? "bottom" : "middle"));
+                const wrap = cell && String(cell.tb) === "2"; st.push(wrap ? "white-space:pre-wrap;word-break:break-all" : "white-space:pre");
+                if (cell && cell.ff) st.push("font-family:'" + String(cell.ff).replace(/'/g, "") + "'");
+                st.push("font-size:" + fsz(cell && cell.fs ? Number(cell.fs) : 11));
+                if (cell && Number(cell.bl)) st.push("font-weight:700"); if (cell && Number(cell.it)) st.push("font-style:italic");
+                const dec = []; if (cell && Number(cell.un)) dec.push("underline"); if (cell && Number(cell.cl)) dec.push("line-through"); if (dec.length) st.push("text-decoration:" + dec.join(" ") + (Number(cell.un) === 2 || Number(cell.un) === 4 ? ";text-decoration-style:double" : ""));
+                if (cell && cell.fc) st.push("color:" + cell.fc);
+                const bgs = [];
+                const e = bmap[r + "_" + c] || {}, eUp = bmap[(r - 1) + "_" + c] || {}, eDn = bmap[(r + 1) + "_" + c] || {}, eL = bmap[r + "_" + (c - 1)] || {}, eR = bmap[r + "_" + (c + 1)] || {};
+                if (e.s) bgs.push("linear-gradient(to bottom right, transparent calc(50% - 0.7px), " + (e.s.color || "#000") + " calc(50% - 0.7px), " + (e.s.color || "#000") + " calc(50% + 0.7px), transparent calc(50% + 0.7px))");
+                const pat = cell && ddbParsePat(cell.bg);
+                if (pat) { bgs.push("url(" + ddbPatUrl(pat.id, pat.fg, pat.bg) + ")"); st.push("background-size:" + (8 * S).toFixed(1) + "px " + (8 * S).toFixed(1) + "px"); } else if (cell && cell.bg) st.push("background-color:" + cell.bg);
+                if (bgs.length) st.push("background-image:" + bgs.join(","));
+                const lastC = m ? m.c + m.cs - 1 : c, lastR = m ? m.r + m.rs - 1 : r;
+                const eB = m ? (bmap[lastR + "_" + c] || {}) : e, eRt = m ? (bmap[r + "_" + lastC] || {}) : e;
+                st.push("border-top:" + (bcss(e.t || eUp.b) || gridB));
+                st.push("border-left:" + (bcss(e.l || eL.r) || gridB));
+                st.push("border-bottom:" + (bcss(eB.b || (bmap[(lastR + 1) + "_" + c] || {}).t) || gridB));
+                st.push("border-right:" + (bcss(eRt.r || (bmap[r + "_" + (lastC + 1)] || {}).l) || gridB));
+                st.push("padding:0 " + (2 * S).toFixed(1) + "px;overflow:hidden");
+                h += "<td" + (rs > 1 ? " rowspan=" + rs : "") + (cs > 1 ? " colspan=" + cs : "") + " style=\"" + st.join(";").replace(/"/g, "'") + "\">" + ddbEsc(txt) + "</td>";
+            });
+            h += "</tr>";
+        });
+        h += "</table>";
+        pages.push("<div class='pg' style='width:" + pw + "px;height:" + ph + "px'><div style='position:absolute;left:" + left.toFixed(1) + "px;top:" + top.toFixed(1) + "px'>" + h + "</div></div>");
+    });
+    return { pages, pw, ph, paper: P, land, scale: S, nH: colSegs.length, nV: rowSegs.length };
+}
+function ddbPrintCss(P, land) { return "@page{size:" + (land ? P[3] + "mm " + P[2] + "mm" : P[2] + "mm " + P[3] + "mm") + ";margin:0}html,body{margin:0;padding:0;background:#fff}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pg{position:relative;overflow:hidden;background:#fff;color:#000;font-family:'맑은 고딕','Malgun Gothic',sans-serif;page-break-after:always;break-after:page}.pg:last-child{page-break-after:auto;break-after:auto}td{line-height:1.15}td.hd{background:#f2f2f2;color:#444;text-align:center;border:1px solid #bfbfbf;font-family:sans-serif}"; }
+function ddbPrintPages(res) { try { const pf = document.createElement("iframe"); pf.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(pf); const doc = pf.contentDocument || pf.contentWindow.document; doc.open(); doc.write("<html><head><meta charset='utf-8'><style>" + ddbPrintCss(res.paper, res.land) + "</style></head><body>" + res.pages.join("") + "<script>setTimeout(function(){try{window.focus();window.print();}catch(e){}},300);<\/script></body></html>"); doc.close(); setTimeout(() => { try { pf.remove(); } catch (e) {} }, 60000); } catch (e) {} }
+// ---- 엑셀식 아이콘 (직접 그린 SVG)
+function ddbIco(name, sz) {
+    const S = sz || 28, st = { stroke: "#3b3a39", strokeWidth: 1.2, fill: "none" };
+    const pageR = (x, y, w, h, k) => o.jsx("rect", { x, y, width: w, height: h, fill: "#fff", stroke: "#605e5c", strokeWidth: 1.1 }, k || "pg");
+    let ch = [];
+    if (name === "margin") ch = [pageR(5, 3, 18, 22), o.jsx("rect", { x: 8.5, y: 6.5, width: 11, height: 15, fill: "#dbeaf9", stroke: "#2b79d0", strokeDasharray: "1.5 1.2" }, "m")];
+    else if (name === "orient") ch = [pageR(9, 2, 13, 18, "a"), o.jsx("rect", { x: 3, y: 12, width: 18, height: 13, fill: "#dbeaf9", stroke: "#2b79d0", strokeWidth: 1.1 }, "b"), o.jsx("path", { d: "M23 9 q3 4 0 9", ...st, stroke: "#2b79d0" }, "c")];
+    else if (name === "size") ch = [pageR(6, 4, 16, 21), o.jsx("path", { d: "M3 4v21M2 4h2M2 25h2M6 1h16M6 0v2M22 0v2", ...st, stroke: "#2b79d0" }, "d")];
+    else if (name === "area") ch = [pageR(3, 3, 22, 22), o.jsx("path", { d: "M3 10h22M3 17h22M10 3v22M17 3v22", stroke: "#c8c6c4", strokeWidth: 1 }, "g"), o.jsx("rect", { x: 10, y: 10, width: 7, height: 7, fill: "#dbeaf9", stroke: "#2b79d0", strokeWidth: 1.4 }, "a"), o.jsx("path", { d: "M18 20l6 0l-2 -2M24 20l-2 2", stroke: "#3b3a39", strokeWidth: 1.1, fill: "none" }, "p")];
+    else if (name === "breaks") ch = [pageR(5, 2, 18, 10, "a"), pageR(5, 16, 18, 10, "b"), o.jsx("path", { d: "M2 14h24", stroke: "#2b79d0", strokeWidth: 1.4, strokeDasharray: "2 1.5" }, "l")];
+    else if (name === "titles") ch = [pageR(4, 3, 20, 22), o.jsx("rect", { x: 4, y: 3, width: 20, height: 5, fill: "#2b79d0" }, "t"), o.jsx("path", { d: "M7 12h14M7 16h14M7 20h14", stroke: "#a19f9d", strokeWidth: 1 }, "l")];
+    else if (name === "print") ch = [o.jsx("rect", { x: 7, y: 3, width: 14, height: 8, fill: "#fff", stroke: "#605e5c" }, "p"), o.jsx("rect", { x: 3, y: 10, width: 22, height: 10, rx: 2, fill: "#e1dfdd", stroke: "#605e5c" }, "b"), o.jsx("rect", { x: 7, y: 16, width: 14, height: 9, fill: "#fff", stroke: "#605e5c" }, "o"), o.jsx("path", { d: "M9 19h10M9 22h7", stroke: "#2b79d0" }, "l")];
+    else if (name === "preview") ch = [pageR(4, 3, 16, 21), o.jsx("circle", { cx: 17, cy: 17, r: 5, fill: "#dbeaf9", stroke: "#2b79d0", strokeWidth: 1.5 }, "c"), o.jsx("path", { d: "M20.5 20.5l5 5", stroke: "#2b79d0", strokeWidth: 2 }, "h")];
+    else if (name === "bg") ch = [pageR(4, 3, 20, 22), o.jsx("path", { d: "M6 21l5-6 4 4 3-3 4 5z", fill: "#8fbf6a", stroke: "none" }, "m"), o.jsx("circle", { cx: 18, cy: 9, r: 2.5, fill: "#ffc000" }, "s")];
+    return o.jsx("svg", { width: S, height: S, viewBox: "0 0 28 28", children: ch });
+}
+// ---- 페이지 설정 대화상자 (엑셀 '페이지 설정')
+function DDBPageSetupDialog({ page, onSave, close, startTab, selRef }) {
+    const [pg, setPg] = O.useState(() => ddbPageOf(page));
+    const [tab, setTab] = O.useState(startTab || "page");
+    const up = o2 => setPg(p => ({ ...p, ...o2 }));
+    const C = "#201f1e";
+    const lab = t => o.jsx("div", { style: { fontSize: 12.5, color: C, margin: "6px 0 4px" }, children: t });
+    const group = (t, ch2, st) => o.jsxs("fieldset", { style: { border: "1px solid #d2d0ce", borderRadius: 3, padding: "6px 10px 10px", margin: "0 0 10px", ...(st || {}) }, children: [o.jsx("legend", { style: { fontSize: 12.5, color: C, padding: "0 4px" }, children: t }), ch2] });
+    const radio = (on, onCk, t, dis) => o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: dis ? "#8a8886" : C, cursor: "pointer" }, children: [o.jsx("input", { type: "radio", checked: on, disabled: dis, onChange: onCk }), t] });
+    const chk = (on, onCk, t) => o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: C, cursor: "pointer", marginBottom: 4 }, children: [o.jsx("input", { type: "checkbox", checked: on, onChange: e => onCk(e.target.checked) }), t] });
+    const num = (v, onCh, min, max, step, w, dis) => o.jsx("input", { type: "number", value: v, min, max, step: step || 1, disabled: dis, onChange: e => onCh(Number(e.target.value)), style: { width: w || 64, height: 24, border: "1px solid #a19f9d", fontSize: 12.5, padding: "0 4px", color: C, background: dis ? "#f3f2f1" : "#fff" } });
+    const txt = (v, onCh, ph, w) => o.jsx("input", { value: v, placeholder: ph, onChange: e => onCh(e.target.value), style: { width: w || 160, height: 24, border: "1px solid #a19f9d", fontSize: 12.5, padding: "0 5px", color: C } });
+    const M = ddbMarginsOf(pg);
+    let body;
+    if (tab === "page") body = o.jsxs("div", { children: [
+        group("용지 방향", o.jsxs("div", { style: { display: "flex", gap: 22, alignItems: "center" }, children: [o.jsx("span", { children: ddbIco("orient", 26) }), radio(pg.orient === "portrait", () => up({ orient: "portrait" }), "세로(T)"), radio(pg.orient === "landscape", () => up({ orient: "landscape" }), "가로(L)")] })),
+        group("배율", o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 6 }, children: [
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6 }, children: [radio(pg.scaleMode === "pct", () => up({ scaleMode: "pct" }), "확대/축소 배율(A):"), num(pg.scale, v => up({ scale: Math.max(10, Math.min(400, v || 100)), scaleMode: "pct" }), 10, 400, 5), o.jsx("span", { style: { fontSize: 12.5 }, children: "% (보통 크기 = 100)" })] }),
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6 }, children: [radio(pg.scaleMode === "fit", () => up({ scaleMode: "fit" }), "자동 맞춤(F):"), o.jsx("span", { style: { fontSize: 12.5 }, children: "용지 너비" }), num(pg.fitW, v => up({ fitW: Math.max(0, v), scaleMode: "fit" }), 0, 99), o.jsx("span", { style: { fontSize: 12.5 }, children: "× 용지 높이" }), num(pg.fitH, v => up({ fitH: Math.max(0, v), scaleMode: "fit" }), 0, 99)] }),
+            o.jsx("div", { style: { fontSize: 11, color: "#605e5c" }, children: "0 = 자동 (예: 너비 1 × 높이 0 → 모든 열을 한 페이지 너비에 맞춤)" })
+        ] })),
+        lab("용지 크기(Z):"), o.jsx("select", { value: pg.paper, onChange: e => up({ paper: e.target.value }), style: { width: 220, height: 26, border: "1px solid #a19f9d", fontSize: 12.5, color: C }, children: DDB_PAPER.map(p => o.jsx("option", { value: p[0], children: p[1] + " (" + p[2] + " × " + p[3] + " mm)" }, p[0])) })
+    ] });
+    else if (tab === "margin") { const setM = (k, v) => up({ margin: "custom", m: { ...M, [k]: Math.max(0, v) } }); body = o.jsxs("div", { children: [
+        o.jsxs("div", { style: { display: "grid", gridTemplateColumns: "1fr 200px 1fr", alignItems: "center", gap: 8, justifyItems: "center" }, children: [
+            o.jsx("div", {}), o.jsxs("div", { children: [lab("위쪽(T):"), num(M.t, v => setM("t", v), 0, 10, 0.1)] }), o.jsx("div", {}),
+            o.jsxs("div", { children: [lab("왼쪽(L):"), num(M.l, v => setM("l", v), 0, 10, 0.1)] }),
+            o.jsx("div", { style: { width: 140, height: 180, background: "#fff", border: "1px solid #a19f9d", position: "relative", boxShadow: "2px 2px 0 #c8c6c4" }, children: o.jsx("div", { style: { position: "absolute", left: M.l * 10, right: M.r * 10, top: M.t * 10, bottom: M.b * 10, border: "1px dashed #2b79d0", background: "repeating-linear-gradient(0deg, #e1dfdd 0 1px, transparent 1px 8px)" } }) }),
+            o.jsxs("div", { children: [lab("오른쪽(R):"), num(M.r, v => setM("r", v), 0, 10, 0.1)] }),
+            o.jsx("div", {}), o.jsxs("div", { children: [lab("아래쪽(B):"), num(M.b, v => setM("b", v), 0, 10, 0.1)] }), o.jsx("div", {})
+        ] }),
+        o.jsx("div", { style: { fontSize: 11, color: "#605e5c", textAlign: "center", margin: "4px 0 8px" }, children: "단위: cm" }),
+        group("페이지 가운데 맞춤", o.jsxs("div", { style: { display: "flex", gap: 20 }, children: [chk(pg.centerH, v => up({ centerH: v }), "가로(Z)"), chk(pg.centerV, v => up({ centerV: v }), "세로(V)")] }))
+    ] }); }
+    else body = o.jsxs("div", { children: [
+        o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }, children: [o.jsx("span", { style: { fontSize: 12.5, width: 110 }, children: "인쇄 영역(A):" }), txt(pg.area, v => up({ area: v.toUpperCase() }), "예: A1:H30"), selRef ? o.jsx("button", { onClick: () => { const r = selRef(); if (r) up({ area: ddbRefStr(r.row[0], r.column[0], r.row[1], r.column[1]) }); }, style: { fontSize: 11.5, border: "1px solid #a19f9d", background: "#fff", cursor: "pointer", height: 24, color: C }, children: "선택 영역 넣기" }) : null] }),
+        group("인쇄 제목", o.jsxs("div", { children: [
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }, children: [o.jsx("span", { style: { fontSize: 12.5, width: 150 }, children: "반복할 행(R):" }), txt(pg.titleRows, v => up({ titleRows: v.toUpperCase() }), "예: 1:2 (1~2행)", 140), selRef ? o.jsx("button", { onClick: () => { const r = selRef(); if (r) up({ titleRows: (r.row[0] + 1) + ":" + (r.row[1] + 1) }); }, style: { fontSize: 11.5, border: "1px solid #a19f9d", background: "#fff", cursor: "pointer", height: 24, color: C }, children: "선택 행" }) : null] }),
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [o.jsx("span", { style: { fontSize: 12.5, width: 150 }, children: "반복할 열(C):" }), txt(pg.titleCols, v => up({ titleCols: v.toUpperCase() }), "예: A:B (A~B열)", 140), selRef ? o.jsx("button", { onClick: () => { const r = selRef(); if (r) up({ titleCols: ddbColName(r.column[0]) + ":" + ddbColName(r.column[1]) }); }, style: { fontSize: 11.5, border: "1px solid #a19f9d", background: "#fff", cursor: "pointer", height: 24, color: C }, children: "선택 열" }) : null] }),
+            o.jsx("div", { style: { fontSize: 11, color: "#605e5c", marginTop: 5 }, children: "여러 페이지로 나뉠 때 매 페이지 위(왼쪽)에 다시 찍힙니다." })
+        ] })),
+        group("인쇄", o.jsxs("div", { style: { display: "flex", gap: 22 }, children: [chk(pg.grid, v => up({ grid: v }), "눈금선(G)"), chk(pg.heads, v => up({ heads: v }), "행/열 머리글(L)")] })),
+        group("페이지 순서", o.jsxs("div", { style: { display: "flex", gap: 22 }, children: [radio(pg.order === "down", () => up({ order: "down" }), "행 우선(D) — 아래로 먼저"), radio(pg.order === "over", () => up({ order: "over" }), "열 우선(V) — 옆으로 먼저")] }))
+    ] });
+    const tb2 = (k, t) => o.jsx("button", { onClick: () => setTab(k), style: { padding: "5px 12px", fontSize: 12.5, cursor: "pointer", border: "1px solid #c8c6c4", background: tab === k ? "#fff" : "#f3f2f1", color: C, marginRight: -1, borderBottom: tab === k ? "1px solid #fff" : "1px solid #c8c6c4", position: "relative", top: 1 }, children: t }, k);
+    return Rr.createPortal(o.jsx("div", { onMouseDown: close, style: { position: "fixed", inset: 0, zIndex: 2147483602, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsxs("div", { "data-ddb-pagesetup": "1", onMouseDown: e => e.stopPropagation(), style: { width: 560, maxWidth: "96vw", background: "#f3f2f1", border: "1px solid #a19f9d", borderRadius: 6, boxShadow: "0 20px 60px rgba(0,0,0,.45)", fontFamily: "'Malgun Gothic',sans-serif", color: C, overflow: "hidden" }, children: [
+        o.jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e1dfdd" }, children: [o.jsx("b", { style: { fontSize: 14 }, children: "페이지 설정" }), o.jsx("button", { onClick: close, style: { border: "none", background: "transparent", fontSize: 16, cursor: "pointer", color: "#3b3a39" }, children: "✕" })] }),
+        o.jsx("div", { style: { display: "flex", padding: "8px 12px 0" }, children: [tb2("page", "페이지"), tb2("margin", "여백"), tb2("sheet", "시트")] }),
+        o.jsx("div", { style: { background: "#fff", padding: 14, minHeight: 300, borderTop: "1px solid #c8c6c4" }, children: body }),
+        o.jsxs("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, padding: "10px 14px", borderTop: "1px solid #e1dfdd" }, children: [
+            o.jsx("button", { onClick: () => { onSave(pg); close(); window.dispatchEvent(new CustomEvent("ddb-sheet-print-open")); }, style: { padding: "6px 14px", background: "#fff", border: "1px solid #8a8886", borderRadius: 3, cursor: "pointer", fontSize: 13, color: C }, children: "인쇄 미리 보기(W)" }),
+            o.jsx("button", { onClick: () => { onSave(pg); close(); }, style: { padding: "6px 22px", background: "#fff", border: "1px solid #0078d4", borderRadius: 3, cursor: "pointer", fontSize: 13, fontWeight: 700, color: C }, children: "확인" }),
+            o.jsx("button", { onClick: close, style: { padding: "6px 22px", background: "#fff", border: "1px solid #8a8886", borderRadius: 3, cursor: "pointer", fontSize: 13, color: C }, children: "취소" })
+        ] })
+    ] }) }), document.body);
+}
+// ---- 인쇄 화면 (엑셀 '파일 → 인쇄'처럼 왼쪽 설정 + 오른쪽 미리보기)
+function DDBSheetPrint({ getSheet, page, onPage, getSel, close, title }) {
+    const pg = ddbPageOf(page);
+    const [what, setWhat] = O.useState("sheet"); // sheet | sel
+    const [ignoreArea, setIgnoreArea] = O.useState(false);
+    const [pi, setPi] = O.useState(0);
+    const [zoomFull, setZoomFull] = O.useState(false);
+    const [setup, setSetup] = O.useState(null);
+    const wrapRef = O.useRef(null);
+    const [box, setBox] = O.useState({ w: 800, h: 600 });
+    O.useLayoutEffect(() => { const f = () => { try { const b = wrapRef.current.getBoundingClientRect(); setBox({ w: b.width, h: b.height }); } catch (e) {} }; f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
+    O.useEffect(() => { const k = e => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); } else if (e.key === "PageDown" || e.key === "ArrowRight") setPi(i => i + 1); else if (e.key === "PageUp" || e.key === "ArrowLeft") setPi(i => Math.max(0, i - 1)); }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, []);
+    const sh = O.useMemo(() => { try { return getSheet(); } catch (e) { return null; } }, []);
+    const selR = O.useMemo(() => { try { const r = getSel && getSel(); return r ? { r1: r.row[0], r2: r.row[1], c1: r.column[0], c2: r.column[1] } : null; } catch (e) { return null; } }, []);
+    const res = O.useMemo(() => ddbBuildPrint(sh, pg, { range: what === "sel" ? selR : null, ignoreArea }), [sh, JSON.stringify(pg), what, ignoreArea]);
+    const n = res.pages.length, cur = Math.min(pi, Math.max(0, n - 1));
+    const fitS = Math.min((box.w - 40) / res.pw, (box.h - 40) / res.ph); const vs = zoomFull ? 1 : Math.max(0.15, fitS);
+    const set = o2 => onPage({ ...pg, ...o2 });
+    const scaleSel = pg.scaleMode === "pct" ? (pg.scale === 100 ? "none" : "custom") : (pg.fitW === 1 && pg.fitH === 1 ? "sheet" : pg.fitW === 1 && !pg.fitH ? "cols" : !pg.fitW && pg.fitH === 1 ? "rows" : "custom");
+    const C = "#201f1e";
+    const row = (ico, main, sub, ctrl) => o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", border: "1px solid #e1dfdd", borderRadius: 3, background: "#fff", marginBottom: 6 }, children: [o.jsx("span", { style: { flexShrink: 0 }, children: ico }), o.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [o.jsx("div", { style: { fontSize: 12.5, fontWeight: 600, color: C }, children: main }), sub ? o.jsx("div", { style: { fontSize: 11, color: "#605e5c" }, children: sub }) : null, ctrl] })] });
+    const sel = (v, onCh, opts) => o.jsx("select", { value: v, onChange: e => onCh(e.target.value), style: { width: "100%", height: 24, marginTop: 3, border: "1px solid #a19f9d", fontSize: 12, color: C, background: "#fff" }, children: opts.map(x => o.jsx("option", { value: x[0], children: x[1] }, x[0])) });
+    const M = ddbMarginsOf(pg);
+    const doc = n ? "<html><head><meta charset='utf-8'><style>" + ddbPrintCss(res.paper, res.land) + "body{background:transparent}</style></head><body>" + res.pages[cur] + "</body></html>" : "";
+    return Rr.createPortal(o.jsxs("div", { "data-ddb-sheetprint": "1", style: { position: "fixed", inset: 0, zIndex: 2147483500, display: "flex", background: "#f3f2f1", fontFamily: "'Malgun Gothic',sans-serif", color: C }, children: [
+        o.jsxs("div", { style: { width: 300, flexShrink: 0, borderRight: "1px solid #d2d0ce", display: "flex", flexDirection: "column", background: "#f3f2f1" }, children: [
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "12px 14px" }, children: [o.jsx("button", { onClick: close, title: "돌아가기 (Esc)", style: { width: 32, height: 32, borderRadius: 16, border: "1px solid #a19f9d", background: "#fff", cursor: "pointer", fontSize: 16, color: C }, children: "←" }), o.jsx("span", { style: { fontSize: 22, fontWeight: 300 }, children: "인쇄" })] }),
+            o.jsxs("div", { style: { padding: "0 14px 10px", display: "flex", gap: 10, alignItems: "center" }, children: [o.jsxs("button", { "data-ddb-doprint": "1", onClick: () => { if (n) ddbPrintPages(res); }, disabled: !n, style: { width: 84, height: 74, border: "1px solid #a19f9d", background: "#fff", cursor: n ? "pointer" : "not-allowed", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, color: C, fontSize: 13 }, children: [ddbIco("print", 34), "인쇄"] }), o.jsx("div", { style: { fontSize: 11.5, color: "#3b3a39", lineHeight: 1.5 }, children: "누르면 Windows 인쇄 창이 열립니다. 프린터·매수는 그 창에서 고르세요. (PDF로 저장도 가능)" })] }),
+            o.jsx("div", { style: { padding: "4px 14px", fontSize: 13, fontWeight: 700 }, children: "설정" }),
+            o.jsxs("div", { style: { padding: "0 14px", overflowY: "auto", flex: 1 }, children: [
+                row(ddbIco("area", 26), "인쇄 대상", null, o.jsxs("div", { children: [sel(what, setWhat, [["sheet", "활성 시트 인쇄" + (pg.area ? " (인쇄 영역 " + pg.area + ")" : "")], ["sel", "선택 영역 인쇄" + (selR ? " (" + ddbRefStr(selR.r1, selR.c1, selR.r2, selR.c2) + ")" : "")]]), pg.area ? o.jsxs("label", { style: { display: "flex", gap: 5, alignItems: "center", fontSize: 11.5, marginTop: 4 }, children: [o.jsx("input", { type: "checkbox", checked: ignoreArea, onChange: e => setIgnoreArea(e.target.checked) }), "인쇄 영역 무시"] }) : null] })),
+                row(ddbIco("orient", 26), "용지 방향", null, sel(pg.orient, v => set({ orient: v }), [["portrait", "세로 방향"], ["landscape", "가로 방향"]])),
+                row(ddbIco("size", 26), "용지 크기", null, sel(pg.paper, v => set({ paper: v }), DDB_PAPER.map(p => [p[0], p[1] + "  " + p[2] + " × " + p[3] + " mm"]))),
+                row(ddbIco("margin", 26), "여백", "위 " + M.t + " · 아래 " + M.b + " · 왼쪽 " + M.l + " · 오른쪽 " + M.r + " cm", sel(DDB_MARGINS[pg.margin] ? pg.margin : "custom", v => { if (v === "custom") setSetup("margin"); else set({ margin: v }); }, [["normal", "기본 여백 (보통)"], ["wide", "넓게"], ["narrow", "좁게"], ["custom", "사용자 지정 여백..."]])),
+                row(ddbIco("preview", 26), "배율", "현재 " + Math.round(res.scale * 100) + "%", sel(scaleSel, v => { if (v === "none") set({ scaleMode: "pct", scale: 100 }); else if (v === "sheet") set({ scaleMode: "fit", fitW: 1, fitH: 1 }); else if (v === "cols") set({ scaleMode: "fit", fitW: 1, fitH: 0 }); else if (v === "rows") set({ scaleMode: "fit", fitW: 0, fitH: 1 }); else setSetup("page"); }, [["none", "현재 크기 (100%)"], ["sheet", "한 페이지에 시트 맞추기"], ["cols", "한 페이지에 모든 열 맞추기"], ["rows", "한 페이지에 모든 행 맞추기"], ["custom", "사용자 지정 배율 옵션..."]])),
+                o.jsx("button", { onClick: () => setSetup("page"), style: { border: "none", background: "transparent", color: "#0f6cbd", cursor: "pointer", fontSize: 12.5, padding: "6px 2px", textDecoration: "underline" }, children: "페이지 설정" })
+            ] })
+        ] }),
+        o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }, children: [
+            o.jsx("div", { ref: wrapRef, style: { flex: 1, minHeight: 0, overflow: zoomFull ? "auto" : "hidden", display: "flex", alignItems: zoomFull ? "flex-start" : "center", justifyContent: "center", background: "#e6e6e6", padding: 20 }, children: n ? o.jsx("div", { style: { width: res.pw * vs, height: res.ph * vs, flexShrink: 0, boxShadow: "0 2px 10px rgba(0,0,0,.25)", background: "#fff" }, children: o.jsx("iframe", { "data-ddb-printframe": "1", title: "미리보기", srcDoc: doc, style: { width: res.pw, height: res.ph, border: "none", transform: "scale(" + vs + ")", transformOrigin: "0 0", background: "#fff" } }) }) : o.jsx("div", { style: { fontSize: 14, color: "#605e5c" }, children: "인쇄할 내용이 없습니다." }) }),
+            o.jsxs("div", { style: { height: 40, flexShrink: 0, display: "flex", alignItems: "center", gap: 8, padding: "0 16px", borderTop: "1px solid #d2d0ce", background: "#f3f2f1", fontSize: 12.5 }, children: [
+                o.jsx("button", { onClick: () => setPi(i => Math.max(0, i - 1)), disabled: cur <= 0, style: { border: "1px solid #a19f9d", background: "#fff", cursor: "pointer", width: 26, height: 24, color: C }, children: "◀" }),
+                o.jsx("input", { value: n ? cur + 1 : 0, onChange: e => setPi(Math.max(0, (Number(e.target.value) || 1) - 1)), style: { width: 36, height: 22, textAlign: "center", border: "1px solid #a19f9d", fontSize: 12.5, color: C } }),
+                o.jsx("span", { "data-ddb-pagecount": "1", children: "/ " + n + " 페이지" }),
+                o.jsx("button", { onClick: () => setPi(i => Math.min(n - 1, i + 1)), disabled: cur >= n - 1, style: { border: "1px solid #a19f9d", background: "#fff", cursor: "pointer", width: 26, height: 24, color: C }, children: "▶" }),
+                o.jsx("span", { style: { color: "#605e5c", marginLeft: 8 }, children: (res.nH > 1 ? "가로 " + res.nH + "쪽 × " : "") + "세로 " + (res.nV || 0) + "쪽 · 배율 " + Math.round(res.scale * 100) + "%" + (pg.titleRows ? " · 반복 행 " + pg.titleRows : "") }),
+                o.jsx("span", { style: { flex: 1 } }),
+                o.jsx("button", { onClick: () => setZoomFull(v => !v), title: "페이지 확대/축소", style: { border: "1px solid " + (zoomFull ? "#0078d4" : "#a19f9d"), background: zoomFull ? "#cce4f7" : "#fff", cursor: "pointer", height: 24, padding: "0 8px", color: C, fontSize: 12 }, children: zoomFull ? "🔍 페이지 전체 보기" : "🔍 실제 크기" })
+            ] })
+        ] }),
+        setup ? o.jsx(DDBPageSetupDialog, { page: pg, startTab: setup, selRef: getSel, onSave: p => onPage(p), close: () => setSetup(null) }) : null
+    ] }), document.body);
+}
+function DDBLibGrid({ content, onCommit, onSaveNew, page, onPage }) {
     const data = O.useMemo(() => ddbLoadFortune(content), []);
     const dataRef = O.useRef(null);
     const [reloadKey, setReloadKey] = O.useState(0);
     const wbRef = O.useRef(null);
+    const [rtab, setRtab] = O.useState("home");
+    const [lmenu, setLmenu] = O.useState(null);
+    const [printOpen, setPrintOpen] = O.useState(false);
+    const [psOpen, setPsOpen] = O.useState(null);
+    const [pgLocal, setPgLocal] = O.useState(() => ddbPageOf(page));
+    const setPage = p => { const q = ddbPageOf(p); setPgLocal(q); try { onPage && onPage(q); } catch (e) {} };
+    const getPrintSheet = () => { try { const ae = document.activeElement; if (ae && typeof ae.blur === "function") ae.blur(); } catch (e) {} try { const shs = wbRef.current.getAllSheets() || []; return shs.find(x => x && x.status == 1) || shs[0] || null; } catch (e) { return null; } };
+    O.useEffect(() => { window.__ddbTblOpenPrint = () => setPrintOpen(true); const h = () => setPrintOpen(true); window.addEventListener("ddb-sheet-print-open", h); const k = e => { if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "p" || e.key === "P" || e.code === "KeyP")) { e.preventDefault(); e.stopPropagation(); setPrintOpen(true); } }; window.addEventListener("keydown", k, true); return () => { if (window.__ddbTblOpenPrint) window.__ddbTblOpenPrint = null; window.removeEventListener("ddb-sheet-print-open", h); window.removeEventListener("keydown", k, true); }; }, []);
+    O.useEffect(() => { const vg = pgLocal.viewGrid !== false, vh = pgLocal.viewHeads !== false; const t = setTimeout(() => { try { if (wbRef.current && wbRef.current.setContext) wbRef.current.setContext(ctx => { ctx.showGridLines = vg; ctx.rowHeaderWidth = vh ? 46 : 0; ctx.columnHeaderHeight = vh ? 20 : 0; }); } catch (e) {} }, 300); return () => clearTimeout(t); }, [pgLocal.viewGrid, pgLocal.viewHeads]);
     const tmr = O.useRef(null);
     const [fxHelp, setFxHelp] = O.useState(null);
     const [ctxM, setCtxM] = O.useState(null);
@@ -1698,18 +1968,53 @@ function DDBLibGrid({ content, onCommit, onSaveNew }) {
         Grp("보기", [B("❄ 틀 고정", freeze, "현재 셀 기준 틀 고정", { fontSize: 11 })]),
         Grp("편집", [B("↶", undo, "되돌리기"), B("↷", redo, "다시")])
     ] });
+    // ===== 리본 탭(홈/페이지 레이아웃) + 페이지 레이아웃 리본 (v523) =====
+    const GrpL = (label, kids, onLaunch) => o.jsxs("div", { style: { display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "stretch", padding: "2px 7px", borderRight: "1px solid #e1dfdd" }, children: [o.jsx("div", { style: { display: "flex", alignItems: "flex-start", gap: 2, flex: 1, justifyContent: "center" }, children: kids }), o.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontSize: 10, color: "#605e5c", marginTop: 1, position: "relative" }, children: [label, onLaunch ? o.jsx("button", { onClick: onLaunch, title: label + " 자세히 (대화상자 열기)", style: { position: "absolute", right: -5, bottom: -1, width: 13, height: 13, border: "none", background: "transparent", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsx("svg", { width: 9, height: 9, viewBox: "0 0 9 9", children: o.jsx("path", { d: "M1 1h3M1 1v3M1 1l7 7M8 4v4H4", stroke: "#605e5c", fill: "none", strokeWidth: 1 }) }) }) : null] })] });
+    const LBig = (ico, label, onClick, menuKey, title) => o.jsxs("div", { style: { position: "relative" }, children: [o.jsxs("button", { "data-ddb-lbtn": menuKey || label, onClick: menuKey ? () => setLmenu(m => m === menuKey ? null : menuKey) : onClick, title: title || label, style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1, minWidth: 44, padding: "3px 4px 2px", border: "1px solid " + (lmenu && lmenu === menuKey ? "#c8c6c4" : "transparent"), background: lmenu && lmenu === menuKey ? "#e1dfdd" : "transparent", borderRadius: 2, cursor: "pointer", color: "#201f1e", fontSize: 11, lineHeight: 1.15 }, onMouseEnter: e => { if (!(lmenu === menuKey)) e.currentTarget.style.background = "#e8e7e6"; }, onMouseLeave: e => { if (!(lmenu === menuKey)) e.currentTarget.style.background = "transparent"; }, children: [ddbIco(ico, 30), o.jsx("span", { style: { whiteSpace: "nowrap" }, children: label }), menuKey ? o.jsx("span", { style: { fontSize: 8, color: "#605e5c", marginTop: -1 }, children: "▼" }) : o.jsx("span", { style: { fontSize: 8 }, children: " " })] }),
+        (menuKey && lmenu === menuKey) ? o.jsx(DDBPortalPop, { style: { background: "#fff", border: "1px solid #c8c6c4", boxShadow: "0 6px 18px rgba(0,0,0,.25)", padding: "4px 0", minWidth: 190, zIndex: 2147483450 }, children: lmenuItems(menuKey) }) : null] });
+    const mItem = (label, sub, fn, on) => o.jsxs("div", { onMouseDown: e => e.preventDefault(), onClick: () => { setLmenu(null); try { fn && fn(); } catch (e) {} }, onMouseEnter: e => e.currentTarget.style.background = "#eef3fb", onMouseLeave: e => e.currentTarget.style.background = on ? "#e5f1fb" : "transparent", style: { padding: "5px 14px", cursor: "pointer", fontSize: 12.5, color: "#201f1e", background: on ? "#e5f1fb" : "transparent", display: "flex", flexDirection: "column" }, children: [o.jsx("span", { style: { fontWeight: on ? 700 : 400 }, children: (on ? "✓ " : "") + label }), sub ? o.jsx("span", { style: { fontSize: 11, color: "#605e5c" }, children: sub }) : null] }, label);
+    const curSel = () => { try { return ddbNormSel(sel()); } catch (e) { return null; } };
+    const lmenuItems = k => {
+        const P = pgLocal;
+        if (k === "margin") return [...Object.keys(DDB_MARGINS).map(m => { const v = DDB_MARGINS[m]; return mItem(v[0], "위 " + v[1] + "  아래 " + v[2] + "  왼쪽 " + v[3] + "  오른쪽 " + v[4] + " cm", () => setPage({ ...P, margin: m }), P.margin === m); }), mItem("사용자 지정 여백(A)...", P.margin === "custom" ? "위 " + P.m.t + " 아래 " + P.m.b + " 왼쪽 " + P.m.l + " 오른쪽 " + P.m.r + " cm" : null, () => setPsOpen("margin"), P.margin === "custom")];
+        if (k === "orient") return [mItem("세로(T)", null, () => setPage({ ...P, orient: "portrait" }), P.orient === "portrait"), mItem("가로(L)", null, () => setPage({ ...P, orient: "landscape" }), P.orient === "landscape")];
+        if (k === "size") return [...DDB_PAPER.map(x => mItem(x[1], x[2] + " mm × " + x[3] + " mm", () => setPage({ ...P, paper: x[0] }), P.paper === x[0])), mItem("기타 용지 크기(A)...", null, () => setPsOpen("page"))];
+        if (k === "area") return [mItem("인쇄 영역 설정(S)", "선택한 칸만 인쇄", () => { const r = curSel(); if (r) setPage({ ...P, area: ddbRefStr(r.row[0], r.column[0], r.row[1], r.column[1]) }); }), mItem("인쇄 영역 해제(C)", P.area ? "현재: " + P.area : "설정된 영역 없음", () => setPage({ ...P, area: "" }))];
+        if (k === "breaks") return [mItem("페이지 나누기 삽입(I)", "선택한 칸의 위쪽(·왼쪽)에서 다음 페이지로", () => { const r = curSel(); if (!r) return; const R0 = r.row[0], C0 = r.column[0]; setPage({ ...P, breaksR: R0 > 0 && !P.breaksR.includes(R0) ? [...P.breaksR, R0] : P.breaksR, breaksC: C0 > 0 && !P.breaksC.includes(C0) ? [...P.breaksC, C0] : P.breaksC }); }), mItem("페이지 나누기 제거(R)", null, () => { const r = curSel(); if (!r) return; setPage({ ...P, breaksR: P.breaksR.filter(x => x !== r.row[0]), breaksC: P.breaksC.filter(x => x !== r.column[0]) }); }), mItem("페이지 나누기 모두 원래대로(A)", (P.breaksR.length + P.breaksC.length) ? "지금 " + (P.breaksR.length + P.breaksC.length) + "개" : null, () => setPage({ ...P, breaksR: [], breaksC: [] }))];
+        return null;
+    };
+    O.useEffect(() => { if (!lmenu) return; const h = e => { try { if (e.target.closest && (e.target.closest("[data-ddb-float]") || e.target.closest("[data-ddb-lbtn]"))) return; } catch (er) {} setLmenu(null); }; const t = setTimeout(() => document.addEventListener("mousedown", h, true), 0); return () => { clearTimeout(t); document.removeEventListener("mousedown", h, true); }; }, [lmenu]);
+    const fitOpts = [["0", "자동"], ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => [String(n), n + "페이지"])];
+    const fitVal = k => pgLocal.scaleMode === "fit" ? String(pgLocal[k] || 0) : "0";
+    const setFit = (k, v) => { const P = pgLocal; const nf = { fitW: fitVal("fitW") | 0, fitH: fitVal("fitH") | 0, [k]: Number(v) }; if (!nf.fitW && !nf.fitH) setPage({ ...P, scaleMode: "pct", fitW: 0, fitH: 0 }); else setPage({ ...P, scaleMode: "fit", ...nf }); };
+    const smallSel = (val, onCh, opts, w) => o.jsx("select", { value: val, onChange: e => onCh(e.target.value), style: { height: 20, width: w || 80, border: "1px solid #c8c6c4", fontSize: 11, color: "#201f1e", background: "#fff" }, children: opts.map(x => o.jsx("option", { value: x[0], children: x[1] }, x[0])) });
+    const ck = (on, fn, t) => o.jsxs("label", { style: { display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "#201f1e", cursor: "pointer", whiteSpace: "nowrap" }, children: [o.jsx("input", { type: "checkbox", checked: !!on, onChange: e => fn(e.target.checked), style: { width: 12, height: 12, margin: 0 } }), t] });
+    const layoutRibbon = o.jsxs("div", { "data-ddb-layoutribbon": "1", style: { display: "flex", alignItems: "stretch", background: "#f3f2f1", borderBottom: "1px solid #c8c6c4", padding: "3px 2px", flexWrap: "wrap", flexShrink: 0, minHeight: 74 }, children: [
+        GrpL("페이지 설정", [LBig("margin", "여백", null, "margin"), LBig("orient", "용지 방향", null, "orient"), LBig("size", "크기", null, "size"), LBig("area", "인쇄 영역", null, "area"), LBig("breaks", "나누기", null, "breaks"), LBig("titles", "인쇄 제목", () => setPsOpen("sheet"), null, "매 페이지마다 반복해서 찍을 행·열 지정")], () => setPsOpen("page")),
+        GrpL("크기 조정", o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 3, justifyContent: "center", paddingTop: 2 }, children: [
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 4, fontSize: 11 }, children: [o.jsx("span", { style: { width: 38 }, children: "↔ 너비:" }), smallSel(fitVal("fitW"), v => setFit("fitW", v), fitOpts)] }),
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 4, fontSize: 11 }, children: [o.jsx("span", { style: { width: 38 }, children: "↕ 높이:" }), smallSel(fitVal("fitH"), v => setFit("fitH", v), fitOpts)] }),
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 4, fontSize: 11 }, children: [o.jsx("span", { style: { width: 38 }, children: "배율:" }), o.jsx("input", { type: "number", min: 10, max: 400, step: 5, disabled: pgLocal.scaleMode === "fit", value: pgLocal.scaleMode === "fit" ? 100 : pgLocal.scale, onChange: e => setPage({ ...pgLocal, scaleMode: "pct", scale: Math.max(10, Math.min(400, Number(e.target.value) || 100)) }), title: pgLocal.scaleMode === "fit" ? "너비·높이를 '자동'으로 두어야 배율을 직접 바꿀 수 있어요" : "", style: { width: 64, height: 20, border: "1px solid #c8c6c4", fontSize: 11, color: "#201f1e", background: pgLocal.scaleMode === "fit" ? "#edebe9" : "#fff" } }), o.jsx("span", { children: "%" })] })
+        ] }), () => setPsOpen("page")),
+        GrpL("시트 옵션", o.jsxs("div", { style: { display: "flex", gap: 14, paddingTop: 2 }, children: [
+            o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 3 }, children: [o.jsx("span", { style: { fontSize: 11, color: "#201f1e" }, children: "눈금선" }), ck(pgLocal.viewGrid, v => setPage({ ...pgLocal, viewGrid: v }), "보기"), ck(pgLocal.grid, v => setPage({ ...pgLocal, grid: v }), "인쇄")] }),
+            o.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 3 }, children: [o.jsx("span", { style: { fontSize: 11, color: "#201f1e" }, children: "제목(머리글)" }), ck(pgLocal.viewHeads, v => setPage({ ...pgLocal, viewHeads: v }), "보기"), ck(pgLocal.heads, v => setPage({ ...pgLocal, heads: v }), "인쇄")] })
+        ] }), () => setPsOpen("sheet")),
+        GrpL("인쇄", [LBig("preview", "인쇄 미리 보기", () => setPrintOpen(true), null, "인쇄 미리 보기 (Ctrl+P)"), LBig("print", "바로 인쇄", () => { try { const ae = document.activeElement; if (ae && ae.blur) ae.blur(); } catch (e) {} const r = ddbBuildPrint(getPrintSheet(), pgLocal, {}); if (r.pages.length) ddbPrintPages(r); }, null, "미리 보기 없이 바로 인쇄 창 열기")])
+    ] });
+    const ribbonTabs = o.jsx("div", { style: { display: "flex", alignItems: "flex-end", gap: 2, background: "#f3f2f1", padding: "3px 6px 0", borderBottom: "1px solid #c8c6c4", flexShrink: 0 }, children: [["home", "홈"], ["layout", "페이지 레이아웃"]].map(t => o.jsx("button", { "data-ddb-rtab": t[0], onClick: () => { setRtab(t[0]); setLmenu(null); }, style: { padding: "3px 12px", fontSize: 12, cursor: "pointer", border: "none", borderBottom: rtab === t[0] ? "3px solid #217346" : "3px solid transparent", background: "transparent", color: rtab === t[0] ? "#217346" : "#201f1e", fontWeight: rtab === t[0] ? 700 : 400, marginBottom: -1 }, children: t[1] }, t[0])) });
     const fxDesc = d => { const parts = String(d || "").split(/\s{2,}/); return { ko: parts[0] || "", ex: parts[1] || "" }; };
     const fxPanel = fxHelp ? o.jsx("div", { style: { position: "absolute", top: 6, right: 14, zIndex: 40, width: 300, maxWidth: "70%", background: "#1e293b", color: "#e7ecf3", border: "1px solid #3b4a5e", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", padding: "8px 10px", fontSize: 12 }, children: o.jsx("div", { style: { display: "flex", flexDirection: "column", gap: 5 }, children: fxHelp.items.map((f, idx) => { const dd = fxDesc(f[1]); return o.jsxs("div", { style: { lineHeight: 1.5 }, children: [o.jsxs("div", { children: [o.jsx("span", { style: { fontWeight: 700, color: "#7dd3fc" }, children: f[0] }), o.jsx("span", { style: { color: "#cbd5e1" }, children: " — " + dd.ko })] }), dd.ex ? o.jsx("div", { style: { color: "#94a3b8", fontFamily: "monospace", fontSize: 11 }, children: dd.ex }) : null] }, f[0] + idx); }) }) }) : null;
     const _run = fn => () => { setCtxM(null); try { fn && fn(); } catch (e) {} };
     const _FSM = [["✂", "잘라내기(T)", doCut], ["⧉", "복사(C)", doCopy], ["📋", "붙여넣기", doPaste], ["📋", "선택하여 붙여넣기(S)…", doPaste], ["sep"], ["＋", "삽입(I)…", () => insRC("row")], ["✕", "삭제(D)…", () => delRC("row")], ["⌫", "내용 지우기(N)", clearRange], ["sep"], ["📊", "빠른 분석(Q)", null], ["✇", "필터(E)", null], ["↕", "정렬(O)", null, [["텍스트 오름차순", () => sortRange(true)], ["텍스트 내림차순", () => sortRange(false)]]], ["sep"], ["▦", "표/범위에서 데이터 가져오기(G)…", null], ["🗨", "메모 삽입(M)", null], ["🎨", "셀 서식(F)…", () => { try { const r = sel(); if (r && wbRef.current) { const row = r.row[0], col = r.column[0]; const g = a => { try { return wbRef.current.getCellValue(row, col, { type: a }); } catch (e) { return void 0; } }; const edges = {}; try { const r1 = r.row[0], r2 = r.row[1], c1 = r.column[0], c2 = r.column[1]; const shs = wbRef.current.getAllSheets() || []; const sh = shs.find(x => x && x.status == 1) || shs[0]; const bi = (sh && sh.config && sh.config.borderInfo) || []; const ov = rg => rg && rg.row && rg.column && !(rg.row[1] < r1 || rg.row[0] > r2 || rg.column[1] < c1 || rg.column[0] > c2); bi.forEach(b => { if (!b) return; if (b.rangeType === "cell" && b.value) { const v = b.value, ri = v.row_index, ci = v.col_index; if (ri < r1 || ri > r2 || ci < c1 || ci > c2) return; if (v.t && ri === r1) edges.top = { style: String(v.t.style), color: v.t.color }; if (v.b && ri === r2) edges.bottom = { style: String(v.b.style), color: v.b.color }; if (v.l && ci === c1) edges.left = { style: String(v.l.style), color: v.l.color }; if (v.r && ci === c2) edges.right = { style: String(v.r.style), color: v.r.color }; return; } if (!(b.range || []).some(ov)) return; const e = { style: String(b.style || "1"), color: b.color || "#000000" }; const t = b.borderType; if (t === "border-none") { Object.keys(edges).forEach(k => delete edges[k]); return; } if (t === "border-all" || t === "border-outside" || t === "border-top") edges.top = e; if (t === "border-all" || t === "border-outside" || t === "border-bottom") edges.bottom = e; if (t === "border-all" || t === "border-outside" || t === "border-left") edges.left = e; if (t === "border-all" || t === "border-outside" || t === "border-right") edges.right = e; if ((t === "border-all" || t === "border-inside" || t === "border-horizontal") && r2 > r1) edges.ih = e; if ((t === "border-all" || t === "border-inside" || t === "border-vertical") && c2 > c1) edges.iv = e; if (t === "border-slash") edges.diag = e; }); } catch (e) {} setFmtInit({ ff: g("ff"), fs: g("fs"), bl: g("bl"), it: g("it"), un: g("un"), cl: g("cl"), fc: g("fc"), ht: g("ht"), vt: g("vt"), tb: g("tb"), bg: g("bg"), tr: g("tr"), rt: g("rt"), ct: g("ct"), v: g("v"), nR: r.row[1] - r.row[0] + 1, nC: r.column[1] - r.column[0] + 1, edges: edges }); } else setFmtInit({}); } catch (e) { setFmtInit({}); } setFmtOpen(true); }], ["▾", "드롭다운 목록에서 선택(K)…", null], ["☰", "윗줄 필드 표시(S)", null], ["□", "이름 정의(A)…", null], ["🔗", "링크(I)…", null], ["↗", "하이퍼링크 열기(O)", null]];
     const ctxMenuEl = ctxM ? Rr.createPortal(o.jsx("div", { "data-ddbfsctx": "1", onMouseDown: e => e.stopPropagation(), style: { position: "fixed", left: Math.min(ctxM.x, window.innerWidth - 252), top: Math.min(ctxM.y, window.innerHeight - 560), zIndex: 2147483600, minWidth: 238, background: "#ffffff", border: "1px solid #c8c6c4", borderRadius: 6, boxShadow: "0 10px 30px rgba(0,0,0,0.28)", padding: "4px 0", fontFamily: "'Malgun Gothic',sans-serif" }, children: _FSM.map((it, i) => it[0] === "sep" ? o.jsx("div", { style: { height: 1, background: "#e6e6e6", margin: "4px 0" } }, "s" + i) : (() => { const act = it[2] || it[3]; return o.jsxs("div", { onClick: it[2] ? _run(it[2]) : void 0, onMouseEnter: e => { setSubI(it[3] ? i : -1); if (act) e.currentTarget.style.background = "#eef3fb"; }, onMouseLeave: e => { e.currentTarget.style.background = "transparent"; }, style: { position: "relative", display: "flex", alignItems: "center", gap: 10, padding: "5px 14px", cursor: act ? "pointer" : "default", color: act ? "#201f1e" : "#b3b0ad", fontSize: 13, whiteSpace: "nowrap" }, children: [o.jsx("span", { style: { width: 16, textAlign: "center", fontSize: 13, opacity: act ? 0.85 : 0.4 }, children: it[0] }), o.jsx("span", { style: { flex: 1 }, children: it[1] }), it[3] ? o.jsx("span", { style: { opacity: 0.5, fontSize: 11 }, children: "▸" }) : null, (subI === i && it[3]) ? o.jsx("div", { "data-ddbfsctx": "1", onMouseDown: e => e.stopPropagation(), style: { position: "absolute", left: "100%", top: -5, background: "#ffffff", border: "1px solid #c8c6c4", borderRadius: 6, boxShadow: "0 8px 24px rgba(0,0,0,0.25)", padding: "4px 0", minWidth: 150 }, children: it[3].map((su, j) => o.jsx("div", { onClick: _run(su[1]), onMouseEnter: e => e.currentTarget.style.background = "#eef3fb", onMouseLeave: e => e.currentTarget.style.background = "transparent", style: { padding: "5px 14px", cursor: "pointer", fontSize: 13, whiteSpace: "nowrap", color: "#201f1e" }, children: su[0] }, j)) }) : null] }, "m" + i); })()) }), document.body) : null;
     return o.jsxs("div", { style: { display: "flex", flexDirection: "column", height: "100%", width: "100%" }, children: [
-        ribbon,
+        ribbonTabs, rtab === "layout" ? layoutRibbon : ribbon,
         o.jsxs("div", { style: { flex: 1, minHeight: 0, position: "relative" }, onInput: onFx, onKeyUp: onFx, onContextMenu: e => { try { e.preventDefault(); } catch (er) {} setSubI(-1); setCtxM({ x: e.clientX, y: e.clientY }); }, children: [
             o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx(FSWorkbook, { ref: wbRef, key: "wb" + reloadKey, data: (reloadKey > 0 && dataRef.current) ? dataRef.current : data, lang: "en", showToolbar: false, defaultFontSize: 11, cellContextMenu: [], headerContextMenu: [], onChange: onCommit ? onCh : void 0 }) }),
             fxPanel,
             ctxMenuEl,
-            fmtOpen ? o.jsx(DDBCellFmtDialog, { apply: fmt, mergeToggle: merge, applyBorder: applyBorder, init: fmtInit || {}, close: () => setFmtOpen(false) }) : null
+            fmtOpen ? o.jsx(DDBCellFmtDialog, { apply: fmt, mergeToggle: merge, applyBorder: applyBorder, init: fmtInit || {}, close: () => setFmtOpen(false) }) : null, printOpen ? o.jsx(DDBSheetPrint, { getSheet: getPrintSheet, page: pgLocal, onPage: setPage, getSel: () => { try { return ddbNormSel(sel()); } catch (e) { return null; } }, close: () => setPrintOpen(false) }) : null, psOpen ? o.jsx(DDBPageSetupDialog, { page: pgLocal, startTab: psOpen, selRef: () => { try { return ddbNormSel(sel()); } catch (e) { return null; } }, onSave: setPage, close: () => setPsOpen(null) }) : null
         ] })
     ] });
 }
@@ -1760,7 +2065,7 @@ function DDBTableWindow() {
     O.useEffect(() => { const h = e => { const fid = e && e.detail && e.detail.id; if (!fid) return; const nf = (tablesRef.current || []).filter(x => x.id !== fid); saveTables(nf.length ? nf : [{ id: "t" + Date.now(), name: "표 1", content: _blank() }]); setTi(0); }; window.addEventListener("ddb-table-filed", h); return () => window.removeEventListener("ddb-table-filed", h); }, []);
     O.useEffect(() => { const h = e => { const fid = e && e.detail && e.detail.id; if (!fid) return; const cur = tablesRef.current || []; const ix = cur.findIndex(x => x.id === fid); if (ix < 0) return; const gone = cur[ix]; const nf = cur.filter(x => x.id !== fid); saveTables(nf.length ? nf : [{ id: "t" + Date.now(), name: "표 1", content: _blank() }]); setTi(Math.max(0, Math.min(ix, nf.length - 1))); setTrashUndo({ tab: gone, ix: ix }); if (_undoT.current) clearTimeout(_undoT.current); _undoT.current = setTimeout(() => setTrashUndo(null), 8000); }; window.addEventListener("ddb-table-trash", h); return () => window.removeEventListener("ddb-table-trash", h); }, []);
     const undoTrash = () => { const u = trashUndo; if (!u) return; const cur = (tablesRef.current || []).slice(); const onlyBlank = cur.length === 1 && cur[0].name === "표 1" && u.tab.id !== cur[0].id && cur[0].content === _blank(); const base = onlyBlank ? [] : cur; base.splice(Math.min(u.ix, base.length), 0, u.tab); saveTables(base); setTi(Math.min(u.ix, base.length - 1)); setTrashUndo(null); };
-    function saveContent(nc) { const t = tables.slice(); const idx = Math.min(ti, t.length - 1); t[idx] = { id: t[idx].id, name: t[idx].name, content: nc }; saveTables(t); }
+    function saveContent(nc) { const t = tables.slice(); const idx = Math.min(ti, t.length - 1); t[idx] = { ...t[idx], content: nc }; saveTables(t); }
     function addSavedTab(content) { const base = tablesRef.current || []; const t = [...base, { id: "t" + Date.now() + Math.random().toString(36).slice(2, 5), name: ddbNextTblName(base), content: content }]; saveTables(t); setTi(t.length - 1); }
     function newTable() { const t = [...tables, { id: "t" + Date.now(), name: ddbNextTblName(tables), content: _blank() }]; saveTables(t); setTi(t.length - 1); }
     function delTable() { if (tables.length <= 1) { saveTables([{ id: "t" + Date.now(), name: "표 1", content: _blank() }]); setTi(0); return; } if (!window.confirm("이 표를 삭제할까요?")) return; const t = tables.filter((_, i) => i !== ti); saveTables(t); setTi(Math.max(0, ti - 1)); }
@@ -1773,11 +2078,11 @@ function DDBTableWindow() {
             o.jsx("span", { className: "text-white font-semibold text-sm", children: "▦ 표" }),
             o.jsx("div", { className: "flex items-center gap-1 overflow-x-auto flex-1", children: tables.map((tb, i) => o.jsx("button", { draggable: true, onDragStart: e => { try { e.dataTransfer.setData("application/ddb-table", JSON.stringify({ id: tb.id, name: tb.name, content: tb.content })); e.dataTransfer.effectAllowed = "copyMove"; } catch (er) {} let rc = null; try { const b = e.currentTarget.getBoundingClientRect(); rc = { left: b.left, top: b.top, bottom: b.bottom, width: b.width }; } catch (er) {} window.dispatchEvent(new CustomEvent("ddb-tabledrag", { detail: { on: true, rect: rc, id: tb.id, name: tb.name } })); }, onDragEnd: () => window.dispatchEvent(new CustomEvent("ddb-tabledrag", { detail: { on: false } })), onClick: () => setTi(i), onDoubleClick: () => { if (i === ti) renameTable(); }, title: "더블클릭: 이름 변경 · 끌기: 위쪽 🗑에 놓으면 버리기, 📁 메모 폴더에 놓으면 메모로 저장", className: "px-2 py-0.5 rounded text-xs whitespace-nowrap cursor-pointer border " + (i === ti ? "bg-blue-500/30 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"), children: tb.name }, tb.id)) }),
             o.jsx("button", { onClick: newTable, title: "새 표", className: "px-2 py-0.5 rounded text-xs bg-white/10 text-white/70 hover:bg-white/20 cursor-pointer border-none", children: "＋" }),
-            o.jsx("button", { onClick: () => { try { window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: tab.name || "표", html: ddbBlocksToPrintHtml(ddbTabToMd(tab.content)), landscape: true } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤)", className: "px-2 py-0.5 rounded text-xs bg-green-600/70 text-white hover:bg-green-600 cursor-pointer border-none", children: "🖨 인쇄" }),
+            o.jsx("button", { onClick: () => { try { if (window.__ddbTblOpenPrint) { window.__ddbTblOpenPrint(); return; }  window.dispatchEvent(new CustomEvent("ddb-print-preview", { detail: { title: tab.name || "표", html: ddbBlocksToPrintHtml(ddbTabToMd(tab.content)), landscape: true } })); } catch (e) {} }, title: "인쇄 미리보기 (한 페이지 맞춤)", className: "px-2 py-0.5 rounded text-xs bg-green-600/70 text-white hover:bg-green-600 cursor-pointer border-none", children: "🖨 인쇄" }),
             o.jsx("button", { onClick: delTable, title: "이 표 삭제", className: "px-1.5 py-0.5 rounded text-xs text-red-300/70 hover:text-red-200 cursor-pointer bg-transparent border-none", children: "🗑" }),
             o.jsx("button", { onClick: openAsk, title: "닫기 (Alt+X · 고친 내용은 새 탭으로 저장)", className: "text-white/50 hover:text-white text-base leading-none cursor-pointer bg-transparent border-none", children: "✕" })
         ] }),
-        o.jsx("div", { className: "flex-1 overflow-hidden", style: { minHeight: 0, position: "relative" }, children: o.jsx(DDBLibGrid, { content: tab.content, onCommit: saveContent, onSaveNew: addSavedTab }, "lib-" + tab.id) }),
+        o.jsx("div", { className: "flex-1 overflow-hidden", style: { minHeight: 0, position: "relative" }, children: o.jsx(DDBLibGrid, { content: tab.content, onCommit: saveContent, onSaveNew: addSavedTab, page: tab.page, onPage: pg => { const t = (tablesRef.current || []).slice(); const ix = t.findIndex(x => x.id === tab.id); if (ix >= 0) { t[ix] = { ...t[ix], page: pg }; saveTables(t); } } }, "lib-" + tab.id) }),
         _rzH("e", { top: 10, bottom: 10, right: 0, width: 6 }), _rzH("w", { top: 10, bottom: 10, left: 0, width: 6 }), _rzH("s", { left: 10, right: 10, bottom: 0, height: 6 }), _rzH("n", { left: 10, right: 10, top: 0, height: 4 }), _rzH("sw", { left: 0, bottom: 0, width: 12, height: 12 }), _rzH("ne", { right: 0, top: 0, width: 12, height: 8 }), _rzH("nw", { left: 0, top: 0, width: 12, height: 8 }),
         o.jsx("div", { "data-ddb-rz": "se", onMouseDown: e => resize(e, "se"), title: "끌어서 창 크기 조절 (가장자리 어디서나 가능)", style: { position: "absolute", right: 0, bottom: 0, width: 22, height: 22, zIndex: 7, cursor: "nwse-resize", background: "linear-gradient(135deg, transparent 50%, rgba(56,189,248,0.35) 50%)", borderBottomRightRadius: 10 }, children: o.jsx("svg", { width: 14, height: 14, viewBox: "0 0 14 14", style: { position: "absolute", right: 3, bottom: 3, pointerEvents: "none" }, children: o.jsx("path", { d: "M13 3 L3 13 M13 7 L7 13 M13 11 L11 13", stroke: "#e0f2fe", strokeWidth: 1.6, strokeLinecap: "round" }) }) }),
         trashUndo ? o.jsxs("div", { "data-ddb-trashundo": "1", style: { position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", zIndex: 21, background: "#1e2432", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "6px 10px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 24px rgba(0,0,0,.6)" }, children: [o.jsx("span", { style: { color: "#fff", fontSize: 12 }, children: "🗑 '" + (trashUndo.tab.name || "표") + "' 버렸어요" }), o.jsx("button", { onClick: undoTrash, style: { background: "#3b82f6", color: "#fff", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: 12, cursor: "pointer", fontWeight: 700 }, children: "되돌리기" })] }) : null,
@@ -3797,7 +4102,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.85";
+const DDB_VERSION = "1.00.86";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5346,7 +5651,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v522"
+                children: "v523"
             }), (() => {
                 const S = [{
                     k: "cal",
