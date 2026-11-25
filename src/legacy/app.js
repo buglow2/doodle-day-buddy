@@ -3529,7 +3529,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.82";
+const DDB_VERSION = "1.00.83";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5078,7 +5078,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v519"
+                children: "v520"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -10399,8 +10399,8 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
         const _view = tv[bi] || null;
         const _hasView = !!(_view && (_view.sort || (_view.filt && Object.keys(_view.filt).length)));
         const _order = _hasView ? ddbTableView(b, _view, (R, C) => ddbCellDisp(b, R, C)) : b.rows.map((_r, _i) => _i);
-        return o.jsxs("div", { "data-block": bi, className: "mb-1.5" + (dragBi === bi ? " opacity-40" : ""), style: (dropBi === bi && dragBi !== null && dragBi !== bi) ? { boxShadow: "0 -3px 0 0 #60a5fa" } : void 0, children: [
-            (hov && !readOnly && !xlMode) ? o.jsx("div", { className: "flex gap-1 mb-0.5 items-center", children: ctrl(bi) }) : null,
+        return o.jsxs("div", { "data-block": bi, className: "mb-1.5" + (dragBi === bi ? " opacity-40" : ""), style: { position: "relative", ...((dropBi === bi && dragBi !== null && dragBi !== bi) ? { boxShadow: "0 -3px 0 0 #60a5fa" } : {}) }, children: [
+            (hov && !readOnly && !xlMode) ? o.jsx("div", { className: "flex gap-1 items-center", style: { position: "absolute", right: 2, top: -2, zIndex: 6 }, children: ctrl(bi) }) : null,
             o.jsxs("table", { onContextMenu: ev => { if (readOnly) return; ev.preventDefault(); ev.stopPropagation(); setCmenu({ x: ev.clientX, y: ev.clientY, bi: bi }); }, style: { borderCollapse: "collapse", tableLayout: "fixed", width: "auto" }, children: [
                 o.jsxs("thead", { children: [
                     active ? o.jsxs("tr", { children: [o.jsx("th", { onDoubleClick: ev => { ev.preventDefault(); ev.stopPropagation(); autoFitAll(bi); }, title: "더블클릭: 모든 열 내용에 맞춤", style: { ...lblSty, cursor: "pointer" } }, "cLc"), ...b.headers.map((_hh, Y) => o.jsxs("th", { style: { ...lblSty, position: "relative", width: colW(bi, Y), minWidth: colW(bi, Y), maxWidth: colW(bi, Y), background: (tv[bi] && tv[bi].filt && tv[bi].filt[Y]) ? "rgba(96,165,250,0.2)" : lblSty.background }, children: [o.jsxs("span", { onClick: ev => { ev.stopPropagation(); cycleSort(bi, Y); }, title: "클릭: 정렬 오름차순 → 내림차순 → 해제", style: { cursor: "pointer", userSelect: "none" }, children: [ddbIdxToCol(Y), (tv[bi] && tv[bi].sort && tv[bi].sort.c === Y) ? (tv[bi].sort.dir === "asc" ? " ▲" : " ▼") : ""] }), o.jsx("span", { onClick: ev => { ev.stopPropagation(); const rc = ev.currentTarget.getBoundingClientRect(); setFmenu({ bi: bi, c: Y, x: Math.min(rc.left, window.innerWidth - 210), y: rc.bottom + 3 }); }, title: "필터", style: { cursor: "pointer", marginLeft: 3, fontSize: 8, color: (tv[bi] && tv[bi].filt && tv[bi].filt[Y]) ? "#60a5fa" : "rgba(255,255,255,0.4)" }, children: "▼" }), o.jsx("div", { onMouseDown: ev => colDragL(bi, Y, ev), onDoubleClick: ev => { ev.preventDefault(); ev.stopPropagation(); autoFitCol(bi, Y); }, onClick: ev => ev.stopPropagation(), title: "오른쪽 모서리: 이 열 너비 조절 · 더블클릭=내용에 맞춤", style: { position: "absolute", top: 0, right: -3, width: 7, height: "100%", cursor: "col-resize", zIndex: 5 } })] }, "cl" + Y))] }, "coordTop") : null,
@@ -10412,8 +10412,8 @@ function DDBDocEditor({ content, fontSize, onCommit, itemId, maxH, onSolo, soloO
         ] }, "b" + bi);
     }
     function renderText(b, bi) {
-        return o.jsxs("div", { "data-block": bi, className: "mb-1.5" + (dragBi === bi ? " opacity-40" : ""), style: (dropBi === bi && dragBi !== null && dragBi !== bi) ? { boxShadow: "0 -3px 0 0 #60a5fa" } : void 0, children: [
-            (!effSimple && !xlMode && hov) ? o.jsx("div", { className: "flex gap-1 mb-0.5", children: ctrl(bi) }) : null,
+        return o.jsxs("div", { "data-block": bi, className: "mb-1.5" + (dragBi === bi ? " opacity-40" : ""), style: { position: "relative", ...((dropBi === bi && dragBi !== null && dragBi !== bi) ? { boxShadow: "0 -3px 0 0 #60a5fa" } : {}) }, children: [
+            (!effSimple && !xlMode && hov && !readOnly) ? o.jsx("div", { className: "flex gap-1", style: { position: "absolute", right: 2, top: 0, zIndex: 6 }, children: ctrl(bi) }) : null,
             o.jsx("textarea", { value: b.s == null ? "" : b.s, "data-tb": bi, readOnly: !!readOnly, onMouseDown: ev => ev.stopPropagation(), onFocus: () => { if (readOnly) return; if (onSolo && !soloOn) onSolo(); }, onKeyDown: ev => readOnly ? null : textNav(ev, bi), onPaste: ev => { if (readOnly) return; try { const html = ev.clipboardData.getData("text/html"); const plain = ev.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (!md) return; const g = GT(md); if (!g || !g.headers) return; ev.preventDefault(); const tbl = { t: "table", headers: g.headers, rows: g.rows || [] }; const cur = String(b.s || "").trim(); const ins = []; if (cur) ins.push(b); ins.push(tbl); if (g.trail && g.trail.trim()) ins.push({ t: "text", s: g.trail.trim() }); else ins.push({ t: "text", s: "" }); const nb0 = blocks.slice(); nb0.splice(bi, 1, ...ins); const added = ins.length - 1; const nf0 = remapFmt(fmt, x => x > bi ? x + added : x); const z = normalizeBlocks(nb0, nf0); setBlocks(z.blocks); setFmt(z.fmt); save(z.blocks, z.fmt); } catch (e) {} }, onChange: ev => setText(bi, ev.target.value), placeholder: "메모 입력…", rows: Math.max(2, (String(b.s || "").match(/\n/g) || []).length + 1), className: "w-full px-1 py-0.5 text-white/90 resize-none focus:outline-none", style: { fontSize: Math.max(10, t - 1), background: "transparent", border: "none" } })
         ] }, "b" + bi);
     }
@@ -15639,7 +15639,7 @@ function Td({
             type: "BRING_FRONT",
             id: e.id
         });
-        const w = ((v = i.current) == null ? void 0 : v.getBoundingClientRect().height) ?? (a ? e.floatH : e.slotH ?? 200);
+        const w = ((v = i.current) == null ? void 0 : v.getBoundingClientRect().height) ?? (a ? e.floatH : ddbSlotH(e) ?? 200);
         Object.assign(at, {
             active: !0,
             corner: y,
@@ -15692,9 +15692,7 @@ function Td({
             position: "relative",
             width: "100%",
             height: "100%",
-            ...e.slotH && !e.minimized ? {
-                height: e.slotH
-            } : {}
+            ...(ddbSlotH(e) && !e.minimized ? { height: ddbSlotH(e) } : (!e.minimized && e.type === "memo" ? { minHeight: DDB_SLOT_MINH } : {}))
         };
     return o.jsxs("div", {
         ref: i,
@@ -15849,9 +15847,12 @@ function Td({
             children: n
         }), (() => { return null; /* 캐릭터 스킨: 내용을 가리던 우하단 마스코트 임시 비활성화. 사용자 이미지 준비 후 [제목표시줄 옆 + 빈 공간 은은한 워터마크 + 달력 워터마크] 방식으로 재구현 예정 */ })(), !e.minimized && o.jsx("div", {
             onMouseDown: m => c(m, "s"),
-            className: "absolute bottom-0 left-6 right-6 h-[3px] cursor-s-resize z-30 group",
+            className: "absolute bottom-0 left-4 right-4 z-30 group",
+            title: "위아래로 끌어서 창 높이 조절 (크기는 기억됩니다)",
+            style: { height: 7, cursor: "ns-resize" },
             children: o.jsx("div", {
-                className: "w-8 h-0.5 rounded-full bg-white/0 group-hover:bg-white/40 transition-colors mx-auto mt-0.5"
+                className: "rounded-full bg-white/30 group-hover:bg-sky-300 transition-colors mx-auto",
+                style: { width: 40, height: 3, marginTop: 2 }
             })
         }), a && !e.minimized && f.map(m => o.jsx("div", {
             onMouseDown: y => c(y, m),
@@ -18159,12 +18160,17 @@ function g2({
     })
 }
 
+const DDB_SLOT_MINH = 340; // 도킹된 메모 창 기본 높이(최소 8줄 정도 보이게)
+function ddbSlotKey(p) { return p ? (p.type === "memo" && p.memoTabId ? "m:" + p.memoTabId : "t:" + p.type) : ""; }
+function ddbSlotHGet(p) { try { const m = JSON.parse(localStorage.getItem("ddb_slot_h") || "{}"); const v = m[ddbSlotKey(p)]; return v > 0 ? v : null; } catch (e) { return null; } }
+function ddbSlotHSet(p, h) { try { const m = JSON.parse(localStorage.getItem("ddb_slot_h") || "{}"); m[ddbSlotKey(p)] = Math.round(h); localStorage.setItem("ddb_slot_h", JSON.stringify(m)); } catch (e) {} }
+function ddbSlotH(p) { if (!p) return null; return ddbSlotHGet(p) || p.slotH || null; }
 function A1({
     panel: e
 }) {
     const t = KO(e);
     return o.jsx("div", {
-        className: e.slotH && !e.minimized ? "flex-shrink-0 overflow-hidden" : "flex-shrink-0",
+        className: ddbSlotH(e) && !e.minimized ? "flex-shrink-0 overflow-hidden" : "flex-shrink-0",
         children: o.jsx(Td, {
             panel: e,
             title: t.title,
@@ -18344,7 +18350,7 @@ function YO() {
                         type: "RESIZE_PANEL_H",
                         id: at.panelId,
                         height: he
-                    });
+                    }); ddbSlotHSet(ce, he);
                     return
                 }
                 const q = Y.clientX - at.startX;
