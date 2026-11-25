@@ -746,7 +746,7 @@ function DDBImageEditor() {
             if (!typing && (e.key === "[" || e.key === "]") && !e.ctrlKey && !e.metaKey && !e.altKey) { const g = curGroup(); if (g) { e.preventDefault(); groupCycle(g, e.key === "[" ? -1 : 1); setGrpMenu(null); return; } }
             if (e.key === "Escape") { e.preventDefault(); const c = fcRef.current; if (askCloseImg) { setAskCloseImg(false); return; } if (qsMenu) { setQsMenu(null); return; } if (arrMenu) { setArrMenu(null); return; } if (toolRef.current === "matchprop") { setTool("select"); matchRef.current = null; return; } if (fmt) { setFmt(null); return; } if (ctxMenu) { setCtxMenu(null); return; } if (showImgSet) { setShowImgSet(false); return; } if (polyModal) { setPolyModal(false); return; } if (grpMenu) { setGrpMenu(null); return; } if (showCfg) { setShowCfg(false); return; } if (menu) { setMenu(null); return; } if (cropReady) { cancelCrop(); return; } if (drawRef.current) { if (c && drawRef.current.obj) { try { c.remove(drawRef.current.obj); } catch {} } drawRef.current = null; if (c) { c.selection = true; c.renderAll(); } return; } if (c) { const a = c.getActiveObject(); if (a && a.isEditing) { try { a.exitEditing(); } catch {} return; } if (c._currentTransform && xformRef.current && xformRef.current.obj) { const o2 = xformRef.current.obj, pr = xformRef.current.props; o2.set(pr); o2.setCoords(); c._currentTransform = null; c.renderAll(); return; } if (a) { c.discardActiveObject(); c.renderAll(); return; } } if (openRef.current) { if (hist.current && hist.current.i > 0) setAskCloseImg(true); else setOpen(false); } return; }
             if (typing) return;
-            if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === "+" || e.key === "=" || e.key === "-" || e.key === "_")) { e.preventDefault(); const c = fcRef.current; const a = c && c.getActiveObject(); const inc = (e.key === "+" || e.key === "="); if (toolRef.current === "select" && a && !a.isEditing) { const f = inc ? 1.08 : 1 / 1.08; a.scaleX = (a.scaleX || 1) * f; a.scaleY = (a.scaleY || 1) * f; a.setCoords(); c.requestRenderAll(); if (nudgeRef.current) clearTimeout(nudgeRef.current); nudgeRef.current = setTimeout(() => pushHist(), 400); } else bumpLw(inc ? 1 : -1); return; }
+            if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === "+" || e.key === "=" || e.key === "-" || e.key === "_")) { e.preventDefault(); const c = fcRef.current; const a = c && c.getActiveObject(); const inc = (e.key === "+" || e.key === "="); const _noStroke = a && (a.type === "image" || a.type === "i-text" || a.type === "text" || a.type === "textbox"); if (a && !a.isEditing && !_noStroke) { try { const _sw = a.type === "activeSelection" || a.type === "group" ? ((a.getObjects && (a.getObjects().find(o2 => o2.strokeWidth != null) || {}).strokeWidth) || lw) : (a.strokeWidth != null ? a.strokeWidth : lw); if (styRef.current) styRef.current.lw = Math.round(_sw); } catch (er) {} bumpLw(inc ? 1 : -1); return; } if (toolRef.current === "select" && a && !a.isEditing) { const f = inc ? 1.08 : 1 / 1.08; a.scaleX = (a.scaleX || 1) * f; a.scaleY = (a.scaleY || 1) * f; a.setCoords(); c.requestRenderAll(); if (nudgeRef.current) clearTimeout(nudgeRef.current); nudgeRef.current = setTimeout(() => pushHist(), 400); } else bumpLw(inc ? 1 : -1); return; }
             if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") { const c = fcRef.current; if (!c) return; const a = c.getActiveObject(); if (!a || a.isEditing) return; e.preventDefault(); const step = e.shiftKey ? 10 : 1; if (e.key === "ArrowLeft") a.left -= step; else if (e.key === "ArrowRight") a.left += step; else if (e.key === "ArrowUp") a.top -= step; else a.top += step; a.setCoords(); c.requestRenderAll(); if (nudgeRef.current) clearTimeout(nudgeRef.current); nudgeRef.current = setTimeout(() => pushHist(), 400); return; }
             if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key || "").length === 1) { const k1 = e.key.toLowerCase(); const match = KEYDEFS.find(kd => { const kk = (imgKeys[kd[0]] ?? kd[2]); return kk && kk.toLowerCase() === k1; }); if (match) { e.preventDefault(); const id = match[0]; if (id === "del") { delSel(); return; } const _t = tileMapRef.current[id]; if (!_t) { setTool(id); } else if (_t.k === "grp") { pickGroupKey(_t.grp); } else if (_t.k === "act") { _t.run && _t.run(); } else { setTool(id); } return; } }
             if ((e.ctrlKey || e.metaKey) && (e.key === "g" || e.key === "G")) { e.preventDefault(); e.shiftKey ? ungroupSel() : groupSel(); return; }
@@ -793,7 +793,7 @@ function DDBImageEditor() {
     const abtn = (fn, label, dis) => o.jsx("button", { onClick: fn, disabled: dis, title: label, className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border bg-white/8 border-white/15 text-white/90 hover:bg-white/15 disabled:opacity-40 whitespace-nowrap", children: labels ? label : label.split(" ")[0] });
     const dropBtn = (id, label, active, opts, cur, onPick) => o.jsxs("div", { className: "relative", children: [o.jsxs("button", { title: label, onClick: () => setMenu(m => m === id ? null : id), className: "px-2 py-1 rounded-lg text-[13px] cursor-pointer border whitespace-nowrap " + (active ? "bg-blue-500/40 border-blue-400/70 text-white" : "bg-white/8 border-white/15 text-white/90 hover:bg-white/15"), children: [labels ? label : label.split(" ")[0], " ▾"] }), menu === id && o.jsx(DDBPortalPop, { className: "flex flex-col rounded-lg overflow-hidden shadow-2xl", style: { zIndex: 60, minWidth: 150, backgroundColor: "#111827", border: "1px solid rgba(255,255,255,0.18)" }, children: opts.map(op => o.jsx("button", { onClick: () => { onPick(op[0]); setMenu(null); }, className: "text-left px-3 py-2 text-[13px] hover:bg-white/10 border-none bg-transparent cursor-pointer whitespace-nowrap " + (op[0] === cur ? "text-blue-300" : "text-white/85"), children: op[1] }, op[0])) })] });
     const penActive = PENV.some(x => x[0] === tool), shapeActive = SHAPES.some(x => x[0] === tool);
-    const bumpLw = delta => { const cur = (styRef.current && styRef.current.lw != null) ? styRef.current.lw : lw; const nv = Math.max(1, Math.min(40, cur + delta)); setLw(nv); if (styRef.current) styRef.current.lw = nv; saveToolLw(nv); const c = fcRef.current; if (c) { const a = c.getActiveObject(); if (a && a.strokeWidth != null && a.type !== "i-text" && a.type !== "text") { if (a.type === "activeSelection") a.forEachObject(o2 => { if (o2.strokeWidth != null) o2.set("strokeWidth", nv); }); else a.set("strokeWidth", nv); a.setCoords && a.setCoords(); c.renderAll(); pushHist(); } } try { flash("두께 " + nv + "px", 850); } catch (e) {} };
+    const bumpLw = delta => { const cur = (styRef.current && styRef.current.lw != null) ? styRef.current.lw : lw; const nv = Math.max(1, Math.min(40, cur + delta)); setLw(nv); if (styRef.current) styRef.current.lw = nv; saveToolLw(nv); const c = fcRef.current; if (c) { const a = c.getActiveObject(); if (a && a.strokeWidth != null && a.type !== "i-text" && a.type !== "text") { if (a.type === "activeSelection" || a.type === "group") { a.forEachObject(o2 => { if (o2.strokeWidth != null && o2.type !== "i-text" && o2.type !== "text" && o2.type !== "textbox") o2.set("strokeWidth", nv); }); if (a.type === "group") a.dirty = true; } else a.set("strokeWidth", nv); a.setCoords && a.setCoords(); c.renderAll(); pushHist(); } } try { flash("두께 " + nv + "px", 850); } catch (e) {} };
     const ICONS = {
         select: '<path d="M5 3l6 16 2.2-6.8L20 10z"/>',
         matchprop: '<path d="M6 12l3.5-3.5"/><path d="M8 9l6-6 3 3-6 6z"/><path d="M4 20s0-3 2-5l4 4c-2 2-5 2-6 1z"/>',
@@ -1464,10 +1464,11 @@ function DDBTableDropZones() {
     const dispatch = ctx.dispatch;
     const cats = (ctx.state.memoTabs || []).filter(tb => tb.id !== "calendar");
     const rc = drag && drag.rect;
-    const above = !rc || rc.top >= 250;
-    const trashTop = rc ? (above ? rc.top - 92 : rc.bottom + 22) : null;
-    const foldTop = rc ? (above ? Math.max(6, rc.top - 236) : rc.bottom + 108) : 232;
-    const trashLeft = rc ? Math.max(8, Math.min(window.innerWidth - 120, rc.left + rc.width / 2 - 56)) : 0;
+    // 휴지통은 항상 탭 '위쪽'(아래로 끌다가 실수로 버리지 않게), 메모 폴더는 아래쪽. 위 공간이 모자라면 탭 왼쪽 옆으로.
+    const roomUp = rc && rc.top >= 84;
+    const trashTop = rc ? (roomUp ? rc.top - 80 : Math.max(4, rc.top - 20)) : null;
+    const trashLeft = rc ? (roomUp ? Math.max(8, Math.min(window.innerWidth - 120, rc.left + rc.width / 2 - 56)) : Math.max(8, rc.left - 130)) : 0;
+    const foldTop = rc ? Math.min(window.innerHeight - 110, rc.bottom + 70) : 232;
     const dropTrash = e => { e.preventDefault(); setOverId(null); try { const raw = e.dataTransfer.getData("application/ddb-table"); const d = raw ? JSON.parse(raw) : drag; if (d && d.id) window.dispatchEvent(new CustomEvent("ddb-table-trash", { detail: { id: d.id } })); } catch (er) {} window.dispatchEvent(new CustomEvent("ddb-tabledrag", { detail: { on: false } })); };
     const trashEl = rc ? o.jsxs("div", { "data-ddb-tabletrash": "1", onDragOver: e => { e.preventDefault(); try { e.dataTransfer.dropEffect = "move"; } catch (er) {} if (overId !== "__trash") setOverId("__trash"); }, onDragLeave: () => setOverId(p2 => p2 === "__trash" ? null : p2), onDrop: dropTrash, style: { position: "fixed", left: trashLeft, top: trashTop, width: 112, height: 70, zIndex: 2147483361, borderRadius: 14, border: "2px dashed #f87171", background: overId === "__trash" ? "#7f1d1d" : "#2a1215", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, boxShadow: "0 10px 28px rgba(0,0,0,0.6)", transform: overId === "__trash" ? "scale(1.1)" : "none", transition: "transform .08s, background .08s" }, children: [o.jsx("span", { style: { fontSize: 24, lineHeight: 1 }, children: "🗑" }), o.jsx("span", { style: { color: "#fecaca", fontSize: 12, fontWeight: 700 }, children: "여기 놓으면 버리기" })] }) : null;
     if (!cats.length) return trashEl ? Rr.createPortal(trashEl, document.body) : null;
@@ -2012,9 +2013,9 @@ function ddbLedgerXlsx(entries, year, months, inc, exp, net) {
         aoa.push(["순수지", won(net)]);
         aoa.push(["총 건수", sorted.length]);
         aoa.push([]);
-        aoa.push(["날짜", "계좌/자산", "구분", "대분류", "항목", "입금", "출금", "잔액", "메모"]);
+        aoa.push(["날짜", "계좌/자산", "구분", "대분류", "소분류", "항목", "입금", "출금", "잔액", "메모"]);
         let bal = 0, cur = "", mi = 0, me = 0;
-        const sub = m => aoa.push(["   " + m + " 소계", "", "", "", "", mi, me, bal, ""]);
+        const sub = m => aoa.push(["   " + m + " 소계", "", "", "", "", "", mi, me, bal, ""]);
         sorted.forEach(e => {
             const mon = String(e.date || "").slice(0, 7);
             if (cur && mon !== cur) { sub(cur); aoa.push([]); mi = 0; me = 0; }
@@ -2022,14 +2023,14 @@ function ddbLedgerXlsx(entries, year, months, inc, exp, net) {
             const amt = won(e.amount), isInc = amt >= 0;
             if (isInc) mi += amt; else me += Math.abs(amt);
             bal += amt;
-            aoa.push([e.date || "", e.account || "", isInc ? "입금" : "출금", e.category || "", e.title || "", isInc ? amt : "", isInc ? "" : Math.abs(amt), bal, e.memo || ""]);
+            aoa.push([e.date || "", e.account || "", isInc ? "입금" : "출금", e.category || "", e.subCategory || "", e.title || "", isInc ? amt : "", isInc ? "" : Math.abs(amt), bal, e.memo || ""]);
         });
         if (cur) sub(cur);
         aoa.push([]);
-        aoa.push(["총 합계", "", "", "", "", won(inc), won(exp), won(net), ""]);
+        aoa.push(["총 합계", "", "", "", "", "", won(inc), won(exp), won(net), ""]);
         const ws = XLSX.utils.aoa_to_sheet(aoa);
-        ws["!cols"] = [{ wch: 12 }, { wch: 14 }, { wch: 7 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 }];
-        try { const range = XLSX.utils.decode_range(ws["!ref"]); for (let R = 0; R <= range.e.r; R++) for (const C of [1, 5, 6, 7]) { const a = XLSX.utils.encode_cell({ r: R, c: C }); const c = ws[a]; if (c && c.t === "n") c.z = "#,##0"; } } catch (e) {}
+        ws["!cols"] = [{ wch: 12 }, { wch: 14 }, { wch: 7 }, { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 }];
+        try { const range = XLSX.utils.decode_range(ws["!ref"]); for (let R = 0; R <= range.e.r; R++) for (const C of [1, 6, 7, 8]) { const a = XLSX.utils.encode_cell({ r: R, c: C }); const c = ws[a]; if (c && c.t === "n") c.z = "#,##0"; } } catch (e) {}
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "가계부");
         XLSX.writeFile(wb, "MomentPlan_가계부_" + (year || "") + ".xlsx");
@@ -2271,9 +2272,13 @@ function DDBBackupPanel() {
     O.useEffect(() => { load(); }, []);
     const fmtName = f => { const m = String(f).match(/^bk-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})/); return m ? (m[1] + " " + m[2] + ":" + m[3]) : f; };
     const restore = async f => { if (!window.confirm("이 시점(" + fmtName(f) + ")으로 되돌릴까요?\n현재 내용이 이 백업 시점 내용으로 바뀝니다.")) return; try { const j = await window.ddbNative.backupRead(f); if (!j) { setMsg("백업을 읽지 못했어요."); return; } const data = JSON.parse(j); dispatch({ type: "RESTORE_STATE", state: data }); setMsg("✅ 복구 완료! 화면이 백업 시점으로 돌아갔어요."); } catch (e) { setMsg("복구 실패: " + ((e && e.message) || "")); } };
-    if (!native) return o.jsx("p", { className: "text-white/40 text-[11px]", children: "설치형(Windows/Mac) 앱에서만 지원돼요. 브라우저에선 클라우드 동기화로 보호됩니다." });
+    const [ab, setAb] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_autobak_v1") || "null"); return v && v.data ? v : null; } catch (e) { return null; } });
+    const restoreAb = () => { if (!ab) return; if (!window.confirm("로그인 없이 켜졌을 때 따로 보관해 둔 데이터(" + String(ab.at).slice(0, 16).replace("T", " ") + ", 항목 " + ab.n + "개)로 되돌릴까요?\n현재 화면 내용이 그 데이터로 바뀝니다.")) return; try { dispatch({ type: "RESTORE_STATE", state: JSON.parse(ab.data) }); setMsg("✅ 보관본으로 되돌렸어요."); } catch (e) { setMsg("되돌리기 실패: " + ((e && e.message) || "")); } };
+    const abBox = ab ? o.jsxs("div", { className: "flex items-center gap-2 rounded-lg px-3 py-2 mb-2", style: { background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.45)" }, children: [o.jsxs("span", { className: "text-amber-100 text-xs flex-1", style: { lineHeight: 1.5 }, children: ["🛟 로그인 없이 켜질 때 보관한 데이터", o.jsx("br", {}), o.jsxs("span", { className: "text-white/85", children: [String(ab.at).slice(0, 16).replace("T", " "), " · 항목 ", ab.n, "개"] })] }), o.jsx("button", { onClick: restoreAb, className: "px-2.5 py-1 rounded border border-amber-300/60 text-amber-50 bg-amber-500/25 hover:bg-amber-500/40 text-[11px] cursor-pointer", children: "되돌리기" })] }) : null;
+    if (!native) return o.jsxs("div", { children: [abBox, o.jsx("p", { className: "text-white/80 text-[11px]", children: "설치형(Windows/Mac) 앱에서만 자동 백업 목록이 지원돼요. 브라우저에선 클라우드 동기화로 보호됩니다." }), msg && o.jsx("p", { className: "text-emerald-300 text-xs mt-2", children: msg })] });
     return o.jsxs("div", { children: [
-        o.jsxs("div", { className: "flex items-center justify-between mb-1", children: [o.jsx("p", { className: "text-white/45 text-[11px]", children: "8초마다 자동 저장 (최근 10개 보관). 필요하면 되돌리기." }), o.jsx("button", { onClick: load, className: "text-[10px] text-white/40 hover:text-white/70 underline bg-transparent border-none cursor-pointer", children: "새로고침" })] }),
+        abBox,
+        o.jsxs("div", { className: "flex items-center justify-between mb-1", children: [o.jsx("p", { className: "text-white/80 text-[11px]", children: "8초마다 자동 저장 (최근 10개 보관). 필요하면 되돌리기." }), o.jsx("button", { onClick: load, className: "text-[10px] text-white/40 hover:text-white/70 underline bg-transparent border-none cursor-pointer", children: "새로고침" })] }),
         list.length === 0 ? o.jsx("p", { className: "text-white/30 text-xs py-2", children: "아직 백업이 없어요 (조금 사용하면 생겨요)." }) : o.jsx("div", { className: "flex flex-col gap-1 max-h-52 overflow-y-auto thin-scroll", children: list.map((b, i) => o.jsxs("div", { className: "flex items-center gap-2 bg-white/5 rounded-lg px-3 py-1.5", children: [o.jsxs("span", { className: "text-white/80 text-xs flex-1", children: [i === 0 ? "🟢 " : "", fmtName(b.file), o.jsxs("span", { className: "text-white/30 ml-1", children: ["(", Math.round((b.size || 0) / 1024), "KB)"] })] }), o.jsx("button", { onClick: () => restore(b.file), className: "px-2.5 py-1 rounded border border-blue-400/50 text-blue-100 bg-blue-500/20 hover:bg-blue-500/35 text-[11px] cursor-pointer", children: "되돌리기" })] }, b.file)) }),
         msg && o.jsx("p", { className: "text-emerald-300 text-xs mt-2", children: msg })
     ] });
@@ -2613,7 +2618,7 @@ function DDBMemoOverview() {
                         o.jsx("div", { className: "flex-1 flex items-center justify-center gap-2 min-h-0 overflow-x-auto", children: strip.map((dd, idx) => {
                             const isC = idx === 2; const evs = dEvs(dd); const rec = dRec(dd); const tbls = rec.tables || [], imgs = rec.images || []; const isToday = dd === ddbLocalDay(); const aiTab = (t.memoTabs || []).find(x => x.id === "aimemo"); const pend = (isToday && aiTab) ? ddbAiLines(aiTab.aiText) : []; const pChip = (ln, i2) => o.jsxs("span", { className: "rounded px-2 py-0.5", style: { fontSize: 12, color: "rgba(255,255,255,0.85)", background: "rgba(250,204,21,0.12)", border: "1px dashed rgba(250,204,21,0.6)" }, children: ["✎ ", ln] }, "p" + i2);
                             if (!isC) return o.jsxs("div", { ref: el => { if (el) colEls.current[dd] = el; }, onClick: () => setDigDay(dd), title: "이 날로 이동", className: "flex flex-col rounded-xl overflow-hidden flex-shrink-0 cursor-pointer", style: { width: 176, height: "84%", opacity: 0.9, transition: "height 0.25s ease", border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.04)" }, children: [o.jsx("div", { className: "px-2 py-1.5 text-center text-emerald-200 text-xs font-bold flex-shrink-0", style: { background: "rgba(34,197,94,0.16)" }, children: dLbl(dd) }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2 flex flex-col gap-1", children: (evs.length || pend.length) ? [...evs.map((ev, i2) => o.jsx("div", { className: "text-white/85 text-[11px] rounded px-2 py-0.5", style: { background: (qt[ev.color] || ev.customColor || "#3b82f6") + "22" }, children: ev.title }, ev.id || i2)), ...pend.map((ln, i2) => o.jsx("div", { className: "text-white/70 text-[11px] rounded px-2 py-0.5", style: { background: "rgba(250,204,21,0.1)", border: "1px dashed rgba(250,204,21,0.5)" }, children: "✎ " + ln }, "p" + i2))] : o.jsx("span", { className: "text-white/25 text-[11px]", children: "—" }) })] }, dd);
-                            let acts = []; try { acts = JSON.parse(localStorage.getItem("ddb_act_" + dd) || "[]"); } catch (e) {} acts = acts.filter(a => a && (a.kind === "todo" || a.kind === "tododone" || a.kind === "tool" || a.kind === "search" || a.kind === "memo" || a.kind === "image")); try { (t.events || []).forEach(ev => { if (ev && ev.date === dd && typeof ev.amount === "number") acts.push({ t: new Date(dd + "T00:00:00").getTime(), kind: "ledger", amount: ev.amount, title: ev.title, category: ev.category }); }); } catch (e) {} acts = acts.sort((a, b) => a.t - b.t);
+                            let acts = []; try { acts = JSON.parse(localStorage.getItem("ddb_act_" + dd) || "[]"); } catch (e) {} acts = acts.filter(a => a && (a.kind === "todo" || a.kind === "tododone" || a.kind === "tool" || a.kind === "search" || a.kind === "memo" || a.kind === "image")); try { (t.events || []).forEach(ev => { if (ev && ev.date === dd && typeof ev.amount === "number") acts.push({ t: new Date(dd + "T00:00:00").getTime(), kind: "ledger", amount: ev.amount, title: ev.title, category: ev.category ? (ev.category + (ev.subCategory ? " › " + ev.subCategory : "")) : ev.subCategory }); }); } catch (e) {} acts = acts.sort((a, b) => a.t - b.t);
                             const aTime = t2 => { const x = new Date(t2); return String(x.getHours()).padStart(2, "0") + ":" + String(x.getMinutes()).padStart(2, "0"); };
                             const aMeta = a => a.kind === "search" ? { c: a.ai ? "#7dd3fc" : "#86efac", txt: (a.ai ? "🔎" : "🌐") + " " + (a.engine || "") + " · \"" + (a.q || "") + "\"" } : a.kind === "tododone" ? { c: "#34d399", txt: "✅ 완료 · " + (a.title || "") } : a.kind === "todo" ? { c: "#38bdf8", txt: "☑ 할일 · " + (a.title || "") } : a.kind === "memo" ? { c: "#a78bfa", txt: "📝 " + (a.tab || "메모") + " 작성" + (a.preview ? " · " + a.preview : "") } : a.kind === "image" ? { c: "#c084fc", txt: "🖼 이미지 편집", thumb: a.thumb } : a.kind === "ledger" ? { c: a.amount >= 0 ? "#60a5fa" : "#f87171", txt: (a.amount >= 0 ? "💰 입금 " : "💸 출금 ") + Math.abs(a.amount).toLocaleString() + "원" + (a.title ? " · " + a.title : "") + (a.category ? " [" + a.category + "]" : "") } : { c: "#fbbf24", txt: a.label || "기능" };
                             const cell = (children) => o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }, children: children });
@@ -3110,6 +3115,10 @@ function zv() {
                 delete p._ps, delete p._fb, delete p._tbl;
                 return { ...Hl, ...p }
             }
+        } else {
+            // 데이터 보호: 로그인 없이(세션 만료 등) 빈 상태로 시작할 때, 덮어쓰이기 전 기존 데이터를 따로 보관
+            const raw = localStorage.getItem(Ef);
+            if (raw && raw.length > 200) { try { const p = JSON.parse(raw); const n = (p.events || []).length + (p.memoTabs || []).reduce((t, x) => t + ((x && x.items) || []).length, 0) + (p.ddays || []).length; if (n > 0) localStorage.setItem("ddb_autobak_v1", JSON.stringify({ at: new Date().toISOString(), n: n, data: raw })); } catch (e2) {} }
         }
     } catch {}
     return Hl
@@ -3489,7 +3498,7 @@ function Kk({
     O.useEffect(() => {
         if (!(typeof window !== "undefined" && window.ddbNative && window.ddbNative.backupSave)) return;
         if (_bkT.current) clearTimeout(_bkT.current);
-        _bkT.current = setTimeout(() => { try { window.ddbNative.backupSave(JSON.stringify(t)); } catch (e) {} }, 8000);
+        _bkT.current = setTimeout(() => { try { const _n = (t.events || []).length + (t.memoTabs || []).reduce((q, x) => q + ((x && x.items) || []).length, 0) + (t.ddays || []).length; if (_n === 0) return; window.ddbNative.backupSave(JSON.stringify(t)); } catch (e) {} }, 8000);
         return () => { if (_bkT.current) clearTimeout(_bkT.current); };
     }, [t]);
     const n = O.useCallback((i, l) => r({
@@ -3529,7 +3538,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.83";
+const DDB_VERSION = "1.00.84";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5078,7 +5087,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v520"
+                children: "v521"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -6942,7 +6951,7 @@ function Nw({
         elRef: l,
         onHeaderMouseDown: c,
         resizeHandle: RZ
-    } = Oi(550), u = s.loans || [], [h, d] = O.useState((r == null ? void 0 : r.title) ?? ""), [f, x] = O.useState((r == null ? void 0 : r.date) ?? e), [p, m] = O.useState((r == null ? void 0 : r.endDate) ?? t ?? ""), [y, w] = O.useState((r == null ? void 0 : r.color) ?? ddbLastEvColor().c), [v, g] = O.useState((r == null ? void 0 : r.customColor) ?? ddbLastEvColor().cc), _ = O.useRef(null), k = (r == null ? void 0 : r.amount) === void 0 ? "none" : r.amount >= 0 ? "income" : "expense", [E, b] = O.useState(k), [T, A] = O.useState((r == null ? void 0 : r.amount) !== void 0 ? String(Math.abs(r.amount)) : ""), [H, F] = O.useState((r == null ? void 0 : r.memo) ?? ""), [acct, setAcct] = O.useState((r == null ? void 0 : r.account) ?? ""), [bcat, setBcat] = O.useState((r == null ? void 0 : r.category) ?? ""), [epc, epcSet] = O.useState(null), [etx, etxSet] = O.useState(""), [R, K] = O.useState(!!(r != null && r.repeat)), [se, z] = O.useState(((Me = r == null ? void 0 : r.repeat) == null ? void 0 : Me.type) ?? "monthly"), [G, re] = O.useState((r == null ? void 0 : r.bankKeyword) ?? ""), [Y, M] = O.useState((r == null ? void 0 : r.linkedLoanId) ?? ""), [X, ce] = O.useState(!1), [j, q] = O.useState(!1), [U, B] = O.useState(!1), W = O.useRef(), te = ((Fe = s.settings) == null ? void 0 : Fe.feedbackThresholds) ?? iu;
+    } = Oi(550), u = s.loans || [], [h, d] = O.useState((r == null ? void 0 : r.title) ?? ""), [f, x] = O.useState((r == null ? void 0 : r.date) ?? e), [p, m] = O.useState((r == null ? void 0 : r.endDate) ?? t ?? ""), [y, w] = O.useState((r == null ? void 0 : r.color) ?? ddbLastEvColor().c), [v, g] = O.useState((r == null ? void 0 : r.customColor) ?? ddbLastEvColor().cc), _ = O.useRef(null), k = (r == null ? void 0 : r.amount) === void 0 ? "none" : r.amount >= 0 ? "income" : "expense", [E, b] = O.useState(k), [T, A] = O.useState((r == null ? void 0 : r.amount) !== void 0 ? String(Math.abs(r.amount)) : ""), [H, F] = O.useState((r == null ? void 0 : r.memo) ?? ""), [acct, setAcct] = O.useState((r == null ? void 0 : r.account) ?? ""), [bcat, setBcat] = O.useState((r == null ? void 0 : r.category) ?? ""), [scat, setScat] = O.useState((r == null ? void 0 : r.subCategory) ?? ""), _ledCtx = vt(), [epc, epcSet] = O.useState(null), [etx, etxSet] = O.useState(""), [R, K] = O.useState(!!(r != null && r.repeat)), [se, z] = O.useState(((Me = r == null ? void 0 : r.repeat) == null ? void 0 : Me.type) ?? "monthly"), [G, re] = O.useState((r == null ? void 0 : r.bankKeyword) ?? ""), [Y, M] = O.useState((r == null ? void 0 : r.linkedLoanId) ?? ""), [X, ce] = O.useState(!1), [j, q] = O.useState(!1), [U, B] = O.useState(!1), W = O.useRef(), te = ((Fe = s.settings) == null ? void 0 : Fe.feedbackThresholds) ?? iu;
 
     function he(me) {
         clearTimeout(W.current), W.current = setTimeout(() => {
@@ -7047,7 +7056,7 @@ function Nw({
             amount: me,
             memo: H || void 0,
             account: (acct || "").trim() || void 0,
-            category: (bcat || "").trim() || void 0,
+            category: (bcat || "").trim() || void 0, subCategory: (scat || "").trim() || void 0,
             repeat: R ? {
                 type: se,
                 interval: 1
@@ -7202,7 +7211,7 @@ function Nw({
                     onChange: me => A(me.target.value),
                     placeholder: DDBTR("금액 입력 (원)"),
                     className: Te + " mt-2 " + (E === "income" ? "border-blue-300/50" : "border-red-300/50")
-                }), de && o.jsx("input", { type: "text", value: acct, onChange: me => setAcct(me.target.value), placeholder: "계좌/자산 (예: 주거래통장, 생활비카드)", className: Te + " mt-2" }), de && o.jsx("input", { type: "text", value: bcat, onChange: me => setBcat(me.target.value), placeholder: "대분류 (예: 식비 · 고정지출 · 생활)", className: Te + " mt-2" }), E === "expense" && u.length > 0 && o.jsxs("div", {
+                }), de && o.jsx("input", { type: "text", value: acct, onChange: me => setAcct(me.target.value), placeholder: "계좌/자산 (예: 주거래통장, 생활비카드)", className: Te + " mt-2" }), de && (() => { const _evs = ((_ledCtx && _ledCtx.state && _ledCtx.state.events) || []).filter(x => x && typeof x.amount === "number"); const _bigs = [...new Set(_evs.map(x => x.category).filter(Boolean))].slice(0, 40); const _subs = [...new Set(_evs.filter(x => !bcat.trim() || x.category === bcat.trim()).map(x => x.subCategory).filter(Boolean))].slice(0, 40); return o.jsxs("div", { className: "flex gap-2 mt-2", children: [o.jsx("input", { type: "text", list: "ddb-led-big", value: bcat, onChange: me => setBcat(me.target.value), placeholder: "대분류 (예: 식비 · 고정지출)", className: Te + " flex-1 min-w-0" }), o.jsx("input", { type: "text", list: "ddb-led-sub", value: scat, onChange: me => setScat(me.target.value), placeholder: "소분류 (예: 점심 · 커피 · 통신비)", className: Te + " flex-1 min-w-0" }), o.jsx("datalist", { id: "ddb-led-big", children: _bigs.map(v => o.jsx("option", { value: v }, v)) }), o.jsx("datalist", { id: "ddb-led-sub", children: _subs.map(v => o.jsx("option", { value: v }, v)) })] }); })(), E === "expense" && u.length > 0 && o.jsxs("div", {
                     className: "mt-2 bg-amber-400/5 border border-amber-400/20 rounded-xl px-3 py-2.5",
                     children: [o.jsxs("div", {
                         className: "flex items-center gap-1.5 mb-1.5",
@@ -8040,7 +8049,7 @@ function fd({
                 }), o.jsxs("h2", {
                     className: "text-white font-bold flex-1 text-center",
                     style: {
-                        fontSize: u
+                        fontSize: u, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 60
                     },
                     children: [teamOn && teamMeta && o.jsxs("span", { children: [o.jsxs("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-team-open")), title: DDBTR("팀 관리"), className: "text-indigo-300 font-semibold hover:text-indigo-200 cursor-pointer bg-transparent border-none p-0", style: { fontSize: (c.teamNameFontSize ?? 18) }, children: ["\u{1F465} ", teamMeta.name] }), o.jsx("span", { className: "text-white/30 mx-2", style: { fontSize: (c.teamNameFontSize ?? 18) }, children: "\u00b7" })] }), o.jsx("span", { onClick: () => { setNavYear(s); setMonShare(!0) }, className: "cursor-pointer hover:text-white/70", title: DDBTR("월 이동"), children: ddbYM(s, a) })]
                 }), o.jsx("button", {
@@ -9949,7 +9958,7 @@ function jw({
                     onChange: R => c(R.target.value),
                     onBlur: () => saveExisting(),
                     onKeyDown: R => {
-                        if (R.key === "Enter" && (R.ctrlKey || R.metaKey)) return H();
+                        if (R.key === "Enter" && (R.ctrlKey || R.metaKey)) return H(); if (R.key === "Escape" && !(R.nativeEvent && R.nativeEvent.isComposing)) { R.preventDefault(); R.stopPropagation(); persistDraft(); setEditId(null); c(""); setSelIdx(0); setMo("list"); return; }
                         if (t.settings.memoKbdNav) { if ((R.ctrlKey || R.metaKey) && R.key === "ArrowLeft") { R.preventDefault(); persistDraft(); setEditId(null); c(""); setSelIdx(0); setMo("list") } else if (R.key === "Escape") escRef.current = Date.now(); else if (R.key === "Backspace" && Date.now() - escRef.current < 1500) { R.preventDefault(); escRef.current = 0; persistDraft(); setEditId(null); c(""); setSelIdx(0); setMo("list") } }
                     },
                     onPaste: _,
@@ -11689,8 +11698,7 @@ function vm({
                     className: "relative",
                     onMouseEnter: () => A(z.key),
                     onMouseLeave: H,
-                    children: [o.jsx("div", {
-                        className: "absolute bottom-full left-0 right-0 bg-gray-900/95 border border-white/15 rounded-t-lg overflow-hidden transition-all duration-300 " + (c === z.key ? "max-h-96 opacity-100" : "max-h-0 opacity-0"),
+                    children: [c === z.key && o.jsx(DDBPortalPop, { up: true, matchW: true, gap: 0, className: "border border-white/15 rounded-t-lg overflow-hidden shadow-2xl", style: { background: "#111827", maxHeight: 384 },
                         onMouseEnter: () => clearTimeout(y.current),
                         children: o.jsxs("div", {
                             className: "px-3 py-2 overflow-y-auto max-h-[22rem] thin-scroll",
