@@ -7,7 +7,7 @@ const IDX = { KOSPI: '^KS11', KOSDAQ: '^KQ11', 'S&P500': '^GSPC', NASDAQ: '^IXIC
 const NEWS = { '종합': 'https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko', '경제': 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko', 'IT·과학': 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=ko&gl=KR&ceid=KR:ko', '세계': 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=ko&gl=KR&ceid=KR:ko' };
 export const FX_SYM = { USD: '$', JPY: '¥100', EUR: '€', CNY: '元' };
 const KEY = 'mp_brief_cfg';
-export const DEF_CFG = { on: true, time: '08:00', idx: ['KOSPI', 'KOSDAQ', 'S&P500', 'NASDAQ'], fx: ['USD', 'JPY', 'EUR'], news: '경제' };
+export const DEF_CFG = { on: true, time: '06:30', idx: ['KOSPI', 'KOSDAQ', 'S&P500', 'NASDAQ'], fx: ['USD', 'JPY', 'EUR'], news: '경제' };
 export function loadBriefCfg() { try { return { ...DEF_CFG, ...(JSON.parse(localStorage.getItem(KEY) || 'null') || {}) }; } catch { return { ...DEF_CFG }; } }
 export function saveBriefCfg(c) { try { localStorage.setItem(KEY, JSON.stringify(c)); } catch {} pushBriefCfg(c); }
 function getBR() { try { const C = window.Capacitor; if (!C || !C.isNativePlatform || !C.isNativePlatform()) return null; return (C.Plugins && C.Plugins.BackgroundRunner) || null; } catch { return null; } }

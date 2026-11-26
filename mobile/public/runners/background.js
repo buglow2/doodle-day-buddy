@@ -22,7 +22,7 @@ addEventListener('checkIn', async (resolve, reject) => {
   try {
     let cfg = {}; try { cfg = JSON.parse(kvGet('brief_cfg') || '{}'); } catch (e) {}
     if (!cfg.on) { resolve(); return; }
-    const now = new Date(); const [h, mi] = String(cfg.time || '08:00').split(':').map(Number); const at = new Date(now); at.setHours(h || 8, mi || 0, 0, 0);
+    const now = new Date(); const [h, mi] = String(cfg.time || '06:30').split(':').map(Number); const at = new Date(now); at.setHours(isNaN(h) ? 6 : h, isNaN(mi) ? 30 : mi, 0, 0);
     const today = ymd(now);
     if (kvGet('brief_sent') === today || now < at || now - at > 3 * 3600 * 1000) { resolve(); return; }
     const lines = await buildBrief(cfg);
