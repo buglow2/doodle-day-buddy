@@ -5,16 +5,19 @@ function kvSet(k, v) { try { CapacitorKV.set(k, String(v)); } catch (e) {} }
 const pad = n => String(n).padStart(2, '0');
 const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const IDX = { KOSPI: '^KS11', KOSDAQ: '^KQ11', 'S&P500': '^GSPC', NASDAQ: '^IXIC', DOW: '^DJI', NIKKEI: '^N225' };
-const NEWS = { '종합': 'https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko', '경제': 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko', 'IT·과학': 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=ko&gl=KR&ceid=KR:ko', '세계': 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=ko&gl=KR&ceid=KR:ko' };
+const NEWS = { '종합': 'https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko', '국내': 'https://news.google.com/rss/headlines/section/topic/NATION?hl=ko&gl=KR&ceid=KR:ko', '경제': 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko', 'IT': 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=ko&gl=KR&ceid=KR:ko', '과학': 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=ko&gl=KR&ceid=KR:ko', '세계': 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=ko&gl=KR&ceid=KR:ko', '건강': 'https://news.google.com/rss/headlines/section/topic/HEALTH?hl=ko&gl=KR&ceid=KR:ko', '연예': 'https://news.google.com/rss/headlines/section/topic/ENTERTAINMENT?hl=ko&gl=KR&ceid=KR:ko', '스포츠': 'https://news.google.com/rss/headlines/section/topic/SPORTS?hl=ko&gl=KR&ceid=KR:ko' };
+const newsUrl = c => NEWS[c] || ('https://news.google.com/rss/search?q=' + encodeURIComponent(String(c).replace(/^#/, '')) + '&hl=ko&gl=KR&ceid=KR:ko');
+function newsCatsOf(c) { const base = Array.isArray(c.newsCats) ? c.newsCats : (c.news ? [c.news] : []); const kw = String(c.keywords || '').split(/[,，]/).map(x => x.trim()).filter(Boolean).map(x => '#' + x); return base.concat(kw); }
 async function getIdx(name) { const r = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(IDX[name]) + '?range=5d&interval=1d'); const j = await r.json(); const R0 = j.chart.result[0], m = R0.meta; const cl = ((((R0.indicators || {}).quote || [])[0] || {}).close || []).filter(x => x != null); const p = m.regularMarketPrice != null ? m.regularMarketPrice : cl[cl.length - 1]; const pc = cl.length >= 2 ? (Math.abs(cl[cl.length - 1] - p) < 1e-9 ? cl[cl.length - 2] : cl[cl.length - 1]) : (m.previousClose || m.chartPreviousClose); return { name, p, ch: pc ? (p - pc) / pc * 100 : null }; }
 async function getFx(list) { const r = await fetch('https://open.er-api.com/v6/latest/USD'); const j = await r.json(); const k = j.rates.KRW; const map = { USD: k, JPY: k / j.rates.JPY * 100, EUR: k / j.rates.EUR, CNY: k / j.rates.CNY }; return list.map(c => ({ c, v: map[c] })); }
-async function getNews(cat) { const r = await fetch(NEWS[cat] || NEWS['종합']); const t = await r.text(); const out = []; const re = /<item>[\s\S]*?<title>([\s\S]*?)<\/title>/g; let m; while ((m = re.exec(t)) && out.length < 5) out.push(m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/ - [^-]+$/, '')); return out; }
+async function getNews(cat, n) { n = n || 3; const r = await fetch(newsUrl(cat)); const t = await r.text(); const out = []; const re = /<item>[\s\S]*?<title>([\s\S]*?)<\/title>/g; let m; while ((m = re.exec(t)) && out.length < n) out.push(m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/ - [^-]+$/, '')); return out; }
 const fmt = n => n == null || isNaN(n) ? '-' : Number(n).toLocaleString('ko-KR', { maximumFractionDigits: n >= 100 ? 1 : 2 });
 async function buildBrief(cfg) {
   const lines = [];
   try { const ix = await Promise.all((cfg.idx || []).map(n => getIdx(n).catch(() => null))); const s = ix.filter(Boolean).map(x => x.name + ' ' + fmt(x.p) + (x.ch == null ? '' : (x.ch >= 0 ? ' ▲' : ' ▼') + Math.abs(x.ch).toFixed(1) + '%')); if (s.length) lines.push('📈 ' + s.join(' · ')); } catch (e) {}
   try { if ((cfg.fx || []).length) { const fx = await getFx(cfg.fx); lines.push('💱 ' + fx.map(x => ({ USD: '$', JPY: '¥100', EUR: '€', CNY: '元' })[x.c] + ' ' + fmt(x.v) + '원').join(' · ')); } } catch (e) {}
-  try { if (cfg.news) { const n = await getNews(cfg.news); n.forEach((t, i) => lines.push((i + 1) + '. ' + t)); } } catch (e) {}
+  // 알림에는 분야별 상위 3개만 (전체 목록은 앱 '오늘' 탭 브리핑 카드에서)
+  for (const c of newsCatsOf(cfg)) { try { const n = await getNews(c, 3); if (n.length) lines.push('📰 ' + c.replace(/^#/, '') + ': ' + n.join(' / ')); } catch (e) {} }
   return lines;
 }
 addEventListener('config', (resolve, reject, args) => { try { kvSet('brief_cfg', JSON.stringify(args || {})); resolve(); } catch (e) { reject(e); } });
@@ -29,7 +32,7 @@ addEventListener('checkIn', async (resolve, reject) => {
     const lines = rem.concat(await buildBrief(cfg));
     kvSet('brief_sent', today);
     kvSet('brief_last', JSON.stringify({ at: now.toISOString(), lines }));
-    CapacitorNotifications.schedule([{ id: 880000 + now.getDate(), title: '☀️ 아침 브리핑 ' + (now.getMonth() + 1) + '/' + now.getDate() + (rem.length ? ' · 챙길 일 ' + rem.length + '개' : ''), body: lines.slice(0, 10).join('\n') || '오늘 자료를 가져오지 못했어요.', scheduleAt: new Date(Date.now() + 1000) }]);
+    CapacitorNotifications.schedule([{ id: 880000 + now.getDate(), title: '☀️ 아침 브리핑 ' + (now.getMonth() + 1) + '/' + now.getDate() + (rem.length ? ' · 챙길 일 ' + rem.length + '개' : ''), body: lines.slice(0, 24).join('\n') || '오늘 자료를 가져오지 못했어요.', scheduleAt: new Date(Date.now() + 1000) }]);
     resolve();
   } catch (e) { reject(e); }
 });
