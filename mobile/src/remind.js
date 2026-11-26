@@ -32,14 +32,15 @@ function getLN() { try { const C = window.Capacitor; if (!C || !C.isNativePlatfo
 export const isNativeApp = () => !!getLN();
 
 // 설치형 앱: 앞으로 30일치를 매일 아침 9시에 예약 (기존 예약은 지우고 다시)
-export async function scheduleReminders(map, hour = 9) {
+export async function scheduleReminders(map, time = '06:30') {
+  const [hour, minute] = String(time || '06:30').split(':').map(Number);
   const ln = getLN(); if (!ln) return false;
   try {
     await ln.requestPermissions();
     let prev = []; try { prev = JSON.parse(localStorage.getItem('mp_remind_ids') || '[]'); } catch {}
     if (prev.length) { try { await ln.cancel({ notifications: prev.map(id => ({ id })) }); } catch {} }
     const list = []; let n = 0; const now = Date.now();
-    Object.keys(map).sort().forEach(ds => { const [y, m, d] = ds.split('-').map(Number); const at = new Date(y, m - 1, d, hour, 0, 0); if (at.getTime() <= now) return; const items = map[ds]; const id = 7700000 + (n++);
+    Object.keys(map).sort().forEach(ds => { const [y, m, d] = ds.split('-').map(Number); const at = new Date(y, m - 1, d, isNaN(hour) ? 6 : hour, isNaN(minute) ? 30 : minute, 0); if (at.getTime() <= now) return; const items = map[ds]; const id = 7700000 + (n++);
       list.push({ id, title: items.length === 1 ? items[0].icon + ' ' + items[0].text : '📌 오늘 알림 ' + items.length + '개', body: items.map(x => x.icon + ' ' + x.text).join('\n'), schedule: { at } }); });
     if (list.length) await ln.schedule({ notifications: list.slice(0, 60) });
     localStorage.setItem('mp_remind_ids', JSON.stringify(list.map(x => x.id)));

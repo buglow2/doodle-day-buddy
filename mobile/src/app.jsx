@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, loadFeedback, loadPcMemos, COLORS } from './data.js';
 import { buildReminders, scheduleReminders, webNotifyToday, askWebPermission, isNativeApp } from './remind.js';
-import { loadBriefCfg, saveBriefCfg, pushBriefCfg, fetchBrief, fmtN, IDX_ALL, FX_ALL, NEWS_ALL, FX_SYM } from './brief.js';
+import { loadBriefCfg, saveBriefCfg, pushBriefCfg, setRemCache, fetchBrief, fmtN, IDX_ALL, FX_ALL, NEWS_ALL, FX_SYM } from './brief.js';
 import { scheduleEventAlarm } from './notify.js';
 import { currentUser, signIn, signUp, signOut, pull, push, subscribe } from './sync.js';
 import { lunarText, lunarShort, holidayName } from './kcal.js';
@@ -32,7 +32,10 @@ export default function App() {
   const [syncMsg, setSyncMsg] = useState('');
   const refresh = () => { setEvents(loadEvents()); setDdays(loadDdays()); setMemos(loadMemos()); setFeedback(loadFeedback()); setPcMemos(loadPcMemos()); };
   const reminders = useMemo(() => buildReminders(ddays, events, feedback, 30), [ddays, events, feedback]);
-  useEffect(() => { const t = setTimeout(() => { scheduleReminders(reminders); webNotifyToday(reminders[todayStr()] || []); }, 800); return () => clearTimeout(t); }, [reminders]);
+  const [briefTick, setBriefTick] = useState(0);
+  useEffect(() => { const h = () => setBriefTick(t => t + 1); window.addEventListener('mp-brief-cfg', h); return () => window.removeEventListener('mp-brief-cfg', h); }, []);
+  // 알림은 아침 브리핑 시간(기본 6:30) 한 번으로 합침: 브리핑 켜짐 → 브리핑 알림 안에 D-Day·일정·피드백을 함께 / 꺼짐 → 같은 시간에 따로 예약
+  useEffect(() => { const t = setTimeout(() => { setRemCache(reminders); const bc = loadBriefCfg(); if (bc.on) { pushBriefCfg(bc); scheduleReminders({}, bc.time); } else scheduleReminders(reminders, bc.time); webNotifyToday(reminders[todayStr()] || []); }, 800); return () => clearTimeout(t); }, [reminders, briefTick]);
 
   // 로그인돼 있으면 클라우드에서 내려받아 합치기 + 실시간 구독
   useEffect(() => {
@@ -150,7 +153,7 @@ function Today({ evByDate, ddays, reminders, feedback, onDel }) {
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginBottom: 3 }}>다가오는 알림</div>
           {soon.slice(0, 6).map((x, i) => <div key={i} style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.88)', padding: '2px 0' }}><span style={{ color: '#fcd34d', marginRight: 6 }}>{x.ds.slice(5).replace('-', '/')}</span>{x.icon} {x.text}</div>)}
         </div> : null}
-        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>{isNativeApp() ? '매일 아침 9시에 폰 알림으로도 알려드려요.' : '웹으로 쓰는 중: 앱을 열 때 알려드려요. (앱 설치형은 꺼져 있어도 알림)'}</div>
+        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>{isNativeApp() ? '매일 아침 ' + loadBriefCfg().time + ' 브리핑 알림에 함께 들어가요.' : '웹으로 쓰는 중: 앱을 열 때 알려드려요. (앱 설치형은 꺼져 있어도 알림)'}</div>
       </div>
       <BriefCard />
       {openFb.length ? <>

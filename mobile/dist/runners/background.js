@@ -25,10 +25,11 @@ addEventListener('checkIn', async (resolve, reject) => {
     const now = new Date(); const [h, mi] = String(cfg.time || '06:30').split(':').map(Number); const at = new Date(now); at.setHours(isNaN(h) ? 6 : h, isNaN(mi) ? 30 : mi, 0, 0);
     const today = ymd(now);
     if (kvGet('brief_sent') === today || now < at || now - at > 3 * 3600 * 1000) { resolve(); return; }
-    const lines = await buildBrief(cfg);
+    const rem = ((cfg.rem || {})[today] || []).map(x => x.icon + ' ' + x.text);
+    const lines = rem.concat(await buildBrief(cfg));
     kvSet('brief_sent', today);
     kvSet('brief_last', JSON.stringify({ at: now.toISOString(), lines }));
-    CapacitorNotifications.schedule([{ id: 880000 + now.getDate(), title: '☀️ 아침 브리핑 ' + (now.getMonth() + 1) + '/' + now.getDate(), body: lines.slice(0, 6).join('\n') || '오늘 자료를 가져오지 못했어요.', scheduleAt: new Date(Date.now() + 1000) }]);
+    CapacitorNotifications.schedule([{ id: 880000 + now.getDate(), title: '☀️ 아침 브리핑 ' + (now.getMonth() + 1) + '/' + now.getDate() + (rem.length ? ' · 챙길 일 ' + rem.length + '개' : ''), body: lines.slice(0, 10).join('\n') || '오늘 자료를 가져오지 못했어요.', scheduleAt: new Date(Date.now() + 1000) }]);
     resolve();
   } catch (e) { reject(e); }
 });
