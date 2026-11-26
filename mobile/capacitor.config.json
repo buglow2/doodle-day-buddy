@@ -2,5 +2,20 @@
   "appId": "com.momentplan.mobile",
   "appName": "MomentPlan",
   "webDir": "dist",
-  "server": { "androidScheme": "https" }
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "BackgroundRunner": {
+      "label": "com.momentplan.brief",
+      "src": "runners/background.js",
+      "event": "checkIn",
+      "repeat": true,
+      "interval": 15,
+      "autoStart": true
+    },
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
 }

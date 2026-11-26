@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, loadFeedback, loadPcMemos, COLORS } from './data.js';
 import { buildReminders, scheduleReminders, webNotifyToday, askWebPermission, isNativeApp } from './remind.js';
+import { loadBriefCfg, saveBriefCfg, pushBriefCfg, fetchBrief, fmtN, IDX_ALL, FX_ALL, NEWS_ALL, FX_SYM } from './brief.js';
 import { scheduleEventAlarm } from './notify.js';
 import { currentUser, signIn, signUp, signOut, pull, push, subscribe } from './sync.js';
 import { lunarText, lunarShort, holidayName } from './kcal.js';
@@ -151,6 +152,7 @@ function Today({ evByDate, ddays, reminders, feedback, onDel }) {
         </div> : null}
         <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>{isNativeApp() ? '매일 아침 9시에 폰 알림으로도 알려드려요.' : '웹으로 쓰는 중: 앱을 열 때 알려드려요. (앱 설치형은 꺼져 있어도 알림)'}</div>
       </div>
+      <BriefCard />
       {openFb.length ? <>
         <h3 style={{ margin: '4px 0 8px', fontSize: 15, color: '#c4b5fd' }}>💬 확인할 피드백 ({openFb.length})</h3>
         {openFb.slice(0, 8).map(f => <div key={f.id} style={{ display: 'flex', gap: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 6, fontSize: 14 }}><span style={{ width: 8, height: 8, borderRadius: 999, background: f.color && f.color[0] === '#' ? f.color : '#a78bfa', marginTop: 6, flexShrink: 0 }} /><span style={{ flex: 1, whiteSpace: 'pre-wrap' }}>{f.content}</span><span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>{String(f.createdAt || '').slice(5, 10).replace('-', '/')}</span></div>)}
@@ -620,3 +622,39 @@ const inp = { width: '100%', padding: '11px 12px', borderRadius: 10, border: '1p
 const bigBtn = { width: '100%', padding: 13, borderRadius: 12, border: 'none', background: '#3b82f6', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginTop: 6 };
 const navBtn = { width: 40, height: 40, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 20, cursor: 'pointer' };
 const shBtn = { flex: 1, padding: 13, borderRadius: 12, border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' };
+
+// ===== 아침 브리핑 카드 (지수·환율·뉴스 제목) =====
+function BriefCard() {
+  const [cfg, setCfg] = useState(loadBriefCfg());
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [edit, setEdit] = useState(false);
+  const native = isNativeApp();
+  const load = async (c) => { setBusy(true); try { setData(await fetchBrief(c || cfg)); } catch { setData({ idx: [], fx: null, news: [], errs: ['전체'] }); } setBusy(false); };
+  useEffect(() => { pushBriefCfg(cfg); if (cfg.on) load(cfg); }, []);
+  const upd = o => { const c = { ...cfg, ...o }; setCfg(c); saveBriefCfg(c); };
+  const tog = (k, v) => upd({ [k]: cfg[k].includes(v) ? cfg[k].filter(x => x !== v) : cfg[k].concat([v]) });
+  const chip = (on, label, fn) => <button key={label} onClick={fn} style={{ padding: '4px 9px', borderRadius: 999, fontSize: 12, border: '1px solid ' + (on ? '#60a5fa' : 'rgba(255,255,255,0.25)'), background: on ? 'rgba(59,130,246,0.25)' : 'transparent', color: on ? '#dbeafe' : 'rgba(255,255,255,0.8)' }}>{label}</button>;
+  return (
+    <div style={{ background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: 12, padding: '10px 12px', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <b style={{ flex: 1, fontSize: 14, color: '#7dd3fc' }}>☀️ 아침 브리핑 {cfg.on ? <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: 400 }}>· 매일 {cfg.time}{native ? ' 알림' : ''}</span> : <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 400 }}>(꺼짐)</span>}</b>
+        <button onClick={() => load()} disabled={busy} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: '#e5e7eb', borderRadius: 8, padding: '2px 8px', fontSize: 11 }}>{busy ? '…' : '↻'}</button>
+        <button onClick={() => setEdit(v => !v)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: '#e5e7eb', borderRadius: 8, padding: '2px 8px', fontSize: 11 }}>⚙ 설정</button>
+      </div>
+      {edit ? <div style={{ fontSize: 12, color: '#e5e7eb', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={cfg.on} onChange={e => upd({ on: e.target.checked })} /> 매일 알림 받기 <input type="time" value={cfg.time} onChange={e => upd({ time: e.target.value })} style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: 6, padding: '2px 6px' }} /></label>
+        <div><div style={{ marginBottom: 4, color: 'rgba(255,255,255,0.85)' }}>주가지수</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{IDX_ALL.map(x => chip(cfg.idx.includes(x), x, () => tog('idx', x)))}</div></div>
+        <div><div style={{ marginBottom: 4, color: 'rgba(255,255,255,0.85)' }}>환율 (원)</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{FX_ALL.map(x => chip(cfg.fx.includes(x), FX_SYM[x] + ' ' + x, () => tog('fx', x)))}</div></div>
+        <div><div style={{ marginBottom: 4, color: 'rgba(255,255,255,0.85)' }}>뉴스 제목 5개</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{chip(!cfg.news, '안 받기', () => upd({ news: '' }))}{NEWS_ALL.map(x => chip(cfg.news === x, x, () => upd({ news: x })))}</div></div>
+        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5 }}>{native ? '휴대폰이 15분마다 확인해서, 정한 시간이 지나면 한 번 알려줘요 (최대 30분 정도 늦을 수 있어요).' : '웹으로 쓰는 중이라 알림은 안 가고, 여기서 환율만 볼 수 있어요. 설치형 앱에서는 지수·뉴스까지 알림으로 와요.'} 지수는 지연된 값(보통 전날 종가)이며 참고용입니다.</div>
+      </div> : null}
+      {data ? <div style={{ fontSize: 13, color: '#f1f5f9', lineHeight: 1.6 }}>
+        {data.idx.length ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px' }}>{data.idx.map(x => <span key={x.name}>{x.name} <b>{fmtN(x.p)}</b> <span style={{ color: x.ch == null ? '#cbd5e1' : x.ch >= 0 ? '#f87171' : '#60a5fa' }}>{x.ch == null ? '' : (x.ch >= 0 ? '▲' : '▼') + Math.abs(x.ch).toFixed(2) + '%'}</span></span>)}</div> : null}
+        {data.fx ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px', marginTop: 4 }}>{data.fx.list.map(x => <span key={x.c}>{FX_SYM[x.c]} <b>{fmtN(x.v)}</b>원</span>)}</div> : null}
+        {data.news.length ? <ol style={{ margin: '6px 0 0', paddingLeft: 18 }}>{data.news.map((n, i) => <li key={i} style={{ marginBottom: 2 }}><a href={n.u} target="_blank" rel="noreferrer" style={{ color: '#e2e8f0', textDecoration: 'none' }}>{n.t}</a></li>)}</ol> : null}
+        {data.errs.length ? <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>{native ? '가져오지 못함: ' + data.errs.join(', ') + ' (인터넷 확인)' : (data.errs.filter(e => e !== '환율').length ? '지수·뉴스는 설치형 앱에서 보여요.' : '')}</div> : null}
+      </div> : <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>{busy ? '불러오는 중…' : '↻ 를 누르면 오늘 자료를 가져와요.'}</div>}
+    </div>
+  );
+}

@@ -179,12 +179,45 @@ jobs:
           prerelease: true
           make_latest: false
 
+  # ── 3.5) 안드로이드 앱 (.apk, 휴대폰 설치형) ─────────────
+  #  · mobile/ 폴더(휴대폰 화면)를 Capacitor로 감싸서 APK로 만듦
+  #  · 서명키는 mobile/android-signing/debug.keystore 고정 → 다음 버전도 '업데이트'로 설치됨
+  android:
+    needs: mkrelease
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: APK 빌드
+        working-directory: mobile
+        run: |
+          v="${{ needs.mkrelease.outputs.tag }}"; v="${v#v}"
+          npm install --no-audit --no-fund
+          npm run build
+          npx cap add android
+          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#&\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />#' android/app/src/main/AndroidManifest.xml
+          sed -i "s/versionName \"1.0\"/versionName \"$v\"/" android/app/build.gradle
+          mkdir -p ~/.android && cp android-signing/debug.keystore ~/.android/debug.keystore
+          cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "../MomentPlan-Android-$v.apk"
+      - name: 릴리스에 첨부
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.mkrelease.outputs.tag }}
+          files: mobile/MomentPlan-Android-*.apk
+          fail_on_unmatched_files: false
+          prerelease: true
+          make_latest: false
+
   # ── 4) 설치파일이 다 붙은 뒤에 '정식(Latest)'으로 공개 ───────────
   #  · Windows 10/11 설치파일이 성공적으로 붙었을 때만 공개 → 앱이 빈 릴리스를 보고
   #    브라우저 페이지로 넘어가는 문제(업데이트 알림이 너무 일찍 뜸) 방지.
   #  · 예전 버전 앱에도 바로 효과 있음(앱이 보는 releases/latest 에 늦게 나타나므로).
   publish:
-    needs: [mkrelease, mac, windows, windows7]
+    needs: [mkrelease, mac, windows, windows7, android]
     if: ${{ always() && needs.windows.result == 'success' }}
     runs-on: ubuntu-latest
     steps:

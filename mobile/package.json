@@ -12,11 +12,15 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "@supabase/supabase-js": "^2.45.0",
-    "korean-lunar-calendar": "^0.3.4"
+    "korean-lunar-calendar": "^0.3.4",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/local-notifications": "^8.0.0",
+    "@capacitor/background-runner": "^3.0.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.0"
-  },
-  "comment_capacitor": "앱으로 만들 때 아래를 설치하세요: npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/local-notifications"
+    "vite": "^5.4.0",
+    "@capacitor/cli": "^8.0.0"
+  }
 }

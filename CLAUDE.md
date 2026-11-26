@@ -40,6 +40,7 @@
 - [완료·실기 확인 필요] 3단계(v525): 조건부 서식(셀 강조 6종·상위/하위 4종·색조 5종(정적)·규칙 지우기·규칙 관리자), 표 서식 9종(머리글·줄무늬·테두리), 화면 페이지 나누기 점선, 인쇄 머리글/바닥글(페이지 번호·날짜·표 이름)
 - [완료·배포 필요(deploy.bat)] 폰: D-Day 미리 알림(7·3·1일 전·당일)+🔔알림일정+피드백 메모 알림, 음력 매년(isLunar), 100일 단위(countUp), 오늘 탭 알림 카드·피드백 목록, 달력에 PC 메모·피드백·D-Day 점 표시 (v526/모바일)
 - [완료·push대기] PC D-Day도 음력(isLunar) 실제 계산(이전엔 음력 날짜를 양력으로 계산하던 버그)·100일 단위 옵션 (v526)
+- [완료·CI 첫 빌드 확인 필요] 휴대폰 설치형 앱(APK) 자동 빌드(build.yml android 잡) + 아침 브리핑(지수·환율·뉴스 제목, 정한 시각 이후 15분 주기 백그라운드 확인 → 알림 1회) (v527)
 - [완료·push대기] 색조 = 규칙 저장(page.scales) + 값 바뀌면 1.5초 안에 자동 재칠 (v526)
 - [완료·v521 보호장치] 로그인 없이 시작 시 기존 데이터를 `ddb_autobak_v1`에 보관 + 설정→백업·복구에 "🛟 되돌리기", 빈 상태는 파일 백업 안 함. (원래 설계: 로컬 데이터는 (자동로그인+세션 있음) 또는 restore_once 일 때만 불러옴(679xxx `Ef`). 세션 만료 상태로 켜면 빈 상태로 시작 → 저장(Hv)이 기존 로컬 데이터를 덮을 수 있음. 데이터 유실 사례와 연관 가능성.
 - [보류] 보안 단계(공개 배포 저장소·PAT·CI 전환·난독화·법적 문서·Private 전환), Microsoft Store(MSIX), 폰 푸시(FCM), 팀 권한
@@ -104,3 +105,4 @@
 - 홈 리본 메뉴는 `HM[키]`(렌더마다 채움) → `lmenuItems`가 먼저 HM을 봄. 큰 단추(LBigRaw)는 본체=실행, ▼=메뉴(엑셀 분할 단추).
 - **FortuneSheet ref에는 setContext가 없음**(내부 훅 전용) → 시트/컨텍스트 값 변경은 `wbRef.current.applyOp([{op:"add", id: 시트id(없으면 ctx 루트), path:[...], value}])`. 조건부 서식 = 시트의 `luckysheet_conditionformat_save`(type "default" 규칙만 신뢰; FortuneSheet의 dataBar/colorGradation 계산 코드는 버그 → 색조는 정적 칠하기로 대체, 데이터 막대 미지원). 인쇄 시 조건부 서식은 `ddbCFMap`으로 직접 계산. 페이지 나누기 점선 = `ddbBuildPrint(...,{breaksOnly})` 좌표 + `.luckysheet-scrollbar-x/y` 스크롤값으로 그리드 위에 겹쳐 그림.
 - **D-Day 공통 규칙**: PC `ddbDdInfo`(app.js) = 폰 `ddayInfo`(mobile/src/dday.js). 음력=`isLunar`(date의 월·일을 음력으로 보고 해마다 양력 변환, korean-lunar-calendar), 100일 단위=`countUp`(시작일=1일째). PC는 라이브러리를 비동기 로드(`PT()`→`window.__ddbLunarCls`). 폰 알림은 `mobile/src/remind.js`(설치형 앱=LocalNotifications 30일치 9시 예약, 웹=열 때 카드+알림 1회). 폰은 PC의 memoTabs·feedbackMemos를 보기 전용으로 받아옴(sync.js pcExtras) — push 때 절대 덮어쓰지 않음.
+- **안드로이드 APK(v527)**: android/ 폴더는 저장소에 안 넣고 CI에서 `npx cap add android`로 매번 생성 → 매니페스트에 POST_NOTIFICATIONS·SCHEDULE_EXACT_ALARM sed 추가 → `assembleDebug`. 서명은 `mobile/android-signing/debug.keystore`(alias androiddebugkey/pw android)를 ~/.android에 복사해 고정(업데이트 설치 가능). ⚠️공개 저장소에 키 있음 → 보안 단계 때 GitHub Secret으로 옮길 것. 아침 브리핑: `mobile/public/runners/background.js`(Background Runner, 15분 간격, CapacitorKV에 설정·발송일 저장) + 앱 카드 `src/brief.js`(CapacitorHttp로 CORS 우회; 웹은 환율만). 자료: Yahoo chart API(비공식·지연), open.er-api.com(환율, 하루 1회 갱신), Google News RSS(제목만). android 잡은 publish의 needs에 포함(첨부가 publish 뒤에 되면 prerelease로 되돌려지는 문제 방지).
