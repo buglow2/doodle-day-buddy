@@ -43,6 +43,9 @@
 - [완료·APK 빌드 성공(v1.0.92), 폰 설치·알림 실기 확인 필요] 휴대폰 설치형 앱(APK) 자동 빌드(build.yml android 잡) + 아침 브리핑(지수·환율·뉴스 제목, 정한 시각 이후 15분 주기 백그라운드 확인 → 알림 1회) (v527)
 - [완료·push대기] 색조 = 규칙 저장(page.scales) + 값 바뀌면 1.5초 안에 자동 재칠 (v526)
 - [완료·v521 보호장치] 로그인 없이 시작 시 기존 데이터를 `ddb_autobak_v1`에 보관 + 설정→백업·복구에 "🛟 되돌리기", 빈 상태는 파일 백업 안 함. (원래 설계: 로컬 데이터는 (자동로그인+세션 있음) 또는 restore_once 일 때만 불러옴(679xxx `Ef`). 세션 만료 상태로 켜면 빈 상태로 시작 → 저장(Hv)이 기존 로컬 데이터를 덮을 수 있음. 데이터 유실 사례와 연관 가능성.
+- [완료·실기 확인 필요] AI메모 문단 → 기능 보내기(v530): 헤더 '⇄ 보내기' 또는 왼쪽 색 띠에 0.45초 마우스 → 왼쪽 서랍(💬피드백·✅할 일·📋Do!·⏱타이머) + 문단 카드. 단추를 문단에 끌기 / 문단 1초 눌러 단추로 끌기 / 문단 오른쪽 클릭 메뉴. 보낸 문단은 AI메모에서 항상 빠짐
+- [완료·실기 확인 필요] 화면 구석 타이머 시계(v530): 기본 우하단, 현재 시각+가장 가까운 타이머 남은 시간, 30분 전부터 노랑→주황→빨강, 0초 팝업·소리·데스크톱 알림·5분 뒤 다시. 클릭=목록/새 타이머, 오른쪽 클릭=설정(위치·현재시각·색 시작 10/30/60분·소리·📱휴대폰에도 알림·숨기기)
+- [완료·APK 재빌드 필요] 폰: '휴대폰에도 알림' 켠 PC 타이머를 동기화로 받아 그 시각 LocalNotification 예약 + 오늘 탭 '⏱ PC 타이머' 카드. 한계: 폰 앱이 동기화(열기)된 뒤에 예약됨 → 진짜 실시간 푸시는 FCM(보류)
 - [보류] 보안 단계(공개 배포 저장소·PAT·CI 전환·난독화·법적 문서·Private 전환), Microsoft Store(MSIX), 폰 푸시(FCM), 팀 권한
 - 결정됨: 표 닫기 시 수정분은 항상 새 탭(덮어쓰기 안 함). Ctrl+S도 새 탭.
 - 결정됨: 일반 메모창(AI메모 외)은 작성 내용 통째로 메모 1개(현행 유지). 스킨 등 모든 디자인 설정은 '디자인' 탭에.
@@ -108,4 +111,5 @@
 - **안드로이드 APK(v527)**: android/ 폴더는 저장소에 안 넣고 CI에서 `npx cap add android`로 매번 생성 → 매니페스트에 POST_NOTIFICATIONS·SCHEDULE_EXACT_ALARM sed 추가 → `assembleDebug`. 서명은 `mobile/android-signing/debug.keystore`(alias androiddebugkey/pw android)를 ~/.android에 복사해 고정(업데이트 설치 가능). ⚠️공개 저장소에 키 있음 → 보안 단계 때 GitHub Secret으로 옮길 것. 아침 브리핑: `mobile/public/runners/background.js`(Background Runner, 15분 간격, CapacitorKV에 설정·발송일 저장) + 앱 카드 `src/brief.js`(CapacitorHttp로 CORS 우회; 웹은 환율만). 자료: Yahoo chart API(비공식·지연), open.er-api.com(환율, 하루 1회 갱신), Google News RSS(제목만). android 잡은 publish의 needs에 포함(첨부가 publish 뒤에 되면 prerelease로 되돌려지는 문제 방지).
 - CI 실패 원인 확인법: 저장소가 공개라 `https://api.github.com/repos/buglow2/doodle-day-buddy/actions/runs?per_page=1` → `/runs/<id>/jobs`(어느 잡·단계 실패) → `/check-runs/<job id>/annotations`를 web_fetch로 직접 볼 수 있음(로그 원문은 인증 필요). Capacitor 8 CLI는 Node 22+ 필요(android 잡 node 22). bumpmeta는 `if: always() && publish 성공`(다른 잡 실패 시 건너뛰던 문제).
 - **폰 알림 하나로(사용자 결정)**: 아침 6:30 한 번. 브리핑 켜짐 → 백그라운드 브리핑 알림 본문 맨 앞에 그날 D-Day·🔔일정·피드백(`cfg.rem` = 앱이 `mp_rem_cache`로 넘김), 별도 LocalNotifications 예약은 취소. 브리핑 꺼짐 → 같은 시각에 LocalNotifications로 따로. android 잡: setup-android + sdkmanager(API 36), 실패 시 로그 요약을 `::error` 주석으로 출력(annotations API로 원인 확인 가능).
+- **타이머(v530)**: `settings.timers=[{id,label,at,phone}]`(동기화됨), 시계 설정 `settings.timerClock={pos,showNow,warnMin,sound,phone,hidden}`. `DDBTimerClock`(렌더목록 DDBAnnivBanner 옆)·`DDBTimerPick`·`DDBAiSendMode`·`ddbAiChunks/ddbAiRemoveChunk`. 폰은 sync.js pcExtras→timers, remind.js `scheduleTimers`(id 7800000~). 검증 하네스: aitimer 코드+스텁을 esbuild로 묶어 jsdom(/tmp/bp/h2), drop 이벤트에 dataTransfer 직접 붙여 테스트.
 - APK 빌드 필수 수정: ①setup-android 액션 쓰지 말고 러너 기본 SDK(`$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager`) ②`android/app/build.gradle` flatDir에 `../../node_modules/@capacitor/background-runner/android/src/main/libs` 추가(없으면 "Could not find :android-js-engine-release:").

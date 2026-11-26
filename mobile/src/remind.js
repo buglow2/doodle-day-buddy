@@ -59,3 +59,18 @@ export async function webNotifyToday(items) {
   } catch {}
 }
 export async function askWebPermission() { try { if (typeof Notification === 'undefined') return 'unsupported'; return await Notification.requestPermission(); } catch { return 'denied'; } }
+
+// PC 시계 타이머(휴대폰에도 알림 켠 것) → 그 시각 정확히 폰 알림 예약 (설치형 앱)
+export async function scheduleTimers(timers) {
+  const ln = getLN(); if (!ln) return false;
+  try {
+    await ln.requestPermissions();
+    let prev = []; try { prev = JSON.parse(localStorage.getItem('mp_timer_ids') || '[]'); } catch {}
+    if (prev.length) { try { await ln.cancel({ notifications: prev.map(id => ({ id })) }); } catch {} }
+    const now = Date.now();
+    const list = (timers || []).filter(t => t && t.at > now).slice(0, 40).map((t, i) => ({ id: 7800000 + i, title: '⏰ ' + t.label, body: 'PC에서 설정한 타이머 (' + new Date(t.at).toTimeString().slice(0, 5) + ')', schedule: { at: new Date(t.at), allowWhileIdle: true } }));
+    if (list.length) await ln.schedule({ notifications: list });
+    localStorage.setItem('mp_timer_ids', JSON.stringify(list.map(x => x.id)));
+    return true;
+  } catch { return false; }
+}

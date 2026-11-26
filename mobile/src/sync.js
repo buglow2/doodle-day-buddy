@@ -29,7 +29,10 @@ function pcExtras(d) {
   (d.memoTabs || []).forEach(t => { if (!t || t.id === 'calendar') return; (t.items || []).forEach(it => { if (!it || !it.createdAt) return; const c = String(it.content || ''); pcMemos.push({ id: it.id, tab: t.title || '', color: t.color || '#a78bfa', createdAt: it.createdAt, text: c.slice(0, 400) }); }); });
   pcMemos.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const feedback = (d.feedbackMemos || []).map(f => ({ id: f.id, content: String(f.content || '').slice(0, 300), createdAt: f.createdAt, isDismissed: f.isDismissed, completedAt: f.completedAt, color: f.color, tabTitle: f.tabTitle }));
-  return { pcMemos: pcMemos.slice(0, 800), feedback };
+  // PC 시계 타이머 중 '휴대폰에도 알림' 켠 것 (앞으로 울릴 것만)
+  const now = Date.now();
+  const timers = (((d.settings || {}).timers) || []).filter(t => t && t.phone && !t.done && t.at > now).map(t => ({ id: t.id, label: String(t.label || '타이머').slice(0, 120), at: t.at }));
+  return { pcMemos: pcMemos.slice(0, 800), feedback, timers };
 }
 
 

@@ -5,11 +5,11 @@
 const KEY = 'momentplan_mobile_v1';
 
 function readAll() {
-  try { const d = JSON.parse(localStorage.getItem(KEY) || 'null') || {}; return { events: d.events || [], ddays: d.ddays || [], memos: d.memos || {}, feedback: d.feedback || [], pcMemos: d.pcMemos || [] }; }
-  catch { return { events: [], ddays: [], memos: {}, feedback: [], pcMemos: [] }; }
+  try { const d = JSON.parse(localStorage.getItem(KEY) || 'null') || {}; return { events: d.events || [], ddays: d.ddays || [], memos: d.memos || {}, feedback: d.feedback || [], pcMemos: d.pcMemos || [], timers: d.timers || [] }; }
+  catch { return { events: [], ddays: [], memos: {}, feedback: [], pcMemos: [], timers: [] }; }
 }
 function writeAll(data) {
-  try { localStorage.setItem(KEY, JSON.stringify({ events: data.events || [], ddays: data.ddays || [], memos: data.memos || {}, feedback: data.feedback || [], pcMemos: data.pcMemos || [] })); } catch {}
+  try { localStorage.setItem(KEY, JSON.stringify({ events: data.events || [], ddays: data.ddays || [], memos: data.memos || {}, feedback: data.feedback || [], pcMemos: data.pcMemos || [], timers: data.timers || [] })); } catch {}
   // TODO(동기화): 여기서 Supabase에 업로드하면 PC와 공유됩니다.
   // 예) supabase.from('user_events').upsert(data.events)
 }
@@ -17,9 +17,10 @@ function writeAll(data) {
 export function loadEvents() { return readAll().events || []; }
 export function loadDdays() { return readAll().ddays || []; }
 export function getAll() { return readAll(); }
-export function setAll(data) { const cur = readAll(); writeAll({ events: data.events || [], ddays: data.ddays || [], memos: data.memos || {}, feedback: data.feedback || cur.feedback || [], pcMemos: data.pcMemos || cur.pcMemos || [] }); }
+export function setAll(data) { const cur = readAll(); writeAll({ events: data.events || [], ddays: data.ddays || [], memos: data.memos || {}, feedback: data.feedback || cur.feedback || [], pcMemos: data.pcMemos || cur.pcMemos || [], timers: data.timers || cur.timers || [] }); }
 export function loadFeedback() { return readAll().feedback || []; }
 export function loadPcMemos() { return readAll().pcMemos || []; }
+export function loadTimers() { return (readAll().timers || []).filter(t => t && t.at > Date.now()); }
 export function loadMemos() { return readAll().memos || {}; }
 export function setMemo(dateStr, text) { const d = readAll(); d.memos = { ...(d.memos || {}) }; if (text && text.trim()) d.memos[dateStr] = text; else delete d.memos[dateStr]; writeAll(d); }
 
