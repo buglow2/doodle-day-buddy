@@ -213,6 +213,8 @@ jobs:
           sed -i "s/versionName \"1.0\"/versionName \"$v\"/" android/app/build.gradle
           mkdir -p ~/.android && cp android-signing/debug.keystore ~/.android/debug.keystore
           cp /tmp/local.properties android/local.properties 2>/dev/null || true
+          # Background Runner 플러그인의 JS 엔진(.aar)을 찾도록 저장소 경로 추가 (플러그인 설명서 요구사항)
+          sed -i "s#dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'#&\n        dirs '../../node_modules/@capacitor/background-runner/android/src/main/libs', 'libs'#" android/app/build.gradle
           cd android && chmod +x gradlew && { ./gradlew assembleDebug --no-daemon --stacktrace > /tmp/apk.log 2>&1 || { grep -E "What went wrong|error:|Error|FAILURE|Could not|> " /tmp/apk.log | head -60 > /tmp/apk.err; cp /tmp/apk.err /tmp/apk.log; fail; }; }
           cp app/build/outputs/apk/debug/app-debug.apk "../MomentPlan-Android-$v.apk"
       - name: 릴리스에 첨부
