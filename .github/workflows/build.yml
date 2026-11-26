@@ -43,6 +43,7 @@ jobs:
             · Windows 7 : MomentPlan-Setup_win7-버전.exe
             · Windows 10 / 11 : MomentPlan-Setup_win10-11-버전.exe
             · Mac : MomentPlan-Setup_mac-버전.dmg
+            · 안드로이드 휴대폰 : MomentPlan-Android-버전.apk (설치 시 "출처를 알 수 없는 앱 허용")
 
   # ── 0.5) 업데이트 알림용: Supabase app_meta 버전 자동 갱신 ─────
   #  · 릴리스가 만들어지면 앱 안 "새 버전" 알림이 이 값을 보고 뜹니다.
