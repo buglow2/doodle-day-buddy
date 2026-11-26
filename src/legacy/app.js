@@ -1903,7 +1903,7 @@ function DDBSheetPrint({ getSheet, page, onPage, getSel, close, title }) {
 // ===== 조건부 서식 대화상자 / 규칙 관리 (v525) =====
 const DDB_CF_PRESET = [["진한 빨강 텍스트가 있는 연한 빨강 채우기", "#9c0006", "#ffc7ce"], ["진한 노랑 텍스트가 있는 노랑 채우기", "#9c5700", "#ffeb9c"], ["진한 녹색 텍스트가 있는 녹색 채우기", "#006100", "#c6efce"], ["연한 빨강 채우기", null, "#ffc7ce"], ["빨강 텍스트", "#ff0000", null], ["파랑 채우기 + 흰 글씨", "#ffffff", "#4472c4"]];
 const DDB_CF_KIND = { gt: ["보다 큼", "다음 값보다 큰 셀의 서식 지정:", "greaterThan"], lt: ["보다 작음", "다음 값보다 작은 셀의 서식 지정:", "lessThan"], between: ["다음 값의 사이에 있음", "다음 값 사이에 있는 셀의 서식 지정:", "between"], eq: ["같음", "다음 값과 같은 셀의 서식 지정:", "equal"], text: ["텍스트 포함", "다음 텍스트를 포함하는 셀의 서식 지정:", "textContains"], dup: ["중복 값", "다음 값을 포함하는 셀의 서식 지정:", "duplicateValue"], top: ["상위 10개 항목", "다음 상위 순위에 속하는 셀의 서식 지정:", "top10"], bottom: ["하위 10개 항목", "다음 하위 순위에 속하는 셀의 서식 지정:", "last10"], above: ["평균 초과", "선택한 범위에서 평균 초과인 셀의 서식 지정", "aboveAverage"], below: ["평균 미만", "선택한 범위에서 평균 미만인 셀의 서식 지정", "belowAverage"] };
-function ddbCFDesc(rule) { const k = Object.keys(DDB_CF_KIND).find(x => DDB_CF_KIND[x][2] === rule.conditionName); const nm = k ? DDB_CF_KIND[k][0] : (rule.type === "default" ? rule.conditionName : rule.type); const v = rule.conditionValue || []; const rg = (rule.cellrange || [])[0]; const rs = rg ? ddbRefStr(rg.row[0], rg.column[0], rg.row[1], rg.column[1]) : ""; let det = ""; if (["greaterThan", "lessThan", "equal", "textContains"].includes(rule.conditionName)) det = " " + v[0]; else if (rule.conditionName === "between") det = " " + v[0] + " ~ " + v[1]; else if (rule.conditionName === "duplicateValue") det = String(v[0]) === "1" ? " (고유)" : " (중복)"; else if (/10$/.test(rule.conditionName || "")) det = " " + v[0] + "개"; return { nm: nm + det, rs }; }
+function ddbCFDesc(rule) { if (rule.type === "ddbScale") { const rg0 = (rule.cellrange || [])[0]; return { nm: "색조 (" + (rule.cols || []).length + "색)", rs: rg0 ? ddbRefStr(rg0.row[0], rg0.column[0], rg0.row[1], rg0.column[1]) : "" }; } const k = Object.keys(DDB_CF_KIND).find(x => DDB_CF_KIND[x][2] === rule.conditionName); const nm = k ? DDB_CF_KIND[k][0] : (rule.type === "default" ? rule.conditionName : rule.type); const v = rule.conditionValue || []; const rg = (rule.cellrange || [])[0]; const rs = rg ? ddbRefStr(rg.row[0], rg.column[0], rg.row[1], rg.column[1]) : ""; let det = ""; if (["greaterThan", "lessThan", "equal", "textContains"].includes(rule.conditionName)) det = " " + v[0]; else if (rule.conditionName === "between") det = " " + v[0] + " ~ " + v[1]; else if (rule.conditionName === "duplicateValue") det = String(v[0]) === "1" ? " (고유)" : " (중복)"; else if (/10$/.test(rule.conditionName || "")) det = " " + v[0] + "개"; return { nm: nm + det, rs }; }
 function DDBCondDialog({ kind, onOk, close }) {
     const K = DDB_CF_KIND[kind] || DDB_CF_KIND.gt;
     const [v1, setV1] = O.useState(kind === "top" || kind === "bottom" ? "10" : "");
@@ -2150,15 +2150,19 @@ function DDBLibGrid({ content, onCommit, onSaveNew, page, onPage, title }) {
     const cfClear = all => { const r = sel(); cfMutate(a => all ? [] : a.filter(rule => !(rule.cellrange || []).some(rg => r && rg && rg.row && !(rg.row[1] < r.row[0] || rg.row[0] > r.row[1] || rg.column[1] < r.column[0] || rg.column[0] > r.column[1])))); };
     const cfRules = () => { try { const shs = wbRef.current.getAllSheets() || []; const sh = shs.find(x => x && x.status == 1) || shs[0]; return (sh && sh.luckysheet_conditionformat_save) || []; } catch (e) { return []; } };
     const mixC = (a, b, t) => { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); const x = p(a), y = p(b); return "#" + x.map((v, i) => ("0" + Math.round(v + (y[i] - v) * t).toString(16)).slice(-2)).join(""); };
-    const colorScale = cols => { const r = sel(); if (!r || !wbRef.current) return; try { const cells = wbRef.current.getCellsByRange(r) || []; const nums = []; cells.forEach((row, i) => (row || []).forEach((c, j) => { const v = c && c.v; if (v !== null && v !== undefined && v !== "" && !isNaN(Number(v))) nums.push([r.row[0] + i, r.column[0] + j, Number(v)]); })); if (!nums.length) { alert("숫자가 있는 칸을 선택해 주세요."); return; } const mn = Math.min(...nums.map(x => x[2])), mx = Math.max(...nums.map(x => x[2])); const mid = cols.length === 3 ? (mn + mx) / 2 : null; nums.forEach(([rr, cc, v]) => { let col; if (mx === mn) col = cols[cols.length - 1]; else if (cols.length === 3) col = v <= mid ? mixC(cols[0], cols[1], (v - mn) / ((mid - mn) || 1)) : mixC(cols[1], cols[2], (v - mid) / ((mx - mid) || 1)); else col = mixC(cols[0], cols[1], (v - mn) / (mx - mn)); try { wbRef.current.setCellFormatByRange("bg", col, { row: [rr, rr], column: [cc, cc] }); } catch (e) {} }); } catch (e) {} };
+    const colorScale = (cols, rIn, silent) => { const r = rIn || sel(); if (!r || !wbRef.current) return; try { const cells = wbRef.current.getCellsByRange(r) || []; const nums = []; cells.forEach((row, i) => (row || []).forEach((c, j) => { const v = c && c.v; if (v !== null && v !== undefined && v !== "" && !isNaN(Number(v))) nums.push([r.row[0] + i, r.column[0] + j, Number(v)]); })); if (!nums.length) { if (!silent) alert("숫자가 있는 칸을 선택해 주세요."); return; } const mn = Math.min(...nums.map(x => x[2])), mx = Math.max(...nums.map(x => x[2])); const mid = cols.length === 3 ? (mn + mx) / 2 : null; nums.forEach(([rr, cc, v]) => { let col; if (mx === mn) col = cols[cols.length - 1]; else if (cols.length === 3) col = v <= mid ? mixC(cols[0], cols[1], (v - mn) / ((mid - mn) || 1)) : mixC(cols[1], cols[2], (v - mid) / ((mx - mid) || 1)); else col = mixC(cols[0], cols[1], (v - mn) / (mx - mn)); try { wbRef.current.setCellFormatByRange("bg", col, { row: [rr, rr], column: [cc, cc] }); } catch (e) {} }); } catch (e) {} };
+    const addScale = cols => { const r = sel(); if (!r) return; colorScale(cols, r); const sc = (pgLocal.scales || []).filter(x => !(x.r[0] === r.row[0] && x.r[1] === r.row[1] && x.c[0] === r.column[0] && x.c[1] === r.column[1])); setPage({ ...pgLocal, scales: sc.concat([{ r: [r.row[0], r.row[1]], c: [r.column[0], r.column[1]], cols }]) }); };
+    const scaleSigRef = O.useRef({});
+    O.useEffect(() => { const sc = pgLocal.scales || []; if (!sc.length) return; const iv = setInterval(() => { try { if (!wbRef.current) return; sc.forEach((x, i) => { const rg = { row: x.r, column: x.c }; const cells = wbRef.current.getCellsByRange(rg) || []; const sig = JSON.stringify(cells.map(row => (row || []).map(c => c ? c.v : null))); if (scaleSigRef.current[i] !== sig) { const first = scaleSigRef.current[i] === undefined; scaleSigRef.current[i] = sig; if (!first) colorScale(x.cols, rg, true); } }); } catch (e) {} }, 1500); return () => clearInterval(iv); }, [JSON.stringify(pgLocal.scales || [])]);
+    const scaleClear = (all, idx) => { const r = sel(); const keep = [], drop = []; (pgLocal.scales || []).forEach((x, i) => { const hit = idx != null ? i === idx : all || (r && !(x.r[1] < r.row[0] || x.r[0] > r.row[1] || x.c[1] < r.column[0] || x.c[0] > r.column[1])); (hit ? drop : keep).push(x); }); drop.forEach(x => { try { wbRef.current.setCellFormatByRange("bg", null, { row: x.r, column: x.c }); } catch (e) {} }); if (drop.length) setPage({ ...pgLocal, scales: keep }); };
     const hdr = t => o.jsx("div", { style: { padding: "4px 12px", fontSize: 11, color: "#3b3a39", fontWeight: 700, background: "#f3f2f1", borderTop: "1px solid #e1dfdd" }, children: t }, "h-" + t);
     const TSTY = [["파랑, 밝게", "#4472c4", "#d9e1f2", "#8ea9db"], ["주황, 밝게", "#ed7d31", "#fce4d6", "#f4b084"], ["회색, 밝게", "#7f7f7f", "#ededed", "#bfbfbf"], ["노랑, 밝게", "#bf8f00", "#fff2cc", "#ffd966"], ["하늘, 밝게", "#5b9bd5", "#ddebf7", "#9bc2e6"], ["녹색, 밝게", "#70ad47", "#e2efda", "#a9d08e"], ["파랑, 진하게", "#203764", "#b4c6e7", "#203764"], ["녹색, 진하게", "#375623", "#c6e0b4", "#375623"], ["검정, 보통", "#000000", "#d9d9d9", "#595959"]];
     const tableStyle = t => { const r = sel(); if (!r || !wbRef.current) return; const W = wbRef.current; const rg = (a, b) => ({ row: [a, b], column: [r.column[0], r.column[1]] }); try { let start = r.row[0]; if (tfHead.current) { W.setCellFormatByRange("bg", t[1], rg(start, start)); W.setCellFormatByRange("fc", "#ffffff", rg(start, start)); W.setCellFormatByRange("bl", 1, rg(start, start)); start++; } for (let i = start; i <= r.row[1]; i++) { W.setCellFormatByRange("bg", ((i - start) % 2 === 0) ? t[2] : "#ffffff", rg(i, i)); if (!tfHead.current || i > r.row[0]) W.setCellFormatByRange("fc", "#000000", rg(i, i)); } W.setCellFormat(r.row[0], r.column[0], "bd", { borderType: "border-all", color: t[3], style: "1", range: [rg(r.row[0], r.row[1])] }); if (onCommit) { try { onCommit("DDBFS:" + JSON.stringify(W.getAllSheets())); } catch (e) {} } } catch (e) {} setSelTick(x => x + 1); };
     Object.assign(HM, {
         cond: () => [hdr("셀 강조 규칙"), mItem("보다 큼(G)...", null, () => setCfDlg("gt")), mItem("보다 작음(L)...", null, () => setCfDlg("lt")), mItem("다음 값의 사이에 있음(B)...", null, () => setCfDlg("between")), mItem("같음(E)...", null, () => setCfDlg("eq")), mItem("텍스트 포함(T)...", null, () => setCfDlg("text")), mItem("중복 값(D)...", null, () => setCfDlg("dup")),
             hdr("상위/하위 규칙"), mItem("상위 10개 항목(T)...", null, () => setCfDlg("top")), mItem("하위 10개 항목(B)...", null, () => setCfDlg("bottom")), mItem("평균 초과(A)...", null, () => setCfDlg("above")), mItem("평균 미만(V)...", null, () => setCfDlg("below")),
-            hdr("색조 — 지금 값 기준으로 한 번 칠하기"), mItem("녹색 - 노랑 - 빨강", "큰 값=빨강", () => colorScale(["#63be7b", "#ffeb84", "#f8696b"])), mItem("빨강 - 노랑 - 녹색", "큰 값=녹색", () => colorScale(["#f8696b", "#ffeb84", "#63be7b"])), mItem("흰색 - 녹색", null, () => colorScale(["#ffffff", "#63be7b"])), mItem("흰색 - 빨강", null, () => colorScale(["#ffffff", "#f8696b"])), mItem("파랑 - 흰색 - 빨강", null, () => colorScale(["#5a8ac6", "#ffffff", "#f8696b"])),
-            hdr("규칙"), mItem("규칙 지우기 — 선택한 셀(S)", null, () => cfClear(false)), mItem("규칙 지우기 — 시트 전체(E)", null, () => cfClear(true)), mItem("규칙 관리(R)...", null, () => setCfMgr(true))],
+            hdr("색조 — 값 크기에 따라 색 (값이 바뀌면 자동으로 다시 칠함)"), mItem("녹색 - 노랑 - 빨강", "큰 값=빨강", () => addScale(["#63be7b", "#ffeb84", "#f8696b"])), mItem("빨강 - 노랑 - 녹색", "큰 값=녹색", () => addScale(["#f8696b", "#ffeb84", "#63be7b"])), mItem("흰색 - 녹색", null, () => addScale(["#ffffff", "#63be7b"])), mItem("흰색 - 빨강", null, () => addScale(["#ffffff", "#f8696b"])), mItem("파랑 - 흰색 - 빨강", null, () => addScale(["#5a8ac6", "#ffffff", "#f8696b"])),
+            hdr("규칙"), mItem("규칙 지우기 — 선택한 셀(S)", null, () => { cfClear(false); scaleClear(false); }), mItem("규칙 지우기 — 시트 전체(E)", null, () => { cfClear(true); scaleClear(true); }), mItem("규칙 관리(R)...", null, () => setCfMgr(true))],
         tbl: () => [o.jsxs("label", { key: "hd", style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "6px 10px", color: "#201f1e", cursor: "pointer" }, onMouseDown: e => e.preventDefault(), children: [o.jsx("input", { type: "checkbox", defaultChecked: tfHead.current, onChange: e => { tfHead.current = e.target.checked; } }), "첫 행은 머리글(제목 줄)"] }), o.jsx("div", { key: "g", style: { display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: 6, padding: "4px 10px 10px" }, children: TSTY.map(t => o.jsxs("div", { title: "표 스타일: " + t[0], onClick: () => { setLmenu(null); tableStyle(t); }, style: { cursor: "pointer", border: "1px solid #c8c6c4" }, children: [o.jsx("div", { style: { height: 8, background: t[1] } }), [0, 1, 2, 3].map(i => o.jsx("div", { style: { height: 7, background: i % 2 === 0 ? t[2] : "#fff", borderTop: "1px solid " + t[3] } }, i)), o.jsx("div", { style: { fontSize: 10, textAlign: "center", color: "#201f1e", padding: "1px 0" }, children: t[0] })] }, t[0])) })]
     });
     O.useEffect(() => { if (pgLocal.showBreaks === false) { setBrk(null); return; } let dead = false; const calc = () => { if (dead) return; try { const shs = wbRef.current && wbRef.current.getAllSheets(); const sh = shs && (shs.find(x => x && x.status == 1) || shs[0]); if (!sh) return; const b = ddbBuildPrint(sh, pgLocal, { breaksOnly: true }); setBrk(p => JSON.stringify(p) === JSON.stringify(b) ? p : b); } catch (e) {} }; const t0 = setTimeout(calc, 800); const iv = setInterval(calc, 2500); return () => { dead = true; clearTimeout(t0); clearInterval(iv); }; }, [JSON.stringify(pgLocal)]);
@@ -2228,7 +2232,7 @@ function DDBLibGrid({ content, onCommit, onSaveNew, page, onPage, title }) {
             o.jsx(O.Suspense, { fallback: o.jsx("div", { style: { padding: 20, color: "#8a8886", fontSize: 13 }, children: "FortuneSheet 불러오는 중…" }), children: o.jsx(FSWorkbook, { ref: wbRef, key: "wb" + reloadKey, data: (reloadKey > 0 && dataRef.current) ? dataRef.current : data, lang: "en", showToolbar: false, defaultFontSize: 11, cellContextMenu: [], headerContextMenu: [], onChange: onCommit ? onCh : void 0 }) }),
             fxPanel,
             ctxMenuEl,
-            fmtOpen ? o.jsx(DDBCellFmtDialog, { apply: fmt, mergeToggle: merge, applyBorder: applyBorder, init: fmtInit || {}, close: () => setFmtOpen(false) }) : null, printOpen ? o.jsx(DDBSheetPrint, { title: title, getSheet: getPrintSheet, page: pgLocal, onPage: setPage, getSel: () => { try { return ddbNormSel(sel()); } catch (e) { return null; } }, close: () => setPrintOpen(false) }) : null, cfDlg ? o.jsx(DDBCondDialog, { kind: cfDlg, onOk: cfAdd, close: () => setCfDlg(null) }) : null, cfMgr ? o.jsx(DDBCondMgr, { rules: cfRules(), onDelete: i => cfMutate(a => a.filter((_, j) => j !== i)), onDeleteAll: () => cfClear(true), close: () => setCfMgr(false) }) : null, psOpen ? o.jsx(DDBPageSetupDialog, { page: pgLocal, startTab: psOpen, selRef: () => { try { return ddbNormSel(sel()); } catch (e) { return null; } }, onSave: setPage, close: () => setPsOpen(null) }) : null
+            fmtOpen ? o.jsx(DDBCellFmtDialog, { apply: fmt, mergeToggle: merge, applyBorder: applyBorder, init: fmtInit || {}, close: () => setFmtOpen(false) }) : null, printOpen ? o.jsx(DDBSheetPrint, { title: title, getSheet: getPrintSheet, page: pgLocal, onPage: setPage, getSel: () => { try { return ddbNormSel(sel()); } catch (e) { return null; } }, close: () => setPrintOpen(false) }) : null, cfDlg ? o.jsx(DDBCondDialog, { kind: cfDlg, onOk: cfAdd, close: () => setCfDlg(null) }) : null, cfMgr ? o.jsx(DDBCondMgr, { rules: cfRules().concat((pgLocal.scales || []).map(x => ({ type: "ddbScale", cellrange: [{ row: x.r, column: x.c }], format: { cellColor: x.cols[x.cols.length - 1] }, cols: x.cols }))), onDelete: i => { const n = cfRules().length; if (i < n) cfMutate(a => a.filter((_, j) => j !== i)); else scaleClear(false, i - n); }, onDeleteAll: () => { cfClear(true); scaleClear(true); }, close: () => setCfMgr(false) }) : null, psOpen ? o.jsx(DDBPageSetupDialog, { page: pgLocal, startTab: psOpen, selRef: () => { try { return ddbNormSel(sel()); } catch (e) { return null; } }, onSave: setPage, close: () => setPsOpen(null) }) : null
         ] })
     ] });
 }
@@ -2661,7 +2665,17 @@ function DDBTileBar() {
         ] }), document.body) : null
     ] });
 }
-function ddbPinInfo(dd) { try { const p = String(dd.date || "").split("-").map(Number); if (p.length < 3 || !p[0]) return null; const today = new Date(); today.setHours(0, 0, 0, 0); if (dd.isYearly) { let next = new Date(today.getFullYear(), p[1] - 1, p[2]); if (next < today) next = new Date(today.getFullYear() + 1, p[1] - 1, p[2]); return { daysLeft: Math.round((next - today) / 864e5), nth: next.getFullYear() - p[0] }; } const base = new Date(p[0], p[1] - 1, p[2]); return { daysLeft: Math.round((base - today) / 864e5), nth: 0 }; } catch { return null; } }
+function ddbLunarToSolar(Y, M, D) { try { const C = window.__ddbLunarCls || Zl; if (!C) return null; const c = new C(); let ok = c.setLunarDate(Y, M, D, false); if (!ok && D === 30) ok = c.setLunarDate(Y, M, 29, false); if (!ok) return null; const r = c.getSolarCalendar(); const d = new Date(r.year, r.month - 1, r.day); d.setHours(0, 0, 0, 0); return d; } catch (e) { return null; } }
+// D-Day 공통 계산 (PC·폰 같은 규칙): 음력 매년(isLunar), 100일 단위(countUp) 포함
+function ddbDdInfo(dd) {
+    const p = String(dd && dd.date || "").split("-").map(Number); if (p.length < 3 || !p[0]) return { daysLeft: 0, nth: 0, dateStr: dd && dd.date };
+    const today = new Date(); today.setHours(0, 0, 0, 0); const fmt = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); const diff = d => Math.round((d - today) / 864e5);
+    if (dd.countUp) { const st = new Date(p[0], p[1] - 1, p[2]); const days = -diff(st) + 1; if (days < 1) return { daysLeft: diff(st), nth: 0, dateStr: dd.date }; const ms = days % 100 === 0 ? days : Math.ceil(days / 100) * 100; const nx = new Date(today); nx.setDate(today.getDate() + ms - days); return { daysLeft: ms - days, nth: days, dateStr: fmt(nx), milestone: ms }; }
+    if (dd.isYearly && dd.isLunar) { for (let Y = today.getFullYear() - 1; Y <= today.getFullYear() + 1; Y++) { const occ = ddbLunarToSolar(Y, p[1], p[2]); if (occ && occ >= today) return { daysLeft: diff(occ), nth: Y - p[0], dateStr: fmt(occ) }; } }
+    if (dd.isYearly) { let next = new Date(today.getFullYear(), p[1] - 1, p[2]); if (next < today) next = new Date(today.getFullYear() + 1, p[1] - 1, p[2]); return { daysLeft: diff(next), nth: next.getFullYear() - p[0], dateStr: fmt(next) }; }
+    const base = new Date(p[0], p[1] - 1, p[2]); return { daysLeft: diff(base), nth: 0, dateStr: dd.date };
+}
+function ddbPinInfo(dd) { try { const p = String(dd.date || "").split("-").map(Number); if (p.length < 3 || !p[0]) return null; const r = ddbDdInfo(dd); return { daysLeft: r.daysLeft, nth: r.nth, milestone: r.milestone }; } catch { return null; } }
 // ── 표 정렬/필터: 순수 함수 (데이터 불변, 표시 순서/노출만 계산) ──
 function ddbCmpVal(a, b) {
     a = a == null ? "" : String(a).trim(); b = b == null ? "" : String(b).trim();
@@ -2897,7 +2911,7 @@ function DDBAnnivBanner() {
         .filter(x => x.left >= 0 && x.left <= daysBefore && (daily || x.left <= 1))
         .sort((a, b) => a.left - b.left);
     if (dismissed || items.length === 0) return null;
-    const phrase = x => { const nm = x.d.title || "기념일"; const ny = x.d.isYearly && x.nth > 0 ? " " + x.nth + "주년" : ""; if (x.left === 0) return "🎉 오늘은 " + nm + ny + " 입니다!"; if (x.left === 1) return "⏰ " + nm + ny + " 하루 남았습니다"; return "📌 " + nm + ny + " " + x.left + "일 남았습니다"; };
+    const phrase = x => { const nm = x.d.title || "기념일"; const ny = x.d.countUp ? " " + (x.nth + x.left) + "일" : x.d.isYearly && x.nth > 0 ? " " + x.nth + "주년" : ""; if (x.left === 0) return "🎉 오늘은 " + nm + ny + " 입니다!"; if (x.left === 1) return "⏰ " + nm + ny + " 하루 남았습니다"; return "📌 " + nm + ny + " " + x.left + "일 남았습니다"; };
     const top = items.slice(0, 2);
     const closeToday = () => { try { localStorage.setItem("ddb_anniv_dismiss", ddbLocalDay()); } catch (e) {} setDismissed(true); };
     return Rr.createPortal(o.jsxs("div", { style: { position: "fixed", top: 150, left: "50%", transform: "translateX(-50%)", zIndex: 72, minWidth: 320, maxWidth: 560, background: "#1e2636", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 14, boxShadow: "0 10px 30px rgba(0,0,0,0.5)", padding: "10px 12px" }, children: [
@@ -4316,7 +4330,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.88";
+const DDB_VERSION = "1.00.89";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5865,7 +5879,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v525"
+                children: "v526"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -6509,6 +6523,7 @@ const qt = {
         })
     };
 let Zl = null;
+setTimeout(() => { try { PT().then(c => { if (c) window.__ddbLunarCls = c; }); } catch (e) {} }, 0);
 async function PT() {
     if (!Zl) try {
         const e = await import("korean-lunar-calendar");
@@ -11545,7 +11560,7 @@ function QT({
         elRef: s,
         onHeaderMouseDown: a,
         resizeHandle: RZ
-    } = Oi(550), [i, l] = O.useState((e == null ? void 0 : e.title) ?? ""), [c, u] = O.useState((e == null ? void 0 : e.date) ?? ""), [h, d] = O.useState((e == null ? void 0 : e.color) ?? "pink"), [f, x] = O.useState((e == null ? void 0 : e.type) ?? "anniversary"), [p, m] = O.useState((e == null ? void 0 : e.repeatUnit) ?? "monthly"), [y, w] = O.useState((e == null ? void 0 : e.isYearly) ?? !1), [v, g] = O.useState((e == null ? void 0 : e.isLunar) ?? !1), [_, k] = O.useState((e == null ? void 0 : e.hidden) ?? !1), E = e == null ? void 0 : e.amount, b = E === void 0 ? "none" : E >= 0 ? "income" : "expense", [T, A] = O.useState(b), [H, F] = O.useState(E !== void 0 ? String(Math.abs(E)) : "");
+    } = Oi(550), [i, l] = O.useState((e == null ? void 0 : e.title) ?? ""), [c, u] = O.useState((e == null ? void 0 : e.date) ?? ""), [h, d] = O.useState((e == null ? void 0 : e.color) ?? "pink"), [f, x] = O.useState((e == null ? void 0 : e.type) ?? "anniversary"), [p, m] = O.useState((e == null ? void 0 : e.repeatUnit) ?? "monthly"), [y, w] = O.useState((e == null ? void 0 : e.isYearly) ?? !1), [v, g] = O.useState((e == null ? void 0 : e.isLunar) ?? !1), [cu, setCu] = O.useState((e == null ? void 0 : e.countUp) ?? !1), [_, k] = O.useState((e == null ? void 0 : e.hidden) ?? !1), E = e == null ? void 0 : e.amount, b = E === void 0 ? "none" : E >= 0 ? "income" : "expense", [T, A] = O.useState(b), [H, F] = O.useState(E !== void 0 ? String(Math.abs(E)) : "");
     const [pin, setPin] = O.useState((e && e.pinTop) || !1);
     O.useEffect(() => {
         function z(G) {
@@ -11565,8 +11580,7 @@ function QT({
             color: h,
             type: f,
             repeatUnit: f === "repeat" ? p : void 0,
-            isYearly: f === "anniversary" ? y : void 0,
-            isLunar: v || void 0,
+            isYearly: f === "anniversary" ? (cu ? !1 : y) : void 0, isLunar: v || void 0, countUp: (f === "anniversary" && cu) || void 0,
             amount: z,
             hidden: _ || void 0,
             pinTop: (f === "anniversary" && pin) || void 0
@@ -11657,9 +11671,7 @@ function QT({
                     }), o.jsx("button", {
                         onClick: () => w(!1),
                         className: "flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors " + (y ? "bg-white/10 text-white/50 hover:bg-white/20" : "bg-slate-600 text-white"),
-                        children: DDBTR("반복 X")
-                    })]
-                }), o.jsxs("label", {
+                        children: DDBTR("반복 X") })] }), o.jsxs("label", { className: "flex items-center gap-2 mt-2 cursor-pointer", title: "만난 날·출생일부터 100일·200일…을 세어 알려줌 (시작일=1일째)", children: [o.jsx("input", { type: "checkbox", checked: cu, onChange: z => { setCu(z.target.checked); if (z.target.checked) { w(!1); g(!1); } }, className: "w-4 h-4 accent-pink-400" }), o.jsx("span", { className: "text-white/85 text-xs", children: "💯 100일 단위로 세기 (100일·200일·1000일…)" })] }), o.jsxs("label", {
                     className: "flex items-center gap-2 mt-2 cursor-pointer",
                     children: [o.jsx("input", { type: "checkbox", checked: pin, onChange: z => setPin(z.target.checked), className: "w-4 h-4 accent-amber-400" }), o.jsxs("span", { className: "text-white/70 text-xs", children: ["★ ", DDBTR("상단 툴바에 표시 (중요 기념일)")] })]
                 })]
@@ -11843,9 +11855,7 @@ function Rw() {
             return Ew(Ne, We, Je)
         })).then(() => x(!0))
     }, [r]);
-    const ue = O.useMemo(() => r.filter(oe => oe.type === "anniversary").map(oe => {
-            if (oe.isYearly) {
-                const fe = pm(oe.date);
+    const ue = O.useMemo(() => r.filter(oe => oe.type === "anniversary").map(oe => { if (oe.isYearly || oe.countUp) { const fe = (oe.isLunar || oe.countUp) ? ddbDdInfo(oe) : pm(oe.date);
                 return {
                     ...oe,
                     daysLeft: fe.daysLeft,
@@ -11888,11 +11898,7 @@ function Rw() {
     }
     const me = O.useMemo(() => r.filter(oe => G === "anniversary" ? oe.type === "anniversary" : G === "repeat" ? oe.type === "repeat" : G === "hidden" ? oe.hidden : !0).map(oe => {
         if (oe.type === "anniversary") {
-            const fe = oe.isYearly ? pm(oe.date) : {
-                daysLeft: hd(oe.date),
-                nth: 0,
-                dateStr: oe.date
-            };
+            const fe = (oe.isLunar || oe.countUp) ? ddbDdInfo(oe) : oe.isYearly ? pm(oe.date) : { daysLeft: hd(oe.date), nth: 0, dateStr: oe.date };
             return {
                 ...oe,
                 daysLeft: fe.daysLeft,
@@ -12118,8 +12124,7 @@ function Rw() {
                                             children: mm(oe.daysLeft)
                                         }), oe.isYearly && oe.nth > 0 && o.jsxs("span", {
                                             className: "text-[9px] px-1 rounded-full bg-white/15 text-white/50 leading-tight",
-                                            children: [oe.nth, "번째"]
-                                        }), !oe.isYearly && Ne && o.jsx("span", {
+                                            children: [oe.nth, "번째"] }), oe.countUp && oe.nth > 0 && o.jsx("span", { className: "text-[9px] px-1 rounded-full bg-white/15 text-white/85 leading-tight", title: "다음 " + (Math.ceil(oe.nth / 100) * 100) + "일까지", children: oe.nth + "일째" }), !oe.isYearly && Ne && o.jsx("span", {
                                             className: "text-[9px] text-white/25",
                                             children: DDBTR("지남")
                                         })]

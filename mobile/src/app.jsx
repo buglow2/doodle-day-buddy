@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, COLORS } from './data.js';
+import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, loadFeedback, loadPcMemos, COLORS } from './data.js';
+import { buildReminders, scheduleReminders, webNotifyToday, askWebPermission, isNativeApp } from './remind.js';
 import { scheduleEventAlarm } from './notify.js';
 import { currentUser, signIn, signUp, signOut, pull, push, subscribe } from './sync.js';
 import { lunarText, lunarShort, holidayName } from './kcal.js';
@@ -20,13 +21,17 @@ export default function App() {
   const [events, setEvents] = useState(loadEvents());
   const [ddays, setDdays] = useState(loadDdays());
   const [memos, setMemos] = useState(loadMemos());
+  const [feedback, setFeedback] = useState(loadFeedback());
+  const [pcMemos, setPcMemos] = useState(loadPcMemos());
   const [cur, setCur] = useState(new Date());
   const [addDate, setAddDate] = useState(todayStr());
   const [user, setUser] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
-  const refresh = () => { setEvents(loadEvents()); setDdays(loadDdays()); setMemos(loadMemos()); };
+  const refresh = () => { setEvents(loadEvents()); setDdays(loadDdays()); setMemos(loadMemos()); setFeedback(loadFeedback()); setPcMemos(loadPcMemos()); };
+  const reminders = useMemo(() => buildReminders(ddays, events, feedback, 30), [ddays, events, feedback]);
+  useEffect(() => { const t = setTimeout(() => { scheduleReminders(reminders); webNotifyToday(reminders[todayStr()] || []); }, 800); return () => clearTimeout(t); }, [reminders]);
 
   // 로그인돼 있으면 클라우드에서 내려받아 합치기 + 실시간 구독
   useEffect(() => {
@@ -87,8 +92,8 @@ export default function App() {
       {showShare && <SharePanel evByDate={evByDate} onClose={() => setShowShare(false)} />}
 
       <main style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        {tab === 'today' && <Today evByDate={evByDate} ddays={ddays} onDel={id => { deleteEvent(id); refresh(); pushCloud(); }} />}
-        {tab === 'month' && <Month cur={cur} setCur={setCur} evByDate={evByDate} memos={memos}
+        {tab === 'today' && <Today evByDate={evByDate} ddays={ddays} reminders={reminders} feedback={feedback} onDel={id => { deleteEvent(id); refresh(); pushCloud(); }} />}
+        {tab === 'month' && <Month cur={cur} setCur={setCur} evByDate={evByDate} memos={memos} pcMemos={pcMemos} feedback={feedback} reminders={reminders}
           onDel={id => { deleteEvent(id); refresh(); pushCloud(); }}
           onAddDay={ds => { setAddDate(ds); setTab('add'); }}
           onMemo={(ds, txt) => { setMemo(ds, txt); setMemos(loadMemos()); pushCloud(); }} />}
@@ -121,15 +126,35 @@ function EvRow({ e, onDel }) {
   );
 }
 
-function Today({ evByDate, ddays, onDel }) {
+function Today({ evByDate, ddays, reminders, feedback, onDel }) {
   const t = todayStr();
   const list = evByDate[t] || [];
+  const todayRem = (reminders && reminders[t]) || [];
+  const soon = Object.keys(reminders || {}).filter(ds => ds > t).sort().slice(0, 7).flatMap(ds => reminders[ds].filter(x => x.kind !== 'feedback').map(x => ({ ...x, ds })));
+  const openFb = (feedback || []).filter(f => f && !f.isDismissed && !f.completedAt);
+  const [perm, setPerm] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   const upcomingDd = ddays.map(d => ({ ...d, left: ddayInfo(d).left })).filter(d => d.left >= 0).sort((a, b) => a.left - b.left).slice(0, 5);
   return (
     <div style={{ padding: 14 }}>
       <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
         {lunarText(t)}{holidayName(t) ? ' · ' : ''}<span style={{ color: '#fca5a5' }}>{holidayName(t) || ''}</span>
       </div>
+      <div style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.40)', borderRadius: 12, padding: '10px 12px', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+          <b style={{ flex: 1, fontSize: 14, color: '#fcd34d' }}>🔔 오늘 알림 {todayRem.length ? '(' + todayRem.length + ')' : ''}</b>
+          {!isNativeApp() && perm !== 'granted' && perm !== 'unsupported' ? <button onClick={async () => setPerm(await askWebPermission())} style={{ background: 'rgba(245,158,11,0.25)', border: '1px solid rgba(245,158,11,0.6)', color: '#fde68a', borderRadius: 8, padding: '3px 8px', fontSize: 11 }}>알림 허용</button> : null}
+        </div>
+        {todayRem.length ? todayRem.map((x, i) => <div key={i} style={{ fontSize: 14, color: '#fef3c7', padding: '3px 0', lineHeight: 1.45 }}>{x.icon} {x.text}</div>) : <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>오늘은 챙길 알림이 없어요.</div>}
+        {soon.length ? <div style={{ marginTop: 8, borderTop: '1px solid rgba(245,158,11,0.25)', paddingTop: 6 }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginBottom: 3 }}>다가오는 알림</div>
+          {soon.slice(0, 6).map((x, i) => <div key={i} style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.88)', padding: '2px 0' }}><span style={{ color: '#fcd34d', marginRight: 6 }}>{x.ds.slice(5).replace('-', '/')}</span>{x.icon} {x.text}</div>)}
+        </div> : null}
+        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>{isNativeApp() ? '매일 아침 9시에 폰 알림으로도 알려드려요.' : '웹으로 쓰는 중: 앱을 열 때 알려드려요. (앱 설치형은 꺼져 있어도 알림)'}</div>
+      </div>
+      {openFb.length ? <>
+        <h3 style={{ margin: '4px 0 8px', fontSize: 15, color: '#c4b5fd' }}>💬 확인할 피드백 ({openFb.length})</h3>
+        {openFb.slice(0, 8).map(f => <div key={f.id} style={{ display: 'flex', gap: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 6, fontSize: 14 }}><span style={{ width: 8, height: 8, borderRadius: 999, background: f.color && f.color[0] === '#' ? f.color : '#a78bfa', marginTop: 6, flexShrink: 0 }} /><span style={{ flex: 1, whiteSpace: 'pre-wrap' }}>{f.content}</span><span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>{String(f.createdAt || '').slice(5, 10).replace('-', '/')}</span></div>)}
+      </> : null}
       <h3 style={{ margin: '4px 0 10px', fontSize: 15, color: '#93c5fd' }}>오늘 일정 ({list.length})</h3>
       {list.length ? list.map(e => <EvRow key={e.id} e={e} onDel={onDel} />) : <Empty>오늘 일정이 없어요.</Empty>}
       {upcomingDd.length > 0 && <>
@@ -145,7 +170,8 @@ function Today({ evByDate, ddays, onDel }) {
   );
 }
 
-function Month({ cur, setCur, evByDate, memos, onDel, onAddDay, onMemo }) {
+function Month({ cur, setCur, evByDate, memos, pcMemos, feedback, reminders, onDel, onAddDay, onMemo }) {
+  const pcByDate = useMemo(() => { const m = {}; (pcMemos || []).forEach(x => { const ds = ymd(new Date(x.createdAt)); (m[ds] = m[ds] || []).push(x); }); (feedback || []).forEach(f => { if (!f || !f.createdAt) return; const ds = ymd(new Date(f.createdAt)); (m[ds] = m[ds] || []).push({ id: 'fb-' + f.id, tab: '피드백', color: '#a78bfa', text: f.content, fb: true, done: f.isDismissed || f.completedAt }); }); return m; }, [pcMemos, feedback]);
   const y = cur.getFullYear(), m = cur.getMonth();
   const first = new Date(y, m, 1);
   const start = new Date(first); start.setDate(1 - first.getDay());
@@ -169,7 +195,7 @@ function Month({ cur, setCur, evByDate, memos, onDel, onAddDay, onMemo }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
           {WD.map((w, i) => <div key={w} style={{ textAlign: 'center', fontSize: 10, color: i === 0 ? '#fca5a5' : i === 6 ? '#93c5fd' : 'rgba(255,255,255,0.4)' }}>{w}</div>)}
           {cells.map((d, i) => {
-            const ds = ymd(d), inMonth = d.getMonth() === m, has = (evByDate[ds] || []).length, hasMemo = memos && memos[ds], isToday = ds === todayStr(), isSel = ds === sel;
+            const ds = ymd(d), inMonth = d.getMonth() === m, has = (evByDate[ds] || []).length, hasMemo = memos && memos[ds], hasPc = (pcByDate[ds] || []).length, hasRem = (reminders && reminders[ds] || []).some(x => x.kind === 'dday'), isToday = ds === todayStr(), isSel = ds === sel;
             const hol = holidayName(ds), dow = d.getDay();
             const col = !inMonth ? 'rgba(255,255,255,0.22)' : (hol || dow === 0) ? '#fca5a5' : dow === 6 ? '#93c5fd' : '#e5e7eb';
             return (
@@ -183,6 +209,8 @@ function Month({ cur, setCur, evByDate, memos, onDel, onAddDay, onMemo }) {
                 <span style={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 2 }}>
                   {has ? <span style={{ width: 4, height: 4, borderRadius: 999, background: '#38bdf8' }} /> : null}
                   {hasMemo ? <span style={{ width: 4, height: 4, borderRadius: 999, background: '#fbbf24' }} /> : null}
+                  {hasPc ? <span style={{ width: 4, height: 4, borderRadius: 999, background: '#c084fc' }} /> : null}
+                  {hasRem ? <span style={{ width: 4, height: 4, borderRadius: 999, background: '#f87171' }} /> : null}
                 </span>
               </button>
             );
@@ -203,6 +231,14 @@ function Month({ cur, setCur, evByDate, memos, onDel, onAddDay, onMemo }) {
           <button onClick={() => onAddDay(sel)} style={{ background: 'rgba(59,130,246,0.25)', border: '1px solid rgba(96,165,250,0.5)', color: '#bfdbfe', borderRadius: 8, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>＋ 이 날 일정</button>
         </div>
         {selList.length ? selList.map(e => <EvRow key={e.id} e={e} onDel={onDel} />) : null}
+        {(reminders && reminders[sel] || []).filter(x => x.kind !== 'feedback').map((x, i) => <div key={'r' + i} style={{ fontSize: 13, color: '#fde68a', padding: '6px 10px', background: 'rgba(245,158,11,0.10)', borderRadius: 8, marginBottom: 6 }}>{x.icon} {x.text}</div>)}
+        {(pcByDate[sel] || []).length ? <>
+          <div style={{ fontSize: 13, color: '#c4b5fd', fontWeight: 700, margin: '10px 0 6px' }}>PC에서 쓴 메모 ({pcByDate[sel].length})</div>
+          {pcByDate[sel].map(x => <details key={x.id} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 6, padding: '8px 12px', borderLeft: '3px solid ' + (x.color && x.color[0] === '#' ? x.color : '#a78bfa'), opacity: x.done ? 0.55 : 1 }}>
+            <summary style={{ fontSize: 14, cursor: 'pointer', listStyle: 'none' }}><span style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.7)', marginRight: 6 }}>{x.fb ? '💬 피드백' : '📝 ' + x.tab}</span>{String(x.text || '').split('\n')[0].slice(0, 60) || '(빈 메모)'}</summary>
+            <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, color: 'rgba(255,255,255,0.88)', marginTop: 6, lineHeight: 1.55 }}>{String(x.text || '').split('\n').slice(1).join('\n')}</div>
+          </details>)}
+        </> : null}
 
         <div style={{ fontSize: 13, color: '#fbbf24', fontWeight: 700, margin: '10px 0 6px' }}>메모</div>
         <textarea value={memo} onChange={e => setMemoText(e.target.value)} onBlur={() => onMemo(sel, memo)}
@@ -251,13 +287,15 @@ function AddEvent({ initialDate, onAdd, onImport }) {
 function Dday({ ddays, onAdd, onDel }) {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(todayStr());
-  const [kind, setKind] = useState('once'); // once | yearly | monthly
+  const [kind, setKind] = useState('once'); // once | yearly | lunar | monthly | hundred
   const list = ddays.map(d => ({ d, info: ddayInfo(d), kindTxt: ddayKindText(d) }))
     .sort((a, b) => a.info.left - b.info.left);
   const add = () => {
     if (!title.trim()) return;
     const base = { title: title.trim(), date };
     if (kind === 'yearly') onAdd({ ...base, type: 'anniversary', isYearly: true });
+    else if (kind === 'lunar') onAdd({ ...base, type: 'anniversary', isYearly: true, isLunar: true });
+    else if (kind === 'hundred') onAdd({ ...base, type: 'anniversary', isYearly: false, countUp: true });
     else if (kind === 'monthly') onAdd({ ...base, type: 'repeat', repeatUnit: 'monthly' });
     else onAdd({ ...base, type: 'anniversary', isYearly: false });
     setTitle('');
@@ -270,10 +308,11 @@ function Dday({ ddays, onAdd, onDel }) {
         <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inp, marginBottom: 0, flex: 1 }} />
       </div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {[['once', '한 번'], ['yearly', '매년(생일)'], ['monthly', '매월(납부)']].map(k => (
+        {[['once', '한 번'], ['yearly', '매년'], ['lunar', '매년 음력'], ['monthly', '매월'], ['hundred', '100일 단위']].map(k => (
           <button key={k[0]} onClick={() => setKind(k[0])} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid ' + (kind === k[0] ? '#60a5fa' : 'rgba(255,255,255,0.15)'), background: kind === k[0] ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.06)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>{k[1]}</button>
         ))}
       </div>
+      <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.75)', marginBottom: 10, lineHeight: 1.5 }}>{kind === 'lunar' ? '🌙 위 날짜를 음력 생일로 보고, 해마다 양력 날짜로 바꿔서 알려드려요. (예: 음력 3월 5일 → 날짜칸에 그 해-03-05)' : kind === 'hundred' ? '💯 만난 날·출생일을 넣으면 100일·200일·…·1000일을 자동으로 세요. (시작일 = 1일째)' : kind === 'monthly' ? '💳 매월 같은 날 (카드값·보험료 등)' : kind === 'yearly' ? '🎂 매년 같은 양력 날짜' : '📌 한 번만 (시험·마감 등)'} · 7일·3일·1일 전과 당일에 알려드려요.</div>
       <button disabled={!title.trim()} onClick={add} style={{ ...bigBtn, marginBottom: 16, opacity: title.trim() ? 1 : 0.4 }}>＋ D-Day 추가</button>
       {list.length ? list.map(({ d, info, kindTxt }) => {
         const past = info.left < 0;
@@ -286,7 +325,7 @@ function Dday({ ddays, onAdd, onDel }) {
               </div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
                 {info.next && info.next !== d.date ? '다음 ' + info.next.slice(5).replace('-', '.') : d.date}
-                {info.nthLabel && /[0-9]/.test(info.nthLabel) ? ' · ' + info.nthLabel : ''}
+                {info.nthLabel && /[0-9]/.test(info.nthLabel) ? ' · ' + info.nthLabel : ''}{info.milestone ? ' · ' + info.milestone + '일까지' : ''}{d.isLunar ? ' · 음력 ' + Number(String(d.date).slice(5, 7)) + '.' + Number(String(d.date).slice(8, 10)) : ''}
               </div>
             </div>
             {info.nthLabel && /[0-9]/.test(info.nthLabel) ? <div style={{ textAlign: 'center', flexShrink: 0 }}>

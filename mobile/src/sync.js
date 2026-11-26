@@ -23,6 +23,16 @@ export async function signOut() { try { await sb.auth.signOut(); } catch {} }
 // PC 앱이 쓰는 기존 테이블 (전체 상태가 data 안에 들어있고, 일정은 data.events / data.ddays)
 const TABLE = 'user_data';
 
+// PC 메모(메모 탭 항목)·피드백 메모는 폰에서 '보기 전용'으로 가져옴 (용량 줄이려고 앞부분만)
+function pcExtras(d) {
+  const pcMemos = [];
+  (d.memoTabs || []).forEach(t => { if (!t || t.id === 'calendar') return; (t.items || []).forEach(it => { if (!it || !it.createdAt) return; const c = String(it.content || ''); pcMemos.push({ id: it.id, tab: t.title || '', color: t.color || '#a78bfa', createdAt: it.createdAt, text: c.slice(0, 400) }); }); });
+  pcMemos.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const feedback = (d.feedbackMemos || []).map(f => ({ id: f.id, content: String(f.content || '').slice(0, 300), createdAt: f.createdAt, isDismissed: f.isDismissed, completedAt: f.completedAt, color: f.color, tabTitle: f.tabTitle }));
+  return { pcMemos: pcMemos.slice(0, 800), feedback };
+}
+
+
 // 클라우드에서 내 데이터 가져오기 → { events, ddays }
 export async function pull() {
   const u = await currentUser();
@@ -30,7 +40,7 @@ export async function pull() {
   const { data, error } = await sb.from(TABLE).select('data').eq('user_id', u.id).maybeSingle();
   if (error) return null;
   const d = (data && data.data) || {};
-  return { events: d.events || [], ddays: d.ddays || [], memos: d.mobileMemos || {} };
+  return { events: d.events || [], ddays: d.ddays || [], memos: d.mobileMemos || {}, ...pcExtras(d) };
 }
 
 // 클라우드에 저장 — PC의 다른 데이터는 건드리지 않게 전체를 불러와 events/ddays만 갱신
@@ -59,7 +69,7 @@ export function subscribe(onChange) {
     if (!u) return;
     ch = sb.channel('user_data_' + u.id)
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLE, filter: 'user_id=eq.' + u.id }, payload => {
-        try { const d = payload.new && payload.new.data; if (d) onChange({ events: d.events || [], ddays: d.ddays || [], memos: d.mobileMemos || {} }); } catch {}
+        try { const d = payload.new && payload.new.data; if (d) onChange({ events: d.events || [], ddays: d.ddays || [], memos: d.mobileMemos || {}, ...pcExtras(d) }); } catch {}
       })
       .subscribe();
   })();
