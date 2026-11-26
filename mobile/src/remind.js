@@ -60,15 +60,20 @@ export async function webNotifyToday(items) {
 }
 export async function askWebPermission() { try { if (typeof Notification === 'undefined') return 'unsupported'; return await Notification.requestPermission(); } catch { return 'denied'; } }
 
-// PC 시계 타이머(휴대폰에도 알림 켠 것) → 그 시각 정확히 폰 알림 예약 (설치형 앱)
-export async function scheduleTimers(timers) {
+// PC 시계 타이머(한 번)·알람(요일 반복) → 폰 알림 예약 (설치형 앱). sound=false면 무음 채널
+export async function scheduleTimers(timers, alarms = [], sound = true) {
   const ln = getLN(); if (!ln) return false;
   try {
     await ln.requestPermissions();
+    try { await ln.createChannel({ id: 'mp_timer_snd', name: '타이머·알람 (소리)', importance: 5, vibration: true, visibility: 1 }); await ln.createChannel({ id: 'mp_timer_mute', name: '타이머·알람 (무음)', importance: 2, vibration: false, visibility: 1 }); } catch {}
+    const ch = sound ? 'mp_timer_snd' : 'mp_timer_mute';
     let prev = []; try { prev = JSON.parse(localStorage.getItem('mp_timer_ids') || '[]'); } catch {}
     if (prev.length) { try { await ln.cancel({ notifications: prev.map(id => ({ id })) }); } catch {} }
-    const now = Date.now();
-    const list = (timers || []).filter(t => t && t.at > now).slice(0, 40).map((t, i) => ({ id: 7800000 + i, title: '⏰ ' + t.label, body: 'PC에서 설정한 타이머 (' + new Date(t.at).toTimeString().slice(0, 5) + ')', schedule: { at: new Date(t.at), allowWhileIdle: true } }));
+    const now = Date.now(); let n = 0; const list = [];
+    (timers || []).filter(t => t && t.at > now).slice(0, 40).forEach(t => list.push({ id: 7800000 + (n++), title: '⏱ ' + t.label, body: 'PC에서 설정한 타이머 (' + new Date(t.at).toTimeString().slice(0, 5) + ')', channelId: ch, schedule: { at: new Date(t.at), allowWhileIdle: true } }));
+    (alarms || []).slice(0, 20).forEach(a => { const [h, m] = a.hm.split(':').map(Number); const body = '알람 ' + a.hm;
+      if ((a.days || []).length >= 7) list.push({ id: 7800000 + (n++), title: '⏰ ' + a.label, body, channelId: ch, schedule: { on: { hour: h, minute: m }, allowWhileIdle: true } });
+      else a.days.forEach(d => list.push({ id: 7800000 + (n++), title: '⏰ ' + a.label, body, channelId: ch, schedule: { on: { weekday: d + 1, hour: h, minute: m }, allowWhileIdle: true } })); });
     if (list.length) await ln.schedule({ notifications: list });
     localStorage.setItem('mp_timer_ids', JSON.stringify(list.map(x => x.id)));
     return true;

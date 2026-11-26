@@ -31,8 +31,10 @@ function pcExtras(d) {
   const feedback = (d.feedbackMemos || []).map(f => ({ id: f.id, content: String(f.content || '').slice(0, 300), createdAt: f.createdAt, isDismissed: f.isDismissed, completedAt: f.completedAt, color: f.color, tabTitle: f.tabTitle }));
   // PC 시계 타이머 중 '휴대폰에도 알림' 켠 것 (앞으로 울릴 것만)
   const now = Date.now();
-  const timers = (((d.settings || {}).timers) || []).filter(t => t && t.phone && !t.done && t.at > now).map(t => ({ id: t.id, label: String(t.label || '타이머').slice(0, 120), at: t.at }));
-  return { pcMemos: pcMemos.slice(0, 800), feedback, timers };
+  const st = d.settings || {}; const tc = st.timerClock || {};
+  const timers = tc.phone ? (st.timers || []).filter(t => t && !t.done && t.at > now).map(t => ({ id: t.id, label: String(t.label || '타이머').slice(0, 120), at: t.at })) : [];
+  const alarms = tc.phone ? (st.alarms || []).filter(a => a && a.on && /^\d{1,2}:\d{2}$/.test(a.hm || '') && (a.days || []).length).map(a => ({ id: a.id, label: String(a.label || '알람').slice(0, 120), hm: a.hm, days: a.days })) : [];
+  return { pcMemos: pcMemos.slice(0, 800), feedback, timers, alarms, tsound: tc.phoneSound !== false };
 }
 
 

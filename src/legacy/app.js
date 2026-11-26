@@ -2988,39 +2988,131 @@ function DDBAiRulesPop({ sym, dispatch, onInsert, onClose, anchor }) {
         o.jsx("div", { style: { display: "flex", gap: 4, marginTop: 6, alignItems: "center" }, children: [o.jsx("span", { style: { color: "rgba(255,255,255,.85)", fontSize: 11, marginRight: 2 }, children: "색 일정:" }, "l")].concat(DDB_QT_ORDER.slice(0, 8).map((nm, i) => o.jsx("button", { onClick: () => onInsert((i + 1) + "*", "일정 제목"), title: (i + 1) + "* → " + nm + " 색 일정", style: { width: 22, height: 22, borderRadius: 11, border: "1px solid rgba(255,255,255,.35)", background: qt[nm], color: "#111", fontSize: 10.5, fontWeight: 800, cursor: "pointer", padding: 0 }, children: i + 1 }, nm))) })
     ] }), document.body);
 }
-// ===== AI메모 문단 → 기능 보내기 + 타이머 시계 (v530) =====
+// ===== 퀵커맨드(AI메모 문단 → 기능) + 타이머·알람 시계 (v530, v531) =====
 // AI메모 본문을 '빈 줄로 나눈 문단'으로 쪼갬 (원문 그대로 보존 → 뺄 때 정확히 그 문단만 제거)
 function ddbAiChunks(txt) { const sp = ddbSplitFmt(txt); const body = String(sp.body || "").replace(/\r/g, ""); return { fmt: sp.fmt, chunks: body.split(/\n[ \t]*\n+/).map(x => x.replace(/^\n+|\n+$/g, "")).filter(x => x.trim()) }; }
 function ddbAiRemoveChunk(txt, idx) { const r = ddbAiChunks(txt); r.chunks.splice(idx, 1); return ddbJoinFmt(r.chunks.join("\n\n"), r.fmt); }
 const DDB_AI_ACTS = [["fb", "💬", "피드백", "#a78bfa"], ["todo", "✅", "할 일", "#60a5fa"], ["dodo", "📋", "Do!", "#fbbf24"], ["timer", "⏱", "타이머", "#f87171"]];
-function ddbTimerCfg(st) { return { pos: "br", showNow: true, warnMin: 30, sound: true, phone: false, ...(((st && st.settings) || {}).timerClock || {}) }; }
-function ddbAddTimer(state, dispatch, label, atMs) { const t = { id: "tm" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), label: String(label || "타이머").slice(0, 200), at: atMs, createdAt: Date.now(), phone: !!ddbTimerCfg(state).phone }; dispatch({ type: "UPDATE_SETTINGS", settings: { timers: [...(((state.settings || {}).timers) || []).filter(x => x && !x.done), t] } }); return t; }
+const DDB_QC_DEF = { order: ["fb", "todo", "dodo", "timer"], hidden: [], stripOn: true, edgeOn: true, presets: [10, 25, 50, 60, 120] };
+function ddbQcCfg(st) { const c = { ...DDB_QC_DEF, ...((((st && st.settings) || {}).quickCmd) || {}) }; const ord = (c.order || []).filter(k => DDB_AI_ACTS.some(a => a[0] === k)); DDB_AI_ACTS.forEach(a => { if (!ord.includes(a[0])) ord.push(a[0]); }); c.order = ord; c.hidden = c.hidden || []; c.presets = Array.isArray(c.presets) ? c.presets : DDB_QC_DEF.presets; return c; }
+function ddbQcActs(st) { const c = ddbQcCfg(st); return c.order.filter(k => !c.hidden.includes(k)).map(k => DDB_AI_ACTS.find(a => a[0] === k)); }
+function ddbSetQc(state, dispatch, o2) { dispatch({ type: "UPDATE_SETTINGS", settings: { quickCmd: { ...ddbQcCfg(state), ...o2 } } }); }
+function ddbMinLabel(m) { return m >= 60 && m % 60 === 0 ? (m / 60) + "시간" : m > 60 ? Math.floor(m / 60) + "시간 " + (m % 60) + "분" : m + "분"; }
+const DDB_WD = ["일", "월", "화", "수", "목", "금", "토"];
+function ddbDaysLabel(d) { const s = (d || []).slice().sort().join(""); if (s === "0123456") return "매일"; if (s === "12345") return "평일"; if (s === "06") return "주말"; return (d || []).slice().sort().map(i => DDB_WD[i]).join("·"); }
+function ddbAlarmNext(a, from) { const m = /^(\d{1,2}):(\d{2})$/.exec((a && a.hm) || ""); if (!m || !(a.days || []).length) return null; for (let i = 0; i < 8; i++) { const d = new Date(from); d.setDate(d.getDate() + i); d.setHours(+m[1], +m[2], 0, 0); if (a.days.includes(d.getDay()) && d.getTime() > from) return d.getTime(); } return null; }
+function ddbTimerCfg(st) { return { pos: "br", showNow: true, warnMin: 30, sound: true, phone: false, phoneSound: true, ...((((st && st.settings) || {}).timerClock) || {}) }; }
+function ddbNewId(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+function ddbAddTimer(state, dispatch, label, atMs) { const t = { id: ddbNewId("tm"), label: String(label || "타이머").slice(0, 200), at: atMs, createdAt: Date.now() }; dispatch({ type: "UPDATE_SETTINGS", settings: { timers: [...(((state.settings || {}).timers) || []).filter(x => x && !x.done), t] } }); return t; }
+function ddbAddAlarm(state, dispatch, label, hm, days) { const a = { id: ddbNewId("al"), label: String(label || "알람").slice(0, 200), hm, days: days.slice().sort(), on: true, createdAt: Date.now() }; dispatch({ type: "UPDATE_SETTINGS", settings: { alarms: [...(((state.settings || {}).alarms) || []), a] } }); return a; }
 function ddbFmtLeft(ms) { const s = Math.max(0, Math.round(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : String(m)) + ":" + String(ss).padStart(2, "0"); }
 function ddbMixHex(a, b, t) { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); const x = p(a), y = p(b); return "#" + x.map((v, i) => ("0" + Math.round(v + (y[i] - v) * Math.max(0, Math.min(1, t))).toString(16)).slice(-2)).join(""); }
-// 타이머 설정 창: 빠른 단추(25/50/60분) · N분 뒤 · 시:분
-function DDBTimerPick({ label, onOk, close }) {
-    const [mins, setMins] = O.useState("");
-    const [hm, setHm] = O.useState("");
-    const go = ms => { onOk(ms); close(); };
-    const okHm = () => { const m = /^(\d{1,2}):?(\d{2})$/.exec(hm.trim()); if (!m) return; const d = new Date(); d.setHours(+m[1], +m[2], 0, 0); if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1); go(d.getTime()); };
+const ddbChipBtn = (on, t, fn, k) => o.jsx("button", { onMouseDown: e => e.stopPropagation(), onClick: fn, style: { padding: "2px 9px", borderRadius: 999, fontSize: 11.5, border: "1px solid " + (on ? "#60a5fa" : "rgba(255,255,255,.35)"), background: on ? "rgba(59,130,246,.4)" : "transparent", color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }, children: t }, k || t);
+const ddbInp = w => ({ width: w, height: 30, background: "#0f1218", border: "1px solid rgba(255,255,255,.35)", borderRadius: 6, color: "#fff", padding: "0 8px", fontSize: 14, colorScheme: "dark" });
+// ★공통 규칙(사용자 지정): 위치 바꾸기 = 1초 누르기 → 끌면 놓일 자리를 점선으로 미리보기 → 놓으면 그 자리로 이동
+function DDBHoldSort({ items, render, onChange, horizontal, style, hold }) {
+    const [drag, setDrag] = O.useState(null);
+    const [press, setPress] = O.useState(null);
+    const refs = O.useRef([]); const tm = O.useRef(null); const noClick = O.useRef(false);
+    O.useEffect(() => () => clearTimeout(tm.current), []);
+    const down = i => e => {
+        if (e.button !== 0) return;
+        const sx = e.clientX, sy = e.clientY;
+        const stop = () => { clearTimeout(tm.current); setPress(null); window.removeEventListener("mouseup", stop); window.removeEventListener("mousemove", mv0); };
+        const mv0 = ev => { if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 8) stop(); };
+        window.addEventListener("mouseup", stop); window.addEventListener("mousemove", mv0);
+        clearTimeout(tm.current); setPress(i);
+        tm.current = setTimeout(() => {
+            stop();
+            const rects = items.map((_, j) => refs.current[j] ? refs.current[j].getBoundingClientRect() : null);
+            const r = rects[i]; if (!r) return;
+            const calc = (px, py) => { let to = 0; rects.forEach((rc, j) => { if (!rc || j === i) return; if (horizontal ? (py > rc.bottom || (py >= rc.top && px > rc.left + rc.width / 2)) : py > rc.top + rc.height / 2) to++; }); return to; };
+            let cur = { from: i, to: i, x: sx, y: sy, dx: sx - r.left, dy: sy - r.top, w: r.width, h: r.height };
+            setDrag(cur);
+            const mv = ev => { ev.preventDefault(); cur = { ...cur, x: ev.clientX, y: ev.clientY, to: calc(ev.clientX, ev.clientY) }; setDrag(cur); };
+            const up = () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); noClick.current = true; setTimeout(() => { noClick.current = false; }, 60); setDrag(null); if (cur.to !== cur.from) { const arr = items.slice(); const [x] = arr.splice(cur.from, 1); arr.splice(cur.to, 0, x); onChange(arr); } };
+            window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up);
+        }, hold || 1000);
+    };
+    let view = items.map((it, i) => ({ i }));
+    if (drag) { view = view.filter(v => v.i !== drag.from); view.splice(drag.to, 0, { ph: true }); }
+    return o.jsxs("div", { "data-ddb-holdsort": "1", onClickCapture: e => { if (noClick.current) { e.stopPropagation(); e.preventDefault(); } }, style: { display: "flex", flexDirection: horizontal ? "row" : "column", flexWrap: horizontal ? "wrap" : "nowrap", gap: 5, userSelect: "none", ...(style || {}) }, children: [
+        view.map(v => v.ph ? o.jsx("div", { "data-ddb-holdph": "1", style: { width: drag.w, height: drag.h, border: "2px dashed #fbbf24", borderRadius: 8, background: "rgba(251,191,36,.15)", boxSizing: "border-box", flexShrink: 0 } }, "ph") : o.jsx("div", { "data-ddb-holditem": v.i, ref: el => { if (!drag) refs.current[v.i] = el; }, onMouseDown: down(v.i), title: "1초 누르고 끌면 위치 이동", style: { cursor: drag ? "grabbing" : "grab", transform: press === v.i ? "scale(.97)" : "none", transition: press === v.i ? "transform 1s" : "transform .1s" }, children: render(items[v.i], v.i) }, "it" + v.i)),
+        drag ? Rr.createPortal(o.jsx("div", { "data-ddb-holdghost": "1", style: { position: "fixed", left: drag.x - drag.dx, top: drag.y - drag.dy, width: drag.w, pointerEvents: "none", zIndex: 2147483646, opacity: .93, transform: "scale(1.05)", boxShadow: "0 10px 30px rgba(0,0,0,.55)", borderRadius: 8 }, children: render(items[drag.from], drag.from) }), document.body) : null
+    ] });
+}
+// 타이머 빠른 시간 편집 (빼기 ✕ · 추가 · 1초 눌러 끌어 순서 변경)
+function DDBPresetEdit({ presets, onChange }) {
+    const [v, setV] = O.useState("");
+    const add = () => { const m = parseInt(v, 10); if (!(m > 0) || m > 1440) return; if (!presets.includes(m)) onChange(presets.concat([m])); setV(""); };
+    return o.jsxs("div", { "data-ddb-presetedit": "1", children: [
+        o.jsx(DDBHoldSort, { horizontal: true, items: presets, onChange: onChange, render: m => o.jsxs("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 4px 3px 10px", borderRadius: 999, border: "1px solid rgba(248,113,113,.7)", background: "#3a1f24", color: "#fee2e2", fontSize: 12.5 }, children: [ddbMinLabel(m), o.jsx("button", { onMouseDown: e => e.stopPropagation(), onClick: () => onChange(presets.filter(x => x !== m)), title: "빼기", style: { border: "none", background: "transparent", color: "#fca5a5", cursor: "pointer", fontSize: 11, padding: "0 4px" }, children: "✕" })] }) }),
+        o.jsxs("div", { style: { display: "flex", gap: 5, marginTop: 6, alignItems: "center" }, children: [o.jsx("input", { "data-ddb-presetin": "1", value: v, onChange: e => setV(e.target.value.replace(/[^0-9]/g, "")), onKeyDown: e => { if (e.key === "Enter") add(); }, placeholder: "분", style: ddbInp(64) }), o.jsx("span", { style: { fontSize: 12.5, color: "#fff" }, children: "분" }), o.jsx("button", { onClick: add, style: { padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", fontSize: 12.5 }, children: "+ 추가" })] })
+    ] });
+}
+// 타이머/알람 설정 창 — ⏱ 타이머(빠른 시간·N분 뒤·시:분 한 번) / ⏰ 알람(시:분 + 요일 반복)
+function DDBTimerPick({ label, close, onTimer, onAlarm, tab0 }) {
+    const { state, dispatch } = vt(); const qc = ddbQcCfg(state);
+    const [tab, setTab] = O.useState(tab0 || "timer");
+    const [lbl, setLbl] = O.useState(String(label || "").split("\n")[0].slice(0, 120));
+    const [mins, setMins] = O.useState(""); const [hm, setHm] = O.useState(""); const [ahm, setAhm] = O.useState("");
+    const [days, setDays] = O.useState([0, 1, 2, 3, 4, 5, 6]); const [edit, setEdit] = O.useState(false);
+    const L = () => lbl.trim() || (tab === "alarm" ? "알람" : "타이머");
+    const goT = ms => { onTimer(ms, L()); close(); };
+    const okHm = () => { const m = /^(\d{1,2}):?(\d{2})$/.exec(hm.trim()); if (!m) return; const d = new Date(); d.setHours(+m[1], +m[2], 0, 0); if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1); goT(d.getTime()); };
+    const alOk = /^\d{1,2}:\d{2}$/.test(ahm) && days.length > 0;
+    const okAl = () => { if (!alOk) return; onAlarm(ahm, days, L()); close(); };
     O.useEffect(() => { const k = e => { if (e.key === "Escape") { e.stopPropagation(); close(); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, []);
-    const B = (t, ms) => o.jsx("button", { onClick: () => go(Date.now() + ms), style: { padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(248,113,113,.6)", background: "rgba(248,113,113,.15)", color: "#fee2e2", fontSize: 13, cursor: "pointer", fontWeight: 600 }, children: t }, t);
-    return Rr.createPortal(o.jsx("div", { onMouseDown: close, style: { position: "fixed", inset: 0, zIndex: 2147483605, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsxs("div", { "data-ddb-timerpick": "1", onMouseDown: e => e.stopPropagation(), style: { width: 340, background: "#1b1f27", border: "1px solid rgba(255,255,255,.22)", borderRadius: 12, padding: 16, color: "#fff", boxShadow: "0 20px 60px rgba(0,0,0,.6)" }, children: [
-        o.jsx("div", { style: { fontSize: 14, fontWeight: 700, marginBottom: 4 }, children: "⏱ 타이머 / 시간 알림" }),
-        o.jsx("div", { style: { fontSize: 12.5, color: "rgba(255,255,255,.88)", marginBottom: 12, whiteSpace: "pre-wrap", maxHeight: 60, overflow: "hidden" }, children: label }),
-        o.jsx("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }, children: [B("10분", 6e5), B("25분", 15e5), B("50분", 3e6), B("1시간", 36e5), B("2시간", 72e5)] }),
-        o.jsxs("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }, children: [o.jsx("input", { "data-ddb-tmmin": "1", value: mins, onChange: e => setMins(e.target.value.replace(/[^0-9]/g, "")), onKeyDown: e => { if (e.key === "Enter" && +mins > 0) go(Date.now() + mins * 6e4); }, placeholder: "분", style: { width: 70, height: 30, background: "#0f1218", border: "1px solid rgba(255,255,255,.3)", borderRadius: 6, color: "#fff", padding: "0 8px", fontSize: 14 } }), o.jsx("span", { style: { fontSize: 13 }, children: "분 뒤" }), o.jsx("button", { onClick: () => { if (+mins > 0) go(Date.now() + mins * 6e4); }, style: { marginLeft: "auto", padding: "5px 12px", borderRadius: 6, border: "none", background: "#3b82f6", color: "#fff", cursor: "pointer", fontSize: 13 }, children: "설정" })] }),
-        o.jsxs("div", { style: { display: "flex", gap: 6, alignItems: "center" }, children: [o.jsx("input", { "data-ddb-tmhm": "1", type: "time", value: hm, onChange: e => setHm(e.target.value), onKeyDown: e => { if (e.key === "Enter") okHm(); }, style: { width: 120, height: 30, background: "#0f1218", border: "1px solid rgba(255,255,255,.3)", borderRadius: 6, color: "#fff", padding: "0 6px", fontSize: 14, colorScheme: "dark" } }), o.jsx("span", { style: { fontSize: 13 }, children: "에 알림" }), o.jsx("button", { onClick: okHm, style: { marginLeft: "auto", padding: "5px 12px", borderRadius: 6, border: "none", background: "#3b82f6", color: "#fff", cursor: "pointer", fontSize: 13 }, children: "설정" })] })
+    const tgl = d => setDays(ds => ds.includes(d) ? ds.filter(x => x !== d) : ds.concat([d]));
+    const same = arr => days.slice().sort().join() === arr.join();
+    const seg = (k, t) => o.jsx("button", { "data-ddb-tptab": k, onClick: () => setTab(k), style: { flex: 1, padding: "6px 0", border: "none", borderRadius: 7, background: tab === k ? "#3b82f6" : "transparent", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }, children: t }, k);
+    const okBtn = (fn, t, dis) => o.jsx("button", { onClick: fn, disabled: dis, style: { marginLeft: "auto", padding: "5px 14px", borderRadius: 6, border: "none", background: dis ? "rgba(59,130,246,.35)" : "#3b82f6", color: "#fff", cursor: dis ? "default" : "pointer", fontSize: 13 }, children: t });
+    const txt = t => o.jsx("span", { style: { fontSize: 13, color: "#fff" }, children: t });
+    return Rr.createPortal(o.jsx("div", { onMouseDown: close, style: { position: "fixed", inset: 0, zIndex: 2147483605, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center" }, children: o.jsxs("div", { "data-ddb-timerpick": "1", onMouseDown: e => e.stopPropagation(), style: { width: 360, background: "#1b1f27", border: "1px solid rgba(255,255,255,.25)", borderRadius: 12, padding: 14, color: "#fff", boxShadow: "0 20px 60px rgba(0,0,0,.6)" }, children: [
+        o.jsxs("div", { style: { display: "flex", gap: 4, alignItems: "center", background: "#0f1218", borderRadius: 9, padding: 3, marginBottom: 10 }, children: [seg("timer", "⏱ 타이머"), seg("alarm", "⏰ 알람"), o.jsx("button", { onClick: close, title: "닫기 (Esc)", style: { border: "none", background: "transparent", color: "#fff", fontSize: 15, cursor: "pointer", padding: "0 6px" }, children: "✕" })] }),
+        o.jsx("input", { "data-ddb-tmlabel": "1", value: lbl, onChange: e => setLbl(e.target.value), placeholder: "알림 문구 (예: 회의!!)", style: { ...ddbInp("100%"), boxSizing: "border-box", marginBottom: 12 } }),
+        tab === "timer" ? o.jsxs("div", { children: [
+            o.jsxs("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }, children: [qc.presets.map(m => o.jsx("button", { onClick: () => goT(Date.now() + m * 6e4), style: { padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(248,113,113,.7)", background: "rgba(248,113,113,.18)", color: "#fee2e2", fontSize: 13, cursor: "pointer", fontWeight: 600 }, children: ddbMinLabel(m) }, m)), o.jsx("button", { "data-ddb-presettgl": "1", onClick: () => setEdit(v => !v), title: "빠른 시간 바꾸기", style: { padding: "6px 9px", borderRadius: 8, border: "1px dashed rgba(255,255,255,.45)", background: edit ? "rgba(255,255,255,.15)" : "transparent", color: "#fff", fontSize: 12, cursor: "pointer" }, children: edit ? "완료" : "✎ 바꾸기" })] }),
+            edit ? o.jsx("div", { style: { background: "#0f1218", borderRadius: 8, padding: 8, marginBottom: 10 }, children: o.jsx(DDBPresetEdit, { presets: qc.presets, onChange: ps => ddbSetQc(state, dispatch, { presets: ps }) }) }) : null,
+            o.jsxs("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }, children: [o.jsx("input", { "data-ddb-tmmin": "1", value: mins, onChange: e => setMins(e.target.value.replace(/[^0-9]/g, "")), onKeyDown: e => { if (e.key === "Enter" && +mins > 0) goT(Date.now() + mins * 6e4); }, placeholder: "분", style: ddbInp(70) }), txt("분 뒤"), okBtn(() => { if (+mins > 0) goT(Date.now() + mins * 6e4); }, "설정", !(+mins > 0))] }),
+            o.jsxs("div", { style: { display: "flex", gap: 6, alignItems: "center" }, children: [o.jsx("input", { "data-ddb-tmhm": "1", type: "time", value: hm, onChange: e => setHm(e.target.value), onKeyDown: e => { if (e.key === "Enter") okHm(); }, style: ddbInp(120) }), txt("에 한 번"), okBtn(okHm, "설정", !hm)] })
+        ] }) : o.jsxs("div", { children: [
+            o.jsxs("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 10 }, children: [o.jsx("input", { "data-ddb-alhm": "1", type: "time", value: ahm, onChange: e => setAhm(e.target.value), style: ddbInp(120) }), txt("에"), ddbChipBtn(same([0, 1, 2, 3, 4, 5, 6]), "매일", () => setDays([0, 1, 2, 3, 4, 5, 6])), ddbChipBtn(same([1, 2, 3, 4, 5]), "평일", () => setDays([1, 2, 3, 4, 5])), ddbChipBtn(same([0, 6]), "주말", () => setDays([0, 6]))] }),
+            o.jsx("div", { style: { display: "flex", gap: 4, marginBottom: 12 }, children: DDB_WD.map((w, i) => o.jsx("button", { "data-ddb-alday": i, onClick: () => tgl(i), style: { flex: 1, height: 30, borderRadius: 7, border: "1px solid " + (days.includes(i) ? "#60a5fa" : "rgba(255,255,255,.3)"), background: days.includes(i) ? "rgba(59,130,246,.4)" : "transparent", color: i === 0 ? "#fca5a5" : i === 6 ? "#93c5fd" : "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }, children: w }, i)) }),
+            o.jsx("button", { "data-ddb-alok": "1", onClick: okAl, disabled: !alOk, style: { width: "100%", padding: "8px 0", borderRadius: 8, border: "none", background: alOk ? "#3b82f6" : "rgba(59,130,246,.35)", color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: alOk ? "pointer" : "default" }, children: alOk ? "⏰ " + ddbDaysLabel(days) + " " + ahm + " 알람 저장" : "시각을 고르세요" }),
+            o.jsx("div", { style: { fontSize: 11.5, color: "rgba(255,255,255,.85)", marginTop: 6 }, children: "고른 요일마다 그 시각에 울려요. 끄기·지우기는 화면 구석 시계를 클릭." })
+        ] })
     ] }) }), document.body);
 }
-// AI메모 '기능 보내기' 모드: 왼쪽 서랍(기능 단추) + 문단 카드. 단추를 카드로 끌거나, 카드를 1초 눌러 잡고 단추로 끌어 놓기. 카드 오른쪽 클릭 메뉴도 가능.
+// 퀵커맨드 설정 (단추 위 오른쪽 클릭): 보이기/숨기기 · 순서(1초 눌러 끌기) · 여는 곳 켜기/끄기 · 타이머 빠른 시간
+function DDBQcSettings({ x, y, close }) {
+    const { state, dispatch } = vt(); const c = ddbQcCfg(state); const set = o2 => ddbSetQc(state, dispatch, o2);
+    O.useEffect(() => { const k = e => { if (e.key === "Escape") { e.stopPropagation(); close(); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, []);
+    const W = 300; const left = Math.max(8, Math.min(window.innerWidth - W - 8, x)); const top = Math.max(8, Math.min(window.innerHeight - 500, y));
+    const sec = t => o.jsx("div", { style: { fontSize: 12, fontWeight: 700, color: "#fde68a", margin: "10px 0 6px" }, children: t });
+    const row = (label, ctrl) => o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, padding: "3px 0" }, children: [o.jsx("span", { style: { flex: 1, color: "#fff" }, children: label }), ctrl] }, label);
+    return Rr.createPortal(o.jsx("div", { onMouseDown: close, onContextMenu: e => { e.preventDefault(); close(); }, style: { position: "fixed", inset: 0, zIndex: 2147483500 }, children: o.jsxs("div", { "data-ddb-qcset": "1", onMouseDown: e => e.stopPropagation(), onContextMenu: e => { e.preventDefault(); e.stopPropagation(); }, style: { position: "fixed", left, top, width: W, maxHeight: window.innerHeight - 16, overflowY: "auto", background: "#1b1f27", border: "1px solid rgba(255,255,255,.25)", borderRadius: 10, padding: 12, color: "#fff", boxShadow: "0 14px 40px rgba(0,0,0,.6)" }, children: [
+        o.jsxs("div", { style: { display: "flex", alignItems: "center" }, children: [o.jsx("b", { style: { flex: 1, fontSize: 13.5 }, children: "⚡ 퀵커맨드 설정" }), o.jsx("button", { onClick: close, style: { border: "none", background: "transparent", color: "#fff", fontSize: 14, cursor: "pointer" }, children: "✕" })] }),
+        sec("단추 — 1초 눌러 끌면 순서 변경"),
+        o.jsx(DDBHoldSort, { items: c.order, onChange: ord => set({ order: ord }), render: k => { const a = DDB_AI_ACTS.find(z => z[0] === k); const hid = c.hidden.includes(k); return o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, background: "#262d3a", border: "1px solid " + (hid ? "rgba(255,255,255,.15)" : a[3]) }, children: [o.jsx("span", { style: { fontSize: 16 }, children: a[1] }), o.jsx("span", { style: { flex: 1, fontSize: 13, color: hid ? "rgba(255,255,255,.8)" : "#fff", textDecoration: hid ? "line-through" : "none" }, children: a[2] }), ddbChipBtn(!hid, hid ? "숨김" : "보임", () => set({ hidden: hid ? c.hidden.filter(z => z !== k) : c.hidden.concat([k]) }))] }); } }),
+        sec("여는 곳 — 둘 다 써 보고 마음에 드는 것만 켜기"),
+        row("AI메모 왼쪽 색 띠 · ⚡ 단추", ddbChipBtn(c.stripOn, c.stripOn ? "켜짐" : "꺼짐", () => set({ stripOn: !c.stripOn }))),
+        row("화면 맨 왼쪽 끝 서랍", ddbChipBtn(c.edgeOn, c.edgeOn ? "켜짐" : "꺼짐", () => set({ edgeOn: !c.edgeOn }))),
+        sec("⏱ 타이머 빠른 시간 — 1초 눌러 끌면 순서 변경"),
+        o.jsx(DDBPresetEdit, { presets: c.presets, onChange: ps => set({ presets: ps }) }),
+        o.jsx("div", { style: { fontSize: 11.5, color: "rgba(255,255,255,.85)", marginTop: 10, lineHeight: 1.5 }, children: "시계·알람·휴대폰 알림 설정은 화면 구석 시계에서 오른쪽 클릭. 둘 다 끄더라도 이 창은 시계 설정에서 다시 열 수 있어요." })
+    ] }) }), document.body);
+}
+// AI메모 퀵커맨드 모드: 왼쪽 서랍(기능 단추) + 문단 카드. 단추를 카드로 끌거나, 카드를 1초 눌러 잡고 단추로 끌어 놓기. 카드 오른쪽 클릭 메뉴도 가능.
 function DDBAiSendMode({ tab, txt, onTxt, close }) {
     const { state, dispatch } = vt();
+    const acts = ddbQcActs(state);
     const { chunks } = ddbAiChunks(txt);
     const [over, setOver] = O.useState(null);
     const [armed, setArmed] = O.useState(null);
     const [menu, setMenu] = O.useState(null);
     const [pick, setPick] = O.useState(null);
+    const [qcSet, setQcSet] = O.useState(null);
     const [toast, setToast] = O.useState("");
     const holdT = O.useRef(null);
     const flash = m => { setToast(m); setTimeout(() => setToast(""), 1800); };
@@ -3029,65 +3121,121 @@ function DDBAiSendMode({ tab, txt, onTxt, close }) {
         if (act === "fb") dispatch({ type: "ADD_FEEDBACK_MEMO", memo: { id: "fb" + Date.now().toString(36), content: text, color: tab.aiColorName || "green", tabTitle: tab.title, createdAt: new Date().toISOString(), isDismissed: false } });
         else if (act === "todo") dispatch({ type: "ADD_TODO", todo: { id: Ft(), content: text, color: "#3b82f6", createdAt: new Date().toISOString(), completedAt: null, order: (state.todos || []).length } });
         else if (act === "dodo") dispatch({ type: "ADD_DODO", item: { id: "dodo-" + Ft(), text: first.slice(0, 200), checked: false, color: "#fbbf24" } });
+        else return;
         onTxt(ddbAiRemoveChunk(txt, idx)); flash(({ fb: "💬 피드백으로", todo: "✅ 할 일로", dodo: "📋 Do!로" })[act] + " 보냈어요"); };
+    const runRef = O.useRef(run); runRef.current = run;
+    O.useEffect(() => { const h = e => { const d = e.detail || {}; runRef.current(d.act, d.idx); }; window.addEventListener("ddb-qc-run", h); return () => window.removeEventListener("ddb-qc-run", h); }, []);
+    const chunkEv = on => setTimeout(() => window.dispatchEvent(new CustomEvent("ddb-qc-chunkdrag", { detail: { on } })), 0);
     const dropOnCard = idx => e => { e.preventDefault(); setOver(null); const a = e.dataTransfer.getData("application/ddb-aiact"); if (a) run(a, idx); };
     const dropOnBtn = act => e => { e.preventDefault(); setOver(null); const i = e.dataTransfer.getData("application/ddb-aichunk"); if (i !== "") run(act, +i); setArmed(null); };
     return o.jsxs("div", { "data-ddb-aisend": "1", style: { display: "flex", flex: 1, minHeight: 0 }, children: [
-        o.jsx("div", { style: { width: 64, flexShrink: 0, display: "flex", flexDirection: "column", gap: 6, padding: "8px 6px", background: "rgba(0,0,0,.35)", borderRight: "1px solid rgba(255,255,255,.15)" }, children: DDB_AI_ACTS.map(a => o.jsxs("div", { "data-ddb-aiact": a[0], draggable: true, onDragStart: e => { e.dataTransfer.setData("application/ddb-aiact", a[0]); e.dataTransfer.effectAllowed = "copy"; }, onDragOver: e => { if (e.dataTransfer.types.includes("application/ddb-aichunk")) { e.preventDefault(); setOver("b" + a[0]); } }, onDragLeave: () => setOver(null), onDrop: dropOnBtn(a[0]), title: a[2] + " — 문단으로 끌어 놓거나, 문단을 1초 눌러 잡아 여기로 끌어 놓기", style: { borderRadius: 8, padding: "6px 2px", textAlign: "center", cursor: "grab", border: "1px solid " + a[3], background: over === "b" + a[0] ? a[3] + "66" : a[3] + "22", color: "#fff", fontSize: 11, userSelect: "none" }, children: [o.jsx("div", { style: { fontSize: 18 }, children: a[1] }), a[2]] }, a[0])) }),
+        o.jsx("div", { onContextMenu: e => { e.preventDefault(); setQcSet({ x: e.clientX, y: e.clientY }); }, title: "오른쪽 클릭: 퀵커맨드 설정", style: { width: 64, flexShrink: 0, display: "flex", flexDirection: "column", gap: 6, padding: "8px 6px", background: "rgba(0,0,0,.35)", borderRight: "1px solid rgba(255,255,255,.15)" }, children: acts.length ? acts.map(a => o.jsxs("div", { "data-ddb-aiact": a[0], draggable: true, onDragStart: e => { e.dataTransfer.setData("application/ddb-aiact", a[0]); e.dataTransfer.effectAllowed = "copy"; }, onDragOver: e => { if (e.dataTransfer.types.includes("application/ddb-aichunk")) { e.preventDefault(); setOver("b" + a[0]); } }, onDragLeave: () => setOver(null), onDrop: dropOnBtn(a[0]), title: a[2] + " — 문단으로 끌어 놓거나, 문단을 1초 눌러 잡아 여기로 끌어 놓기 · 오른쪽 클릭: 설정", style: { borderRadius: 8, padding: "6px 2px", textAlign: "center", cursor: "grab", border: "1px solid " + a[3], background: over === "b" + a[0] ? a[3] + "66" : a[3] + "22", color: "#fff", fontSize: 11, userSelect: "none" }, children: [o.jsx("div", { style: { fontSize: 18 }, children: a[1] }), a[2]] }, a[0])) : o.jsx("div", { style: { fontSize: 11, color: "#fff", textAlign: "center" }, children: "단추를 모두 숨겼어요. 오른쪽 클릭 → 설정" }) }),
         o.jsxs("div", { style: { flex: 1, minWidth: 0, overflowY: "auto", padding: 8 }, children: [
-            o.jsxs("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 }, children: [o.jsx("span", { style: { flex: 1, fontSize: 11.5, color: "rgba(255,255,255,.85)" }, children: "왼쪽 단추를 문단에 끌어 놓기 · 문단 1초 눌러 단추로 끌기 · 오른쪽 클릭 메뉴" }), o.jsx("button", { onClick: close, style: { fontSize: 11.5, padding: "2px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer" }, children: "✎ 편집으로" })] }),
-            chunks.length ? chunks.map((c, i) => o.jsx("div", { "data-ddb-aichunk": i, draggable: armed === i, onMouseDown: e => { if (e.button !== 0) return; clearTimeout(holdT.current); holdT.current = setTimeout(() => setArmed(i), 1000); }, onMouseUp: () => { clearTimeout(holdT.current); }, onMouseLeave: () => clearTimeout(holdT.current), onDragStart: e => { if (armed !== i) { e.preventDefault(); return; } e.dataTransfer.setData("application/ddb-aichunk", String(i)); e.dataTransfer.effectAllowed = "move"; }, onDragEnd: () => setArmed(null), onDragOver: e => { if (e.dataTransfer.types.includes("application/ddb-aiact")) { e.preventDefault(); setOver("c" + i); } }, onDragLeave: () => setOver(o2 => o2 === "c" + i ? null : o2), onDrop: dropOnCard(i), onContextMenu: e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, idx: i }); }, style: { whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.5, color: "#f1f5f9", padding: "7px 9px", marginBottom: 6, borderRadius: 8, border: "1px solid " + (over === "c" + i ? "#fbbf24" : armed === i ? "#60a5fa" : "rgba(255,255,255,.18)"), background: over === "c" + i ? "rgba(251,191,36,.15)" : armed === i ? "rgba(96,165,250,.18)" : "rgba(255,255,255,.05)", cursor: armed === i ? "grabbing" : "default", userSelect: "none", transform: armed === i ? "scale(1.02)" : "none", transition: "transform .12s" }, children: c }, i)) : o.jsx("div", { style: { fontSize: 13, color: "rgba(255,255,255,.8)", padding: 12 }, children: "보낼 문단이 없어요. 엔터 두 번으로 나눠 쓰면 문단이 돼요." }),
+            o.jsxs("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 }, children: [o.jsx("span", { style: { flex: 1, fontSize: 11.5, color: "rgba(255,255,255,.88)" }, children: "⚡ 퀵커맨드 — 단추를 문단에 끌어 놓기 · 문단 1초 눌러 단추로 끌기 · 문단 오른쪽 클릭" }), o.jsx("button", { onClick: close, style: { fontSize: 11.5, padding: "2px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }, children: "✎ 편집으로" })] }),
+            chunks.length ? chunks.map((c, i) => o.jsx("div", { "data-ddb-aichunk": i, draggable: armed === i, onMouseDown: e => { if (e.button !== 0) return; clearTimeout(holdT.current); holdT.current = setTimeout(() => setArmed(i), 1000); }, onMouseUp: () => { clearTimeout(holdT.current); }, onMouseLeave: () => clearTimeout(holdT.current), onDragStart: e => { if (armed !== i) { e.preventDefault(); return; } e.dataTransfer.setData("application/ddb-aichunk", String(i)); e.dataTransfer.effectAllowed = "move"; chunkEv(true); }, onDragEnd: () => { setArmed(null); chunkEv(false); }, onDragOver: e => { if (e.dataTransfer.types.includes("application/ddb-aiact")) { e.preventDefault(); setOver("c" + i); } }, onDragLeave: () => setOver(o2 => o2 === "c" + i ? null : o2), onDrop: dropOnCard(i), onContextMenu: e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, idx: i }); }, style: { whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.5, color: "#f1f5f9", padding: "7px 9px", marginBottom: 6, borderRadius: 8, border: "1px solid " + (over === "c" + i ? "#fbbf24" : armed === i ? "#60a5fa" : "rgba(255,255,255,.18)"), background: over === "c" + i ? "rgba(251,191,36,.15)" : armed === i ? "rgba(96,165,250,.18)" : "rgba(255,255,255,.05)", cursor: armed === i ? "grabbing" : "default", userSelect: "none", transform: armed === i ? "scale(1.02)" : "none", transition: "transform .12s" }, children: c }, i)) : o.jsx("div", { style: { fontSize: 13, color: "rgba(255,255,255,.85)", padding: 12 }, children: "보낼 문단이 없어요. 엔터 두 번으로 나눠 쓰면 문단이 돼요." }),
             toast ? o.jsx("div", { style: { position: "sticky", bottom: 4, textAlign: "center" }, children: o.jsx("span", { style: { background: "#16a34a", color: "#fff", borderRadius: 999, padding: "4px 12px", fontSize: 12 }, children: toast }) }) : null
         ] }),
-        menu ? Rr.createPortal(o.jsx("div", { onMouseDown: () => setMenu(null), style: { position: "fixed", inset: 0, zIndex: 2147483604 }, children: o.jsx("div", { onMouseDown: e => e.stopPropagation(), style: { position: "fixed", ...ddbFloatPos({ getBoundingClientRect: () => ({ left: menu.x, top: menu.y, bottom: menu.y }) }, 170, 150), width: 170, background: "#1b1f27", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: 4, boxShadow: "0 10px 30px rgba(0,0,0,.6)" }, children: DDB_AI_ACTS.map(a => o.jsx("div", { onClick: () => { setMenu(null); run(a[0], menu.idx); }, style: { padding: "7px 10px", fontSize: 13, color: "#fff", cursor: "pointer", borderRadius: 6 }, onMouseEnter: e => e.currentTarget.style.background = "rgba(255,255,255,.1)", onMouseLeave: e => e.currentTarget.style.background = "transparent", children: a[1] + " " + a[2] + "(으)로 보내기" }, a[0])) }) }), document.body) : null,
-        pick ? o.jsx(DDBTimerPick, { label: pick.text, close: () => setPick(null), onOk: at => { ddbAddTimer(state, dispatch, pick.text.split("\n")[0], at); onTxt(ddbAiRemoveChunk(txt, pick.idx)); flash("⏱ 타이머 설정 — " + new Date(at).toTimeString().slice(0, 5)); } }) : null
+        menu ? Rr.createPortal(o.jsx("div", { onMouseDown: () => setMenu(null), style: { position: "fixed", inset: 0, zIndex: 2147483604 }, children: o.jsx("div", { onMouseDown: e => e.stopPropagation(), style: { position: "fixed", ...ddbFloatPos({ getBoundingClientRect: () => ({ left: menu.x, top: menu.y, bottom: menu.y }) }, 180, 150), width: 180, background: "#1b1f27", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: 4, boxShadow: "0 10px 30px rgba(0,0,0,.6)" }, children: acts.map(a => o.jsx("div", { onClick: () => { setMenu(null); run(a[0], menu.idx); }, style: { padding: "7px 10px", fontSize: 13, color: "#fff", cursor: "pointer", borderRadius: 6 }, onMouseEnter: e => e.currentTarget.style.background = "rgba(255,255,255,.1)", onMouseLeave: e => e.currentTarget.style.background = "transparent", children: a[1] + " " + a[2] + "(으)로 보내기" }, a[0])) }) }), document.body) : null,
+        qcSet ? o.jsx(DDBQcSettings, { x: qcSet.x, y: qcSet.y, close: () => setQcSet(null) }) : null,
+        pick ? o.jsx(DDBTimerPick, { label: pick.text, close: () => setPick(null), onTimer: (at, l) => { ddbAddTimer(state, dispatch, l, at); onTxt(ddbAiRemoveChunk(txt, pick.idx)); flash("⏱ 타이머 " + new Date(at).toTimeString().slice(0, 5)); }, onAlarm: (hm, days, l) => { ddbAddAlarm(state, dispatch, l, hm, days); onTxt(ddbAiRemoveChunk(txt, pick.idx)); flash("⏰ 알람 " + ddbDaysLabel(days) + " " + hm); } }) : null
     ] });
 }
-// 화면 구석 시계: 현재 시간 / 가장 가까운 타이머 남은 시간 (30분 전부터 노랑→주황→빨강)
+// 화면 맨 왼쪽 끝 서랍: 마우스를 왼쪽 끝에 대면(또는 문단을 끌고 오면) 퀵커맨드 단추가 나옴
+function DDBQuickEdge() {
+    const { state, dispatch } = vt(); const qc = ddbQcCfg(state); const acts = ddbQcActs(state);
+    const [show, setShow] = O.useState(false); const [over, setOver] = O.useState(null); const [qcSet, setQcSet] = O.useState(null); const [pick, setPick] = O.useState(false); const [hint, setHint] = O.useState("");
+    const tIn = O.useRef(null), tOut = O.useRef(null), dragOn = O.useRef(false);
+    const hide = ms => { clearTimeout(tOut.current); tOut.current = setTimeout(() => { if (!dragOn.current) { setShow(false); setHint(""); } }, ms); };
+    O.useEffect(() => { const h = e => { dragOn.current = !!(e.detail && e.detail.on); if (dragOn.current) { clearTimeout(tOut.current); setShow(true); } else hide(500); }; window.addEventListener("ddb-qc-chunkdrag", h); return () => window.removeEventListener("ddb-qc-chunkdrag", h); }, []);
+    if (!qc.edgeOn) return null;
+    const hasCard = () => !!document.querySelector("[data-ddb-aimemocard]");
+    const say = m => { setHint(m); setTimeout(() => setHint(""), 2600); };
+    return Rr.createPortal(o.jsxs(o.Fragment, { children: [
+        o.jsx("div", { "data-ddb-qcedgezone": "1", onMouseEnter: () => { clearTimeout(tIn.current); tIn.current = setTimeout(() => { clearTimeout(tOut.current); setShow(true); }, 250); }, onMouseLeave: () => clearTimeout(tIn.current), onDragEnter: () => { clearTimeout(tOut.current); setShow(true); }, style: { position: "fixed", left: 0, top: "12vh", height: "76vh", width: 4, zIndex: 2147483200 } }),
+        show ? o.jsxs("div", { "data-ddb-qcedge": "1", onMouseEnter: () => clearTimeout(tOut.current), onMouseLeave: () => hide(450), onContextMenu: e => { e.preventDefault(); setQcSet({ x: e.clientX + 8, y: e.clientY }); }, style: { position: "fixed", left: 0, top: "50%", transform: "translateY(-50%)", zIndex: 2147483210, width: 70, display: "flex", flexDirection: "column", gap: 6, padding: "10px 6px", background: "#161c26", border: "1px solid rgba(255,255,255,.25)", borderLeft: "none", borderRadius: "0 12px 12px 0", boxShadow: "6px 0 24px rgba(0,0,0,.5)" }, children: [
+            o.jsx("div", { style: { fontSize: 11, fontWeight: 700, color: "#fde68a", textAlign: "center" }, children: "⚡ 퀵" }),
+            acts.length ? acts.map(a => o.jsxs("div", { "data-ddb-qcedgebtn": a[0], draggable: true, onDragStart: e => { e.dataTransfer.setData("application/ddb-aiact", a[0]); e.dataTransfer.effectAllowed = "copy"; if (!hasCard()) say("AI메모 창을 열면 문단에 놓을 수 있어요"); setTimeout(() => window.dispatchEvent(new CustomEvent("ddb-qc-dragstart")), 0); }, onDragEnd: () => window.dispatchEvent(new CustomEvent("ddb-qc-dragend")), onDragOver: e => { if (e.dataTransfer.types.includes("application/ddb-aichunk")) { e.preventDefault(); setOver(a[0]); } }, onDragLeave: () => setOver(null), onDrop: e => { e.preventDefault(); setOver(null); const i = e.dataTransfer.getData("application/ddb-aichunk"); if (i !== "") window.dispatchEvent(new CustomEvent("ddb-qc-run", { detail: { act: a[0], idx: +i } })); }, onClick: () => { if (a[0] === "timer") { setPick(true); return; } if (hasCard()) window.dispatchEvent(new CustomEvent("ddb-qc-open")); else say("AI메모 창을 열고 문단에 끌어 놓으세요"); }, title: a[2] + " — AI메모 문단에 끌어 놓기 · 오른쪽 클릭: 설정", style: { borderRadius: 8, padding: "6px 2px", textAlign: "center", cursor: "grab", border: "1px solid " + a[3], background: over === a[0] ? a[3] + "77" : a[3] + "26", color: "#fff", fontSize: 11, userSelect: "none" }, children: [o.jsx("div", { style: { fontSize: 18 }, children: a[1] }), a[2]] }, a[0])) : o.jsx("div", { style: { fontSize: 11, color: "#fff", textAlign: "center" }, children: "모두 숨김 (오른쪽 클릭)" }),
+            hint ? o.jsx("div", { style: { position: "absolute", left: 76, top: "50%", transform: "translateY(-50%)", width: 190, background: "#1e293b", border: "1px solid #fbbf24", color: "#fff", fontSize: 12, padding: "6px 8px", borderRadius: 8 }, children: hint }) : null
+        ] }) : null,
+        qcSet ? o.jsx(DDBQcSettings, { x: qcSet.x, y: qcSet.y, close: () => setQcSet(null) }) : null,
+        pick ? o.jsx(DDBTimerPick, { label: "", close: () => setPick(false), onTimer: (at, l) => ddbAddTimer(state, dispatch, l, at), onAlarm: (hm, days, l) => ddbAddAlarm(state, dispatch, l, hm, days) }) : null
+    ] }), document.body);
+}
+// 화면 구석 시계: 현재 시간 / 가장 가까운 타이머·알람 남은 시간 (정한 분 전부터 노랑→주황→빨강). 1초 눌러 끌면 다른 구석으로 이동.
 function DDBTimerClock() {
     const { state, dispatch } = vt();
     const cfg = ddbTimerCfg(state);
     const timers = (((state.settings || {}).timers) || []).filter(t => t && !t.done).sort((a, b) => a.at - b.at);
+    const alarms = ((state.settings || {}).alarms) || [];
     const [now, setNow] = O.useState(Date.now());
     const [fired, setFired] = O.useState([]);
     const [list, setList] = O.useState(false);
-    const [setOpen, setSetOpen] = O.useState(null);
+    const [setOpen, setSetOpen] = O.useState(false);
     const [addPick, setAddPick] = O.useState(false);
-    const box = O.useRef(null);
+    const [qcSet, setQcSet] = O.useState(null);
+    const [mv, setMv] = O.useState(null);
+    const face = O.useRef(null), holdT = O.useRef(null), noClick = O.useRef(false);
+    const firedKeys = O.useRef((() => { try { return JSON.parse(localStorage.getItem("ddb_alarm_fired") || "[]"); } catch (e) { return []; } })());
     O.useEffect(() => { const iv = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(iv); }, []);
     const setCfg = o2 => dispatch({ type: "UPDATE_SETTINGS", settings: { timerClock: { ...cfg, ...o2 } } });
     const setTimers = arr => dispatch({ type: "UPDATE_SETTINGS", settings: { timers: arr } });
-    O.useEffect(() => { const due = timers.filter(t => t.at <= now && !fired.some(f => f.id === t.id)); if (!due.length) return; setFired(f => f.concat(due));
-        due.forEach(t => { try { if (cfg.sound) { const C = window.AudioContext || window.webkitAudioContext; if (C) { const ac = new C(); [0, .35, .7].forEach(d => { const os = ac.createOscillator(), g = ac.createGain(); os.frequency.value = 880; os.connect(g); g.connect(ac.destination); g.gain.setValueAtTime(.25, ac.currentTime + d); g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + d + .3); os.start(ac.currentTime + d); os.stop(ac.currentTime + d + .32); }); } } } catch (e) {} try { if (window.Notification) { if (Notification.permission === "granted") new Notification("⏰ " + t.label, { body: "설정한 시간이 됐어요 (" + new Date(t.at).toTimeString().slice(0, 5) + ")" }); else if (Notification.permission !== "denied") Notification.requestPermission(); } } catch (e) {} }); }, [now]);
-    const ack = (t, snooze) => { setFired(f => f.filter(x => x.id !== t.id)); const rest = (((state.settings || {}).timers) || []).filter(x => x && x.id !== t.id); setTimers(snooze ? rest.concat([{ ...t, id: t.id + "s", at: Date.now() + snooze }]) : rest); };
-    const next = timers.find(t => t.at > now);
+    const setAlarms = arr => dispatch({ type: "UPDATE_SETTINGS", settings: { alarms: arr } });
+    O.useEffect(() => {
+        const due = timers.filter(t => t.at <= now && !fired.some(f => f.id === t.id));
+        alarms.forEach(a => { if (!a || !a.on) return; const m = /^(\d{1,2}):(\d{2})$/.exec(a.hm || ""); if (!m) return; const d = new Date(now); d.setHours(+m[1], +m[2], 0, 0); const occ = d.getTime(); if (!(a.days || []).includes(d.getDay()) || now < occ || now - occ > 9e4) return; const key = a.id + "@" + occ; if (firedKeys.current.includes(key)) return; firedKeys.current = firedKeys.current.concat([key]).slice(-60); try { localStorage.setItem("ddb_alarm_fired", JSON.stringify(firedKeys.current)); } catch (e) {} due.push({ id: key, label: a.label, at: occ, alarm: true }); });
+        if (!due.length) return; setFired(f => f.concat(due));
+        due.forEach(t => { try { if (cfg.sound) { const C = window.AudioContext || window.webkitAudioContext; if (C) { const ac = new C(); [0, .35, .7].forEach(dl => { const os = ac.createOscillator(), g = ac.createGain(); os.frequency.value = 880; os.connect(g); g.connect(ac.destination); g.gain.setValueAtTime(.25, ac.currentTime + dl); g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + dl + .3); os.start(ac.currentTime + dl); os.stop(ac.currentTime + dl + .32); }); } } } catch (e) {} try { if (window.Notification) { if (Notification.permission === "granted") new Notification("⏰ " + t.label, { body: "설정한 시간이 됐어요 (" + new Date(t.at).toTimeString().slice(0, 5) + ")" }); else if (Notification.permission !== "denied") Notification.requestPermission(); } } catch (e) {} });
+    }, [now]);
+    const ack = (t, snooze) => { setFired(f => f.filter(x => x.id !== t.id)); if (t.alarm) { if (snooze) ddbAddTimer(state, dispatch, t.label, Date.now() + snooze); return; } const rest = (((state.settings || {}).timers) || []).filter(x => x && x.id !== t.id); setTimers(snooze ? rest.concat([{ ...t, id: t.id + "s", at: Date.now() + snooze }]) : rest); };
+    const upcoming = timers.map(t => ({ ...t, kind: "t" })).concat(alarms.filter(a => a && a.on).map(a => ({ ...a, kind: "a", at: ddbAlarmNext(a, now) })).filter(a => a.at)).filter(x => x.at > now).sort((a, b) => a.at - b.at);
+    const next = upcoming[0];
     const left = next ? next.at - now : null;
     const warn = Math.max(1, cfg.warnMin || 30) * 6e4;
     let bg = "rgba(17,24,39,.92)", fg = "#f1f5f9", bd = "rgba(255,255,255,.25)";
     if (left != null && left <= warn) { const t = 1 - left / warn; bg = t < .5 ? ddbMixHex("#facc15", "#f97316", t * 2) : ddbMixHex("#f97316", "#ef4444", (t - .5) * 2); fg = "#111827"; bd = bg; }
-    const pos = { br: { right: 14, bottom: 14 }, bl: { left: 14, bottom: 14 }, tr: { right: 14, top: 10 }, tl: { left: 14, top: 10 } }[cfg.pos] || { right: 14, bottom: 14 };
-    if (cfg.hidden && !timers.length && !fired.length) return null;
+    const CORNER = { br: { right: 14, bottom: 14 }, bl: { left: 14, bottom: 14 }, tr: { right: 14, top: 10 }, tl: { left: 14, top: 10 } };
+    const pos = CORNER[cfg.pos] || CORNER.br;
+    if (cfg.hidden && !upcoming.length && !fired.length && !qcSet) return null;
     const nowTxt = new Date(now).toTimeString().slice(0, 5);
-    const P = (t, children, w) => o.jsx(DDBPortalPop, { up: cfg.pos === "br" || cfg.pos === "bl", style: { background: "#1b1f27", border: "1px solid rgba(255,255,255,.25)", borderRadius: 10, padding: 10, color: "#fff", width: w || 260, zIndex: 2147483460, boxShadow: "0 12px 32px rgba(0,0,0,.6)" }, children: [o.jsx("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 6 }, children: t }, "t")].concat(children) });
-    const row = (label, ctrl) => o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, padding: "4px 0" }, children: [o.jsx("span", { style: { flex: 1, color: "rgba(255,255,255,.9)" }, children: label }), ctrl] }, label);
-    const chip = (on, t, fn) => o.jsx("button", { onClick: fn, style: { padding: "2px 8px", borderRadius: 999, fontSize: 11.5, border: "1px solid " + (on ? "#60a5fa" : "rgba(255,255,255,.3)"), background: on ? "rgba(59,130,246,.35)" : "transparent", color: "#fff", cursor: "pointer" }, children: t }, t);
-    return Rr.createPortal(o.jsxs("div", { ref: box, "data-ddb-timerclock": "1", style: { position: "fixed", ...pos, zIndex: 2147483300, userSelect: "none" }, children: [
-        o.jsxs("div", { onClick: () => { setList(v => !v); setSetOpen(null); }, onContextMenu: e => { e.preventDefault(); setSetOpen(v => !v); setList(false); }, title: "클릭: 타이머 목록 · 오른쪽 클릭: 시계 설정", style: { position: "relative", cursor: "pointer", background: bg, color: fg, border: "1px solid " + bd, borderRadius: 12, padding: "5px 12px", boxShadow: "0 6px 20px rgba(0,0,0,.45)", fontVariantNumeric: "tabular-nums", minWidth: 74, textAlign: "center", transition: "background-color 1s linear" }, children: [
-            next ? o.jsxs("div", { children: [o.jsx("div", { style: { fontSize: 10.5, fontWeight: 600, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: .9 }, children: "⏱ " + next.label }), o.jsx("div", { "data-ddb-timerleft": "1", style: { fontSize: 18, fontWeight: 800, lineHeight: 1.1 }, children: ddbFmtLeft(left) })] }) : null,
-            (cfg.showNow || !next) ? o.jsx("div", { style: { fontSize: next ? 10.5 : 15, fontWeight: next ? 500 : 700, opacity: next ? .8 : 1 }, children: "🕒 " + nowTxt + (timers.length > 1 ? "  · 타이머 " + timers.length : "") }) : null,
-            list ? P("⏱ 타이머", [o.jsx("div", { style: { maxHeight: 220, overflowY: "auto" }, children: timers.length ? timers.map(t => o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, padding: "4px 0", borderTop: "1px solid rgba(255,255,255,.1)" }, children: [o.jsx("span", { style: { color: "#fcd34d", width: 44 }, children: new Date(t.at).toTimeString().slice(0, 5) }), o.jsx("span", { style: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: t.label }), o.jsx("span", { style: { color: "rgba(255,255,255,.75)", fontSize: 11 }, children: t.at > now ? ddbFmtLeft(t.at - now) : "끝" }), o.jsx("button", { onClick: e => { e.stopPropagation(); setTimers(timers.filter(x => x.id !== t.id)); }, title: "삭제", style: { border: "none", background: "transparent", color: "#fca5a5", cursor: "pointer" }, children: "✕" })] }, t.id)) : o.jsx("div", { style: { fontSize: 12.5, color: "rgba(255,255,255,.8)" }, children: "설정된 타이머가 없어요. AI메모 문단을 ⏱ 타이머로 보내거나 아래에서 추가하세요." }) }, "l"), o.jsx("button", { onClick: e => { e.stopPropagation(); setAddPick(true); setList(false); }, style: { marginTop: 8, width: "100%", padding: "6px 0", borderRadius: 6, border: "none", background: "#3b82f6", color: "#fff", cursor: "pointer", fontSize: 12.5 }, children: "+ 새 타이머" }, "a")]) : null,
-            setOpen ? P("⚙ 시계 설정", [o.jsx("div", { onClick: e => e.stopPropagation(), children: [
-                row("위치", o.jsx("div", { style: { display: "flex", gap: 3 }, children: [["tl", "↖"], ["tr", "↗"], ["bl", "↙"], ["br", "↘"]].map(p => chip(cfg.pos === p[0], p[1], () => setCfg({ pos: p[0] }))) })),
-                row("현재 시간 표시", chip(cfg.showNow, cfg.showNow ? "켜짐" : "꺼짐", () => setCfg({ showNow: !cfg.showNow }))),
-                row("색 바뀌기 시작", o.jsx("div", { style: { display: "flex", gap: 3 }, children: [10, 30, 60].map(m => chip(cfg.warnMin === m, m + "분 전", () => setCfg({ warnMin: m }))) })),
-                row("알림 소리", chip(cfg.sound, cfg.sound ? "켜짐" : "꺼짐", () => setCfg({ sound: !cfg.sound }))),
-                row("📱 휴대폰에도 알림", chip(cfg.phone, cfg.phone ? "켜짐" : "꺼짐", () => setCfg({ phone: !cfg.phone }))),
-                o.jsx("div", { style: { fontSize: 11, color: "rgba(255,255,255,.75)", lineHeight: 1.5, marginTop: 4 }, children: "휴대폰 알림: 휴대폰 앱이 동기화되면 그 시각에 휴대폰에서도 울려요. (앱을 오래 열지 않았다면 놓칠 수 있어요 — 실시간 푸시는 추후 작업)" }),
-                row("타이머 없을 때 시계 숨기기", chip(!!cfg.hidden, cfg.hidden ? "숨김" : "보임", () => setCfg({ hidden: !cfg.hidden })))
-            ] }, "s")], 280) : null
+    // 1초 누르기 → 끌면 놓일 구석 미리보기(점선) → 놓으면 그 구석으로
+    const onDown = e => { if (e.button !== 0) return; const sx = e.clientX, sy = e.clientY; const stop = () => { clearTimeout(holdT.current); window.removeEventListener("mouseup", stop); window.removeEventListener("mousemove", m0); }; const m0 = ev => { if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 8) stop(); }; window.addEventListener("mouseup", stop); window.addEventListener("mousemove", m0);
+        holdT.current = setTimeout(() => { stop(); const r = face.current.getBoundingClientRect(); const cornerOf = (x, y) => (y < window.innerHeight / 2 ? "t" : "b") + (x < window.innerWidth / 2 ? "l" : "r"); let cur = { x: sx, y: sy, dx: sx - r.left, dy: sy - r.top, w: r.width, h: r.height, c: cornerOf(sx, sy) }; setMv(cur); setList(false); setSetOpen(false);
+            const mm = ev => { ev.preventDefault(); cur = { ...cur, x: ev.clientX, y: ev.clientY, c: cornerOf(ev.clientX, ev.clientY) }; setMv(cur); };
+            const up = () => { window.removeEventListener("mousemove", mm); window.removeEventListener("mouseup", up); noClick.current = true; setTimeout(() => { noClick.current = false; }, 60); setMv(null); setCfg({ pos: cur.c }); };
+            window.addEventListener("mousemove", mm); window.addEventListener("mouseup", up); }, 1000); };
+    const P = (t, children, w) => o.jsx(DDBPortalPop, { up: cfg.pos === "br" || cfg.pos === "bl", style: { background: "#1b1f27", border: "1px solid rgba(255,255,255,.25)", borderRadius: 10, padding: 10, color: "#fff", width: w || 280, zIndex: 2147483460, boxShadow: "0 12px 32px rgba(0,0,0,.6)", cursor: "default" }, onClick: e => e.stopPropagation(), onMouseDown: e => e.stopPropagation(), onContextMenu: e => e.stopPropagation(), children: [o.jsx("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 6 }, children: t }, "t")].concat(children) });
+    const row = (label, ctrl) => o.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, padding: "4px 0" }, children: [o.jsx("span", { style: { flex: 1, color: "#fff" }, children: label }), ctrl] }, label);
+    const sub = t => o.jsx("div", { style: { fontSize: 11.5, fontWeight: 700, color: "#fde68a", margin: "6px 0 2px" }, children: t }, "s" + t);
+    const xBtn = fn => o.jsx("button", { onClick: e => { e.stopPropagation(); fn(); }, title: "삭제", style: { border: "none", background: "transparent", color: "#fca5a5", cursor: "pointer" }, children: "✕" });
+    const lineS = { display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, padding: "4px 0", borderTop: "1px solid rgba(255,255,255,.1)" };
+    const faceStyle = { position: "relative", cursor: mv ? "grabbing" : "pointer", background: bg, color: fg, border: "1px solid " + bd, borderRadius: 12, padding: "5px 12px", boxShadow: "0 6px 20px rgba(0,0,0,.45)", fontVariantNumeric: "tabular-nums", minWidth: 74, textAlign: "center", transition: "background-color 1s linear" };
+    const outer = mv ? { left: mv.x - mv.dx, top: mv.y - mv.dy } : pos;
+    return Rr.createPortal(o.jsxs("div", { "data-ddb-timerclock": "1", style: { position: "fixed", ...outer, zIndex: 2147483300, userSelect: "none" }, children: [
+        o.jsxs("div", { ref: face, onMouseDown: onDown, onClick: () => { if (noClick.current) return; setList(v => !v); setSetOpen(false); }, onContextMenu: e => { e.preventDefault(); setSetOpen(v => !v); setList(false); }, title: "클릭: 타이머·알람 목록 · 오른쪽 클릭: 설정 · 1초 눌러 끌기: 위치 이동", style: { ...faceStyle, transform: mv ? "scale(1.06)" : "none" }, children: [
+            next ? o.jsxs("div", { children: [o.jsx("div", { style: { fontSize: 10.5, fontWeight: 600, maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: .92 }, children: (next.kind === "a" ? "⏰ " : "⏱ ") + next.label }), o.jsx("div", { "data-ddb-timerleft": "1", style: { fontSize: 18, fontWeight: 800, lineHeight: 1.1 }, children: left > 864e5 ? new Date(next.at).toTimeString().slice(0, 5) : ddbFmtLeft(left) })] }) : null,
+            (cfg.showNow || !next) ? o.jsx("div", { style: { fontSize: next ? 10.5 : 15, fontWeight: next ? 500 : 700, opacity: next ? .85 : 1 }, children: "🕒 " + nowTxt + (upcoming.length > 1 ? "  · " + upcoming.length + "개" : "") }) : null,
+            list && !mv ? P("⏱ 타이머 · ⏰ 알람", [o.jsxs("div", { style: { maxHeight: 260, overflowY: "auto" }, children: [
+                sub("⏱ 타이머 (한 번)"),
+                timers.length ? timers.map(t => o.jsxs("div", { style: lineS, children: [o.jsx("span", { style: { color: "#fcd34d", width: 44 }, children: new Date(t.at).toTimeString().slice(0, 5) }), o.jsx("span", { style: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: t.label }), o.jsx("span", { style: { color: "rgba(255,255,255,.85)", fontSize: 11 }, children: t.at > now ? ddbFmtLeft(t.at - now) : "끝" }), xBtn(() => setTimers(timers.filter(x => x.id !== t.id)))] }, t.id)) : o.jsx("div", { style: { fontSize: 12, color: "rgba(255,255,255,.85)" }, children: "없음" }, "nt"),
+                sub("⏰ 알람 (반복)"),
+                alarms.length ? alarms.map(a => o.jsxs("div", { style: { ...lineS, opacity: a.on ? 1 : .7 }, children: [o.jsx("span", { style: { color: "#fcd34d", width: 44 }, children: a.hm }), o.jsx("span", { style: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: ddbDaysLabel(a.days) + " · " + a.label }), ddbChipBtn(a.on, a.on ? "켜짐" : "꺼짐", e => { e.stopPropagation(); setAlarms(alarms.map(x => x.id === a.id ? { ...x, on: !x.on } : x)); }), xBtn(() => setAlarms(alarms.filter(x => x.id !== a.id)))] }, a.id)) : o.jsx("div", { style: { fontSize: 12, color: "rgba(255,255,255,.85)" }, children: "없음" }, "na")
+            ] }, "l"), o.jsx("button", { onClick: e => { e.stopPropagation(); setAddPick(true); setList(false); }, style: { marginTop: 8, width: "100%", padding: "6px 0", borderRadius: 6, border: "none", background: "#3b82f6", color: "#fff", cursor: "pointer", fontSize: 12.5 }, children: "+ 새 타이머 / 알람" }, "a")]) : null,
+            setOpen && !mv ? P("⚙ 시계 설정", [o.jsxs("div", { children: [
+                row("위치 (시계를 1초 눌러 끌어도 됨)", o.jsx("div", { style: { display: "flex", gap: 3 }, children: [["tl", "↖"], ["tr", "↗"], ["bl", "↙"], ["br", "↘"]].map(p => ddbChipBtn(cfg.pos === p[0], p[1], () => setCfg({ pos: p[0] }), p[0])) })),
+                row("현재 시간 표시", ddbChipBtn(cfg.showNow, cfg.showNow ? "켜짐" : "꺼짐", () => setCfg({ showNow: !cfg.showNow }))),
+                row("색 바뀌기 시작", o.jsx("div", { style: { display: "flex", gap: 3 }, children: [10, 30, 60].map(m => ddbChipBtn(cfg.warnMin === m, m + "분 전", () => setCfg({ warnMin: m }), "w" + m)) })),
+                row("PC 알림 소리", ddbChipBtn(cfg.sound, cfg.sound ? "켜짐" : "꺼짐", () => setCfg({ sound: !cfg.sound }))),
+                row("📱 휴대폰에도 알림", ddbChipBtn(cfg.phone, cfg.phone ? "켜짐" : "꺼짐", () => setCfg({ phone: !cfg.phone }))),
+                cfg.phone ? row("　휴대폰 알림 방식", o.jsx("div", { style: { display: "flex", gap: 3 }, children: [ddbChipBtn(cfg.phoneSound, "🔔 소리", () => setCfg({ phoneSound: true }), "ps1"), ddbChipBtn(!cfg.phoneSound, "🔕 무음", () => setCfg({ phoneSound: false }), "ps0")] })) : null,
+                cfg.phone ? o.jsx("div", { style: { fontSize: 11, color: "rgba(255,255,255,.85)", lineHeight: 1.5, margin: "2px 0 4px" }, children: "휴대폰 앱이 동기화(열기)된 뒤부터 그 시각에 울려요. 알람은 요일마다 반복 예약돼요. (앱을 안 열어도 바로 오는 실시간 푸시는 추후 작업)" }, "pn") : null,
+                row("타이머 없을 때 시계 숨기기", ddbChipBtn(!!cfg.hidden, cfg.hidden ? "숨김" : "보임", () => setCfg({ hidden: !cfg.hidden }))),
+                o.jsx("button", { onClick: e => { const r = face.current.getBoundingClientRect(); setQcSet({ x: r.left - 160, y: r.top - 420 }); setSetOpen(false); }, style: { marginTop: 8, width: "100%", padding: "6px 0", borderRadius: 6, border: "1px solid rgba(253,230,138,.6)", background: "rgba(253,230,138,.12)", color: "#fde68a", cursor: "pointer", fontSize: 12.5, fontWeight: 700 }, children: "⚡ 퀵커맨드 설정" }, "qc")
+            ] }, "s")], 300) : null
         ] }),
-        addPick ? o.jsx(DDBTimerPick, { label: "새 타이머", close: () => setAddPick(false), onOk: at => { const l = window.prompt("알림 문구", "타이머") || "타이머"; ddbAddTimer(state, dispatch, l, at); } }) : null,
-        fired.map((t, i) => o.jsxs("div", { "data-ddb-timerfired": "1", style: { position: "fixed", left: "50%", top: 80 + i * 96, transform: "translateX(-50%)", zIndex: 2147483606, background: "#7f1d1d", border: "2px solid #ef4444", borderRadius: 14, padding: "12px 18px", color: "#fff", boxShadow: "0 16px 40px rgba(0,0,0,.6)", minWidth: 280, animation: "ddbPulse 1s ease-in-out infinite alternate" }, children: [o.jsx("div", { style: { fontSize: 12, color: "#fecaca" }, children: "⏰ " + new Date(t.at).toTimeString().slice(0, 5) + " 알림" }), o.jsx("div", { style: { fontSize: 17, fontWeight: 800, margin: "4px 0 10px", whiteSpace: "pre-wrap" }, children: t.label }), o.jsxs("div", { style: { display: "flex", gap: 6 }, children: [o.jsx("button", { onClick: () => ack(t), style: { flex: 1, padding: "6px 0", borderRadius: 8, border: "none", background: "#fff", color: "#7f1d1d", fontWeight: 700, cursor: "pointer" }, children: "확인" }), o.jsx("button", { onClick: () => ack(t, 5 * 6e4), style: { padding: "6px 10px", borderRadius: 8, border: "1px solid #fecaca", background: "transparent", color: "#fff", cursor: "pointer" }, children: "5분 뒤 다시" })] })] }, t.id))
+        mv ? o.jsx("div", { "data-ddb-clockghost": "1", style: { position: "fixed", ...CORNER[mv.c], width: mv.w, height: mv.h, border: "2px dashed #fbbf24", borderRadius: 12, background: "rgba(251,191,36,.15)", pointerEvents: "none", zIndex: 2147483299 } }) : null,
+        addPick ? o.jsx(DDBTimerPick, { label: "", close: () => setAddPick(false), onTimer: (at, l) => ddbAddTimer(state, dispatch, l, at), onAlarm: (hm, days, l) => ddbAddAlarm(state, dispatch, l, hm, days) }) : null,
+        qcSet ? o.jsx(DDBQcSettings, { x: qcSet.x, y: qcSet.y, close: () => setQcSet(null) }) : null,
+        fired.map((t, i) => o.jsxs("div", { "data-ddb-timerfired": "1", style: { position: "fixed", left: "50%", top: 80 + i * 96, transform: "translateX(-50%)", zIndex: 2147483606, background: "#7f1d1d", border: "2px solid #ef4444", borderRadius: 14, padding: "12px 18px", color: "#fff", boxShadow: "0 16px 40px rgba(0,0,0,.6)", minWidth: 280, animation: "ddbPulse 1s ease-in-out infinite alternate" }, children: [o.jsx("div", { style: { fontSize: 12, color: "#fecaca" }, children: (t.alarm ? "⏰ 알람 " : "⏱ 타이머 ") + new Date(t.at).toTimeString().slice(0, 5) }), o.jsx("div", { style: { fontSize: 17, fontWeight: 800, margin: "4px 0 10px", whiteSpace: "pre-wrap" }, children: t.label }), o.jsxs("div", { style: { display: "flex", gap: 6 }, children: [o.jsx("button", { onClick: () => ack(t), style: { flex: 1, padding: "6px 0", borderRadius: 8, border: "none", background: "#fff", color: "#7f1d1d", fontWeight: 700, cursor: "pointer" }, children: "확인" }), o.jsx("button", { onClick: () => ack(t, 5 * 6e4), style: { padding: "6px 10px", borderRadius: 8, border: "1px solid #fecaca", background: "transparent", color: "#fff", cursor: "pointer" }, children: "5분 뒤 다시" })] })] }, t.id))
     ] }), document.body);
 }
 
@@ -3099,7 +3247,10 @@ function DDBAiMemoCard({ tab }) {
     const [palOpen, setPalOpen] = O.useState(false);
     const [resetN, setResetN] = O.useState(0);
     const [sendMode, setSendMode] = O.useState(false);
-    const stripT = O.useRef(null);
+    const [qcSet, setQcSet] = O.useState(null);
+    const stripT = O.useRef(null), autoSend = O.useRef(false);
+    const qc = ddbQcCfg(state);
+    O.useEffect(() => { const ds = () => setSendMode(v => { if (!v) autoSend.current = true; return true; }); const de = () => { if (autoSend.current) { autoSend.current = false; setTimeout(() => setSendMode(false), 400); } }; const op = () => { autoSend.current = false; setSendMode(true); }; window.addEventListener("ddb-qc-dragstart", ds); window.addEventListener("ddb-qc-dragend", de); window.addEventListener("ddb-qc-open", op); return () => { window.removeEventListener("ddb-qc-dragstart", ds); window.removeEventListener("ddb-qc-dragend", de); window.removeEventListener("ddb-qc-open", op); }; }, []);
     O.useEffect(() => { setTxt(_aiClean(tab.aiText)); }, [tab.id, tab.aiText]);
     const today = ddbLocalDay();
     const colorName = tab.aiColorName || "green";
@@ -3114,7 +3265,7 @@ function DDBAiMemoCard({ tab }) {
     const rec = (state.aiDaily || {})[today] || {};
     const tCnt = (rec.tables || []).length, iCnt = (rec.images || []).length;
     const onPasteTbl = e => { try { const html = e.clipboardData.getData("text/html"); const plain = e.clipboardData.getData("text/plain"); let md = null; if (html) md = YT(html); if (!md && plain && plain.indexOf("\t") >= 0) md = KT(plain); if (md) { e.preventDefault(); dispatch({ type: "AI_DAILY_ADD", day: today, kind: "tables", item: String(md).trim() }); } } catch (er) {} };
-    return o.jsxs("div", { className: "flex flex-col h-full", style: { minHeight: 0 }, children: [
+    return o.jsxs("div", { "data-ddb-aimemocard": "1", className: "flex flex-col h-full", style: { minHeight: 0 }, children: [
         o.jsxs("div", { className: "flex items-center gap-1.5 px-2.5 py-1.5 border-b border-white/10 flex-shrink-0", children: [
             o.jsxs("div", { className: "relative flex-shrink-0", children: [
                 o.jsx("button", { ref: helpBtn, onClick: () => setTip(v => !v), title: "AI메모 사용법·명령어 (클릭)", "data-ddb-aihelp": "1", className: "w-5 h-5 rounded-full border text-[11px] font-bold flex items-center justify-center cursor-pointer select-none " + (tip ? "bg-sky-500 border-sky-300 text-white" : "bg-white/10 border-white/30 text-white/85 hover:bg-white/20"), children: "i" }),
@@ -3133,11 +3284,11 @@ function DDBAiMemoCard({ tab }) {
                     ] }, nm)) })
                 ] }), document.body) : null
             ] }),
-            o.jsx("button", { "data-ddb-aisendbtn": "1", onClick: () => setSendMode(v => !v), title: "문단을 피드백·할 일·Do!·타이머로 보내기 (왼쪽 색 띠에 마우스를 잠깐 올려도 열림)", className: "px-1.5 py-0.5 rounded text-[10px] border cursor-pointer whitespace-nowrap " + (sendMode ? "bg-amber-500/40 border-amber-300 text-white" : "bg-white/8 border-white/20 text-white/90 hover:bg-white/15"), children: sendMode ? "✎ 편집" : "⇄ 보내기" }), o.jsx("button", { onClick: () => ddbSpellCheck(ddbSplitFmt(txt).body), title: "맞춤법 검사 (검사기 열고 붙여넣기)", className: "ml-auto px-1.5 py-0.5 rounded text-[10px] bg-white/8 hover:bg-white/15 text-white/65 border-none cursor-pointer whitespace-nowrap", children: "🔤 맞춤법" }),
+            (qc.stripOn || sendMode) ? o.jsx("button", { "data-ddb-aisendbtn": "1", onClick: () => { autoSend.current = false; setSendMode(v => !v); }, onContextMenu: e => { e.preventDefault(); setQcSet({ x: e.clientX, y: e.clientY + 10 }); }, title: "퀵커맨드: 문단을 피드백·할 일·Do!·타이머로 보내기 (왼쪽 색 띠에 마우스를 잠깐 올려도 열림) · 오른쪽 클릭: 설정", className: "px-1.5 py-0.5 rounded text-[10px] border cursor-pointer whitespace-nowrap " + (sendMode ? "bg-amber-500/40 border-amber-300 text-white" : "bg-white/8 border-white/20 text-white/90 hover:bg-white/15"), children: sendMode ? "✎ 편집" : "⚡ 퀵커맨드" }) : null, qcSet ? o.jsx(DDBQcSettings, { x: qcSet.x, y: qcSet.y, close: () => setQcSet(null) }) : null, o.jsx("button", { onClick: () => ddbSpellCheck(ddbSplitFmt(txt).body), title: "맞춤법 검사 (검사기 열고 붙여넣기)", className: "ml-auto px-1.5 py-0.5 rounded text-[10px] bg-white/8 hover:bg-white/15 text-white/65 border-none cursor-pointer whitespace-nowrap", children: "🔤 맞춤법" }),
             o.jsx("span", { className: "text-white/80 text-[10px]", children: "빈 줄 = 일정 구분" })
         ] }),
         (tCnt || iCnt) ? o.jsxs("div", { className: "px-2.5 py-1 text-[11px] flex items-center gap-2 flex-shrink-0 border-b border-white/5", children: [o.jsxs("span", { className: "text-sky-300", children: ["📊 오늘 표 ", tCnt] }), o.jsxs("span", { className: "text-purple-300", children: ["🖼 이미지 ", iCnt] }), o.jsx("span", { className: "text-white/30", children: "(메모 상세 → AI메모에서 날짜별로 보기)" })] }) : null,
-        sendMode ? o.jsx(DDBAiSendMode, { tab: tab, txt: txt, onTxt: v => { save(v); setResetN(n => n + 1); }, close: () => setSendMode(false) }) : o.jsxs("div", { className: "flex-1 min-h-0 flex", style: { position: "relative" }, children: [o.jsx("div", { "data-ddb-aistrip": "1", onMouseEnter: () => { clearTimeout(stripT.current); stripT.current = setTimeout(() => setSendMode(true), 450); }, onMouseLeave: () => clearTimeout(stripT.current), title: "여기에 마우스를 잠깐 올리면 기능 보내기 모드", style: { width: 7, flexShrink: 0, background: chipHex, cursor: "e-resize" } }), o.jsx("div", { ref: edWrap, className: "flex-1 min-h-0 overflow-auto px-2 py-1", children: o.jsx(DDBDocEditor, { content: txt, onCommit: save, fontSize: 13, itemId: "aimemo-" + tab.id, maxH: "none", soloOn: true, simpleTables: true }, "aim-" + tab.id + "-" + resetN) })] }),
+        sendMode ? o.jsx(DDBAiSendMode, { tab: tab, txt: txt, onTxt: v => { save(v); setResetN(n => n + 1); }, close: () => { autoSend.current = false; setSendMode(false); } }) : o.jsxs("div", { className: "flex-1 min-h-0 flex", style: { position: "relative" }, children: [o.jsx("div", { "data-ddb-aistrip": "1", onContextMenu: e => { e.preventDefault(); if (qc.stripOn) setQcSet({ x: e.clientX + 8, y: e.clientY }); }, onMouseEnter: () => { if (!qc.stripOn) return; clearTimeout(stripT.current); stripT.current = setTimeout(() => { autoSend.current = false; setSendMode(true); }, 450); }, onMouseLeave: () => clearTimeout(stripT.current), title: qc.stripOn ? "여기에 마우스를 잠깐 올리면 퀵커맨드 · 오른쪽 클릭: 설정" : "", style: { width: qc.stripOn ? 7 : 3, flexShrink: 0, background: chipHex, cursor: qc.stripOn ? "e-resize" : "default" } }), o.jsx("div", { ref: edWrap, className: "flex-1 min-h-0 overflow-auto px-2 py-1", children: o.jsx(DDBDocEditor, { content: txt, onCommit: save, fontSize: 13, itemId: "aimemo-" + tab.id, maxH: "none", soloOn: true, simpleTables: true }, "aim-" + tab.id + "-" + resetN) })] }),
         o.jsxs("div", { className: "flex items-center gap-2 px-2.5 py-1.5 border-t border-white/10 flex-shrink-0", children: [o.jsxs("span", { className: "text-white/80 text-[11px] flex-1", title: "엔터 두 번(빈 줄)으로 나눈 묶음마다 일정 1개가 됩니다", children: ["일정 ", cnt, "개 (빈 줄로 구분) · 오늘 ", today] }), o.jsx("button", { onClick: () => window.dispatchEvent(new CustomEvent("ddb-ai-digest")), title: "날짜별 하루 요약 보기 (일정·표·이미지)", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer bg-white/8 border-white/20 text-white/70 hover:bg-white/15", children: "🗓 요약" }), o.jsx("button", { onClick: fileNow, disabled: !cnt, title: "지금 바로 오늘 날짜 일정으로 정리", className: "px-2.5 py-1 rounded-lg text-[11px] border cursor-pointer disabled:opacity-40 " + (cnt ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-100 hover:bg-emerald-500/40" : "bg-white/5 border-white/15 text-white/40"), children: "지금 정리" })] })
     ] });
 }
@@ -4435,7 +4586,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.93";
+const DDB_VERSION = "1.00.94";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -5984,7 +6135,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v530"
+                children: "v531"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -19667,7 +19818,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBTableDropZones, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBCountrySetup, {}), o.jsx(DDBAnnivBanner, {}), o.jsx(DDBTimerClock, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBHotkeys, {}), o.jsx(DDBPaintBanner, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBTableDropZones, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBCountrySetup, {}), o.jsx(DDBAnnivBanner, {}), o.jsx(DDBTimerClock, {}), o.jsx(DDBQuickEdge, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBHotkeys, {}), o.jsx(DDBPaintBanner, {})]
         })
     })
 }

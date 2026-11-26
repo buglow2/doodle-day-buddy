@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, loadFeedback, loadPcMemos, loadTimers, COLORS } from './data.js';
+import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, loadFeedback, loadPcMemos, loadTimers, loadAlarms, loadTSound, COLORS } from './data.js';
 import { buildReminders, scheduleReminders, scheduleTimers, webNotifyToday, askWebPermission, isNativeApp } from './remind.js';
 import { loadBriefCfg, saveBriefCfg, pushBriefCfg, setRemCache, fetchBrief, fmtN, IDX_ALL, FX_ALL, NEWS_ALL, FX_SYM, newsCatsOf } from './brief.js';
 import { scheduleEventAlarm } from './notify.js';
@@ -25,14 +25,16 @@ export default function App() {
   const [feedback, setFeedback] = useState(loadFeedback());
   const [pcMemos, setPcMemos] = useState(loadPcMemos());
   const [timers, setTimers] = useState(loadTimers());
-  useEffect(() => { scheduleTimers(timers); }, [JSON.stringify(timers)]);
+  const [alarms, setAlarms] = useState(loadAlarms());
+  const [tsound, setTsound] = useState(loadTSound());
+  useEffect(() => { scheduleTimers(timers, alarms, tsound); }, [JSON.stringify(timers), JSON.stringify(alarms), tsound]);
   const [cur, setCur] = useState(new Date());
   const [addDate, setAddDate] = useState(todayStr());
   const [user, setUser] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
-  const refresh = () => { setEvents(loadEvents()); setDdays(loadDdays()); setMemos(loadMemos()); setFeedback(loadFeedback()); setPcMemos(loadPcMemos()); setTimers(loadTimers()); };
+  const refresh = () => { setEvents(loadEvents()); setDdays(loadDdays()); setMemos(loadMemos()); setFeedback(loadFeedback()); setPcMemos(loadPcMemos()); setTimers(loadTimers()); setAlarms(loadAlarms()); setTsound(loadTSound()); };
   const reminders = useMemo(() => buildReminders(ddays, events, feedback, 30), [ddays, events, feedback]);
   const [briefTick, setBriefTick] = useState(0);
   useEffect(() => { const h = () => setBriefTick(t => t + 1); window.addEventListener('mp-brief-cfg', h); return () => window.removeEventListener('mp-brief-cfg', h); }, []);
@@ -98,7 +100,7 @@ export default function App() {
       {showShare && <SharePanel evByDate={evByDate} onClose={() => setShowShare(false)} />}
 
       <main style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        {tab === 'today' && <Today evByDate={evByDate} ddays={ddays} reminders={reminders} feedback={feedback} timers={timers} onDel={id => { deleteEvent(id); refresh(); pushCloud(); }} />}
+        {tab === 'today' && <Today evByDate={evByDate} ddays={ddays} reminders={reminders} feedback={feedback} timers={timers} alarms={alarms} tsound={tsound} onDel={id => { deleteEvent(id); refresh(); pushCloud(); }} />}
         {tab === 'month' && <Month cur={cur} setCur={setCur} evByDate={evByDate} memos={memos} pcMemos={pcMemos} feedback={feedback} reminders={reminders}
           onDel={id => { deleteEvent(id); refresh(); pushCloud(); }}
           onAddDay={ds => { setAddDate(ds); setTab('add'); }}
@@ -132,7 +134,7 @@ function EvRow({ e, onDel }) {
   );
 }
 
-function Today({ evByDate, ddays, reminders, feedback, timers, onDel }) {
+function Today({ evByDate, ddays, reminders, feedback, timers, alarms, tsound, onDel }) {
   const t = todayStr();
   const list = evByDate[t] || [];
   const todayRem = (reminders && reminders[t]) || [];
@@ -145,9 +147,10 @@ function Today({ evByDate, ddays, reminders, feedback, timers, onDel }) {
       <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
         {lunarText(t)}{holidayName(t) ? ' · ' : ''}<span style={{ color: '#fca5a5' }}>{holidayName(t) || ''}</span>
       </div>
-      {(timers || []).length ? <div style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.45)', borderRadius: 12, padding: '10px 12px', marginBottom: 14 }}>
-        <b style={{ fontSize: 14, color: '#fca5a5' }}>⏱ PC 타이머 ({timers.length})</b>
-        {timers.slice().sort((a, b) => a.at - b.at).map(x => <div key={x.id} style={{ fontSize: 13, color: '#fee2e2', marginTop: 4 }}>{new Date(x.at).toTimeString().slice(0, 5)} · {x.label}</div>)}
+      {(timers || []).length + (alarms || []).length ? <div style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.45)', borderRadius: 12, padding: '10px 12px', marginBottom: 14 }}>
+        <b style={{ fontSize: 14, color: '#fca5a5' }}>⏱ PC 타이머·알람 {tsound ? '🔔' : '🔕'}</b>
+        {timers.slice().sort((a, b) => a.at - b.at).map(x => <div key={x.id} style={{ fontSize: 13, color: '#fee2e2', marginTop: 4 }}>⏱ {new Date(x.at).toTimeString().slice(0, 5)} · {x.label}</div>)}
+        {(alarms || []).map(x => <div key={x.id} style={{ fontSize: 13, color: '#fee2e2', marginTop: 4 }}>⏰ {(x.days || []).length >= 7 ? '매일' : x.days.map(d => '일월화수목금토'[d]).join('·')} {x.hm} · {x.label}</div>)}
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>{isNativeApp() ? '그 시각에 이 폰에서도 알림이 울려요.' : '알림은 설치형 앱에서만 울려요 (웹은 목록만).'}</div>
       </div> : null}
       <div style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.40)', borderRadius: 12, padding: '10px 12px', marginBottom: 14 }}>

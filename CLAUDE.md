@@ -46,6 +46,8 @@
 - [완료·실기 확인 필요] AI메모 문단 → 기능 보내기(v530): 헤더 '⇄ 보내기' 또는 왼쪽 색 띠에 0.45초 마우스 → 왼쪽 서랍(💬피드백·✅할 일·📋Do!·⏱타이머) + 문단 카드. 단추를 문단에 끌기 / 문단 1초 눌러 단추로 끌기 / 문단 오른쪽 클릭 메뉴. 보낸 문단은 AI메모에서 항상 빠짐
 - [완료·실기 확인 필요] 화면 구석 타이머 시계(v530): 기본 우하단, 현재 시각+가장 가까운 타이머 남은 시간, 30분 전부터 노랑→주황→빨강, 0초 팝업·소리·데스크톱 알림·5분 뒤 다시. 클릭=목록/새 타이머, 오른쪽 클릭=설정(위치·현재시각·색 시작 10/30/60분·소리·📱휴대폰에도 알림·숨기기)
 - [완료·APK 재빌드 필요] 폰: '휴대폰에도 알림' 켠 PC 타이머를 동기화로 받아 그 시각 LocalNotification 예약 + 오늘 탭 '⏱ PC 타이머' 카드. 한계: 폰 앱이 동기화(열기)된 뒤에 예약됨 → 진짜 실시간 푸시는 FCM(보류)
+- [완료·실기 확인 필요] 퀵커맨드(v531): 이름 '⚡ 퀵커맨드'. 단추 위 오른쪽 클릭=설정(단추 보이기/숨기기·순서(1초 눌러 끌기)·여는 곳 2개 켜기/끄기·타이머 빠른 시간 편집). 여는 곳 = ①AI메모 왼쪽 색 띠/⚡ 단추 ②화면 맨 왼쪽 끝 서랍(마우스 대거나 문단 끌고 오면 나옴) — 사용자가 둘 다 써 보고 하나 끌 예정
+- [완료·실기 확인 필요] 타이머 창(v531): ⏱ 타이머(빠른 시간 사용자 편집·N분 뒤·시:분 한 번) / ⏰ 알람(시:분+매일·평일·주말·요일 반복). 시계 목록에서 알람 켜기/끄기·삭제, 시계 1초 눌러 끌기로 구석 이동, 폰 알림 🔔소리/🔕무음 선택
 - [보류] 보안 단계(공개 배포 저장소·PAT·CI 전환·난독화·법적 문서·Private 전환), Microsoft Store(MSIX), 폰 푸시(FCM), 팀 권한
 - 결정됨: 표 닫기 시 수정분은 항상 새 탭(덮어쓰기 안 함). Ctrl+S도 새 탭.
 - 결정됨: 일반 메모창(AI메모 외)은 작성 내용 통째로 메모 1개(현행 유지). 스킨 등 모든 디자인 설정은 '디자인' 탭에.
@@ -61,6 +63,10 @@
 3. dist를 `$R/dist` **와** `$R/electron-app/dist` 양쪽에 복사.
 4. 버전은 **3곳 동시** 갱신: `const DDB_VERSION`("1.00.XX"), 마커 `children: "v4XX"`, `electron-app/package.json` version("1.0.XX", 앞자리 0 금지).
 5. git commit. push는 사용자가 GitHub Desktop에서(샌드박스엔 깃 인증 없음). CI 실패(Server Error)는 대개 일시적 → Re-run.
+
+## ★ 위치 바꾸기 공통 규칙 (사용자 지정 — 앞으로 모든 기능에 동일 적용)
+- 무엇이든 순서/위치 바꾸기 = **1초 누르기 → 끌면 놓일 자리를 점선으로 미리보기 → 놓으면 그 자리로 이동**. 짧게 누르면 그냥 클릭. 목록·단추 순서는 `DDBHoldSort`(items/render/onChange/horizontal) 재사용, 자유 위치(구석 등)는 같은 흐름으로 직접(예: DDBTimerClock onDown + 점선 고스트).
+- 설정은 그 단추/물건 위에서 오른쪽 클릭으로 연다(퀵커맨드·시계 공통).
 
 ## 배운 점 (반복 금지)
 - app.js 편집 후 node --check만 믿지 말 것 — `esbuild.transformSync`로도 파싱 확인(IIFE/맵 괄호 짝 실수를 node는 통과시킴).
@@ -111,5 +117,6 @@
 - **안드로이드 APK(v527)**: android/ 폴더는 저장소에 안 넣고 CI에서 `npx cap add android`로 매번 생성 → 매니페스트에 POST_NOTIFICATIONS·SCHEDULE_EXACT_ALARM sed 추가 → `assembleDebug`. 서명은 `mobile/android-signing/debug.keystore`(alias androiddebugkey/pw android)를 ~/.android에 복사해 고정(업데이트 설치 가능). ⚠️공개 저장소에 키 있음 → 보안 단계 때 GitHub Secret으로 옮길 것. 아침 브리핑: `mobile/public/runners/background.js`(Background Runner, 15분 간격, CapacitorKV에 설정·발송일 저장) + 앱 카드 `src/brief.js`(CapacitorHttp로 CORS 우회; 웹은 환율만). 자료: Yahoo chart API(비공식·지연), open.er-api.com(환율, 하루 1회 갱신), Google News RSS(제목만). android 잡은 publish의 needs에 포함(첨부가 publish 뒤에 되면 prerelease로 되돌려지는 문제 방지).
 - CI 실패 원인 확인법: 저장소가 공개라 `https://api.github.com/repos/buglow2/doodle-day-buddy/actions/runs?per_page=1` → `/runs/<id>/jobs`(어느 잡·단계 실패) → `/check-runs/<job id>/annotations`를 web_fetch로 직접 볼 수 있음(로그 원문은 인증 필요). Capacitor 8 CLI는 Node 22+ 필요(android 잡 node 22). bumpmeta는 `if: always() && publish 성공`(다른 잡 실패 시 건너뛰던 문제).
 - **폰 알림 하나로(사용자 결정)**: 아침 6:30 한 번. 브리핑 켜짐 → 백그라운드 브리핑 알림 본문 맨 앞에 그날 D-Day·🔔일정·피드백(`cfg.rem` = 앱이 `mp_rem_cache`로 넘김), 별도 LocalNotifications 예약은 취소. 브리핑 꺼짐 → 같은 시각에 LocalNotifications로 따로. android 잡: setup-android + sdkmanager(API 36), 실패 시 로그 요약을 `::error` 주석으로 출력(annotations API로 원인 확인 가능).
+- **퀵커맨드·알람(v531)**: `settings.quickCmd={order,hidden,stripOn,edgeOn,presets}`(`ddbQcCfg`/`ddbSetQc`), `settings.alarms=[{id,label,hm,days(0=일),on}]`(`ddbAlarmNext`, 울린 기록 localStorage `ddb_alarm_fired`), 폰 무음=`timerClock.phoneSound`. 서랍↔카드 연결은 window 이벤트(`ddb-qc-dragstart/dragend/open/run/chunkdrag`), 서랍 단추 끌기 시작하면 AI메모가 자동으로 퀵커맨드 화면으로. 폰: pcExtras가 timerClock.phone 켜졌을 때만 timers·alarms·tsound 전달, 알람은 LocalNotifications `schedule.on{weekday(일=1),hour,minute}` 반복, 소리/무음은 채널 `mp_timer_snd`/`mp_timer_mute`(importance 5/2).
 - **타이머(v530)**: `settings.timers=[{id,label,at,phone}]`(동기화됨), 시계 설정 `settings.timerClock={pos,showNow,warnMin,sound,phone,hidden}`. `DDBTimerClock`(렌더목록 DDBAnnivBanner 옆)·`DDBTimerPick`·`DDBAiSendMode`·`ddbAiChunks/ddbAiRemoveChunk`. 폰은 sync.js pcExtras→timers, remind.js `scheduleTimers`(id 7800000~). 검증 하네스: aitimer 코드+스텁을 esbuild로 묶어 jsdom(/tmp/bp/h2), drop 이벤트에 dataTransfer 직접 붙여 테스트.
 - APK 빌드 필수 수정: ①setup-android 액션 쓰지 말고 러너 기본 SDK(`$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager`) ②`android/app/build.gradle` flatDir에 `../../node_modules/@capacitor/background-runner/android/src/main/libs` 추가(없으면 "Could not find :android-js-engine-release:").
