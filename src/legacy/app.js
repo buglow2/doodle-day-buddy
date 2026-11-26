@@ -4629,7 +4629,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.96";
+const DDB_VERSION = "1.00.97";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -6178,7 +6178,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v533"
+                children: "v534"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -12148,7 +12148,7 @@ function Rw() {
     }
     O.useEffect(() => {
         if (r.length === 0) return;
-        const oe = [...new Set(r.map(fe => fe.date))];
+        const oe = [...new Set(r.map(fe => fe.date).concat(r.filter(fe => fe.isYearly && !fe.isLunar && fe.date).map(fe => { try { return pm(fe.date).dateStr; } catch (e) { return fe.date; } })))];
         Promise.all(oe.map(fe => {
             const [Ne, We, Je] = fe.split("-").map(Number);
             return Ew(Ne, We, Je)
@@ -12404,9 +12404,11 @@ function Rw() {
                         children: [de.map(oe => {
                                 const fe = qt[oe.color] ?? "#999",
                                     Ne = oe.daysLeft < 0,
-                                    We = oe.date.slice(5).replace("-", "."),
-                                    Je = e4(oe),
-                                    Gt = Je ? ` (${Je.replace("음력 ","음")})` : "";
+                                    _nd = String(oe.nextDate || oe.date || "").split("-"),
+                                    // 음력 기념일: "음 11.23 (양 1.11)" — 괄호에 올해(다음) 실제 양력 날짜. 양력 기념일: "01.05 (음 11.17)" — 다음 날짜의 음력
+                                    We = oe.isLunar ? "음 " + oe.date.slice(5).split("-").map(Number).join(".") : oe.date.slice(5).replace("-", "."),
+                                    Je = oe.isLunar ? (_nd.length === 3 && oe.nextDate ? "양 " + Number(_nd[1]) + "." + Number(_nd[2]) : "") : ZT(oe.nextDate || oe.date).replace("음력 ", "음 "),
+                                    Gt = Je ? ` (${Je})` : "";
                                 return o.jsxs("button", {
                                     onClick: Ce => q(Ce, oe),
                                     className: "flex-shrink-0 rounded-lg px-2 py-1.5 hover:bg-white/10 transition-colors text-left",

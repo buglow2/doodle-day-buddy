@@ -339,8 +339,8 @@ function Dday({ ddays, onAdd, onDel }) {
                 <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '1px 6px', flexShrink: 0 }}>{kindTxt}</span>
               </div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-                {info.next && info.next !== d.date ? '다음 ' + info.next.slice(5).replace('-', '.') : d.date}
-                {info.nthLabel && /[0-9]/.test(info.nthLabel) ? ' · ' + info.nthLabel : ''}{info.milestone ? ' · ' + info.milestone + '일까지' : ''}{d.isLunar ? ' · 음력 ' + Number(String(d.date).slice(5, 7)) + '.' + Number(String(d.date).slice(8, 10)) : ''}
+                {d.isLunar ? '음 ' + Number(String(d.date).slice(5, 7)) + '.' + Number(String(d.date).slice(8, 10)) + (info.next ? ' (양 ' + Number(info.next.slice(5, 7)) + '.' + Number(info.next.slice(8, 10)) + ')' : '') : (info.next && info.next !== d.date ? '다음 ' + info.next.slice(5).replace('-', '.') : d.date)}
+                {info.nthLabel && /[0-9]/.test(info.nthLabel) ? ' · ' + info.nthLabel : ''}{info.milestone ? ' · ' + info.milestone + '일까지' : ''}
               </div>
             </div>
             {info.nthLabel && /[0-9]/.test(info.nthLabel) ? <div style={{ textAlign: 'center', flexShrink: 0 }}>
