@@ -209,9 +209,15 @@ jobs:
           set -o pipefail
           fail() { echo "::error title=APK 빌드 실패::$(tail -c 3000 /tmp/apk.log | tr '\n' '|' )"; exit 1; }
           v="${{ needs.mkrelease.outputs.tag }}"; v="${v#v}"
-          { npm install --no-audit --no-fund && npm run build && npx cap add android; } > /tmp/apk.log 2>&1 || fail
-          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#&\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />#' android/app/src/main/AndroidManifest.xml
+          { npm install --no-audit --no-fund && MP_VER="$v" npm run build && npx cap add android; } > /tmp/apk.log 2>&1 || fail
+          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#&\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />#' android/app/src/main/AndroidManifest.xml
           sed -i "s/versionName \"1.0\"/versionName \"$v\"/" android/app/build.gradle
+          # 버전 번호(정수)도 올려야 안드로이드가 업데이트로 인식: 1.0.98 → 1000098
+          IFS=. read -r a b c <<< "$v"; vc=$((a*1000000 + b*10000 + c)); sed -i "s/versionCode 1$/versionCode $vc/" android/app/build.gradle
+          # 화면 자동 갱신용 묶음(B): 앱 안 화면(dist)을 zip + 정보 파일(mobile-web.json)
+          (cd dist && zip -qr "../mobile-web-$v.zip" .)
+          h=$(sha256sum "mobile-web-$v.zip" | cut -d' ' -f1)
+          echo "{\"version\":\"$v\",\"nativeSince\":\"$(tr -d '[:space:]' < native-since.txt)\",\"zipHash\":\"$h\"}" > mobile-web.json
           mkdir -p ~/.android && cp android-signing/debug.keystore ~/.android/debug.keystore
           cp /tmp/local.properties android/local.properties 2>/dev/null || true
           # Background Runner 플러그인의 JS 엔진(.aar)을 찾도록 저장소 경로 추가 (플러그인 설명서 요구사항)
@@ -222,7 +228,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.mkrelease.outputs.tag }}
-          files: mobile/MomentPlan-Android-*.apk
+          files: |
+            mobile/MomentPlan-Android-*.apk
+            mobile/mobile-web-*.zip
+            mobile/mobile-web.json
           fail_on_unmatched_files: false
           prerelease: true
           make_latest: false

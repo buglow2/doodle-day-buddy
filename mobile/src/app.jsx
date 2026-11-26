@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, loadFeedback, loadPcMemos, loadTimers, loadAlarms, loadTSound, COLORS } from './data.js';
+import { checkUpdate, applyWebNow, installApk, noteApplied, isNative, WEB_VERSION } from './update.js';
 import { buildReminders, scheduleReminders, scheduleTimers, webNotifyToday, askWebPermission, isNativeApp } from './remind.js';
 import { loadBriefCfg, saveBriefCfg, pushBriefCfg, setRemCache, fetchBrief, fmtN, IDX_ALL, FX_ALL, NEWS_ALL, FX_SYM, newsCatsOf } from './brief.js';
 import { scheduleEventAlarm } from './notify.js';
@@ -96,6 +97,7 @@ export default function App() {
           color: user ? '#86efac' : '#e5e7eb', borderRadius: 999, padding: '6px 12px', fontSize: 12, cursor: 'pointer'
         }}>{user ? '☁' : '☁ 로그인'}</button>
       </header>
+      <UpdateBanner />
       {showAuth && <AuthPanel onClose={() => setShowAuth(false)} onAuthed={onAuthed} />}
       {showShare && <SharePanel evByDate={evByDate} onClose={() => setShowShare(false)} />}
 
@@ -672,4 +674,28 @@ function BriefCard() {
       </div> : <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>{busy ? '불러오는 중…' : '↻ 를 누르면 오늘 자료를 가져와요.'}</div>}
     </div>
   );
+}
+
+// 앱 업데이트 안내 띠: ① 새 화면 받아 둠 → 지금 적용 / 다음에 열 때 자동 ② 폰 기능 바뀐 새 앱 → 업데이트(설치 한 번)
+function UpdateBanner() {
+  const [st, setSt] = useState(null); const [pct, setPct] = useState(null); const [err, setErr] = useState(''); const [hide, setHide] = useState(false);
+  useEffect(() => {
+    if (!isNative()) return; noteApplied();
+    let busy = false; const run = async () => { if (busy) return; busy = true; try { const r = await checkUpdate(); if (r && r.kind !== 'none') { setSt(r); setHide(false); } } catch {} busy = false; };
+    const t = setTimeout(run, 2500); const v = () => { if (document.visibilityState === 'visible') run(); };
+    document.addEventListener('visibilitychange', v); const iv = setInterval(run, 3 * 3600e3);
+    return () => { clearTimeout(t); clearInterval(iv); document.removeEventListener('visibilitychange', v); };
+  }, []);
+  if (!st || hide) return null;
+  const box = { display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', background: st.kind === 'apk' ? 'rgba(59,130,246,0.18)' : 'rgba(34,197,94,0.16)', borderBottom: '1px solid rgba(255,255,255,0.1)', fontSize: 13, color: '#f1f5f9' };
+  const btn = (bg) => ({ background: bg, border: 'none', color: '#fff', borderRadius: 999, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' });
+  if (st.kind === 'web-ready') return (
+    <div style={box}><span style={{ flex: 1 }}>✨ 새 화면(v{st.latest.version})을 받아 뒀어요. 다음에 열 때 자동 적용돼요.</span>
+      <button style={btn('#16a34a')} onClick={() => applyWebNow(st.id)}>지금 적용</button>
+      <button style={{ ...btn('transparent'), color: 'rgba(255,255,255,0.85)' }} onClick={() => setHide(true)}>✕</button></div>);
+  return (
+    <div style={{ ...box, flexWrap: 'wrap' }}><span style={{ flex: 1, minWidth: 180 }}>📲 새 앱 버전 v{st.apkVer} — 폰 기능이 바뀌어서 한 번 설치가 필요해요.{pct != null ? ' 받는 중 ' + pct + '%' : ''}</span>
+      <button style={btn('#3b82f6')} disabled={pct != null && pct < 100} onClick={async () => { setErr(''); setPct(0); try { await installApk(st.latest.apkUrl, setPct); setPct(null); } catch (e) { setPct(null); setErr('설치 화면을 못 열었어요. 처음 한 번은 "이 출처 허용"(MomentPlan)을 켜 주세요. (' + ((e && e.message) || e) + ')'); } }}>{pct != null ? '받는 중…' : '업데이트'}</button>
+      <button style={{ ...btn('transparent'), color: 'rgba(255,255,255,0.85)' }} onClick={() => setHide(true)}>나중에</button>
+      {err ? <div style={{ width: '100%', fontSize: 12, color: '#fecaca' }}>{err}</div> : null}</div>);
 }

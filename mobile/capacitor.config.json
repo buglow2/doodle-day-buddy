@@ -16,6 +16,12 @@
     },
     "CapacitorHttp": {
       "enabled": true
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "statsUrl": "",
+      "appReadyTimeout": 10000,
+      "resetWhenUpdate": true
     }
   }
 }

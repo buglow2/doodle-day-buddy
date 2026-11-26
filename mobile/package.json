@@ -16,7 +16,11 @@
     "@capacitor/core": "^8.0.0",
     "@capacitor/android": "^8.0.0",
     "@capacitor/local-notifications": "^8.0.0",
-    "@capacitor/background-runner": "^3.0.0"
+    "@capacitor/background-runner": "^3.0.0",
+    "@capgo/capacitor-updater": "^8.54.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/file-transfer": "^2.0.6",
+    "@capacitor-community/file-opener": "^8.0.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
