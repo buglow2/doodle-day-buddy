@@ -24,3 +24,4 @@ team-panel-draft.js
 src/legacy/app_v*.js
 # 옛 빌드 찌꺼기 폴더
 /assets/
+_recover/
