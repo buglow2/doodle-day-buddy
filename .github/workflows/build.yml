@@ -222,7 +222,9 @@ jobs:
           cp /tmp/local.properties android/local.properties 2>/dev/null || true
           # Background Runner 플러그인의 JS 엔진(.aar)을 찾도록 저장소 경로 추가 (플러그인 설명서 요구사항)
           sed -i "s#dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'#&\n        dirs '../../node_modules/@capacitor/background-runner/android/src/main/libs', 'libs'#" android/app/build.gradle
-          cd android && chmod +x gradlew && { ./gradlew assembleDebug --no-daemon --stacktrace > /tmp/apk.log 2>&1 || { grep -E "What went wrong|error:|Error|FAILURE|Could not|> " /tmp/apk.log | head -60 > /tmp/apk.err; cp /tmp/apk.err /tmp/apk.log; fail; }; }
+          cd android && chmod +x gradlew && { ./gradlew assembleDebug --no-daemon --stacktrace -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/mobile/android-signing/debug.keystore" -Pandroid.injected.signing.store.password=android -Pandroid.injected.signing.key.alias=androiddebugkey -Pandroid.injected.signing.key.password=android > /tmp/apk.log 2>&1 || { grep -E "What went wrong|error:|Error|FAILURE|Could not|> " /tmp/apk.log | head -60 > /tmp/apk.err; cp /tmp/apk.err /tmp/apk.log; fail; }; }
+          # 서명 지문을 기록(매 버전 같은 열쇠인지 확인용 — 다르면 폰에서 '업데이트 설치'가 안 됨)
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1); echo "::notice title=APK 서명 지문::$("$BT/apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | grep -m1 'SHA-256' )"
           cp app/build/outputs/apk/debug/app-debug.apk "../MomentPlan-Android-$v.apk"
           # 고정 링크용(버전 번호 없는 이름): releases/latest/download/MomentPlan-Android.apk
           cp app/build/outputs/apk/debug/app-debug.apk "../MomentPlan-Android.apk"
