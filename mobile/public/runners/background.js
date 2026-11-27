@@ -21,8 +21,10 @@ async function buildBrief(cfg) {
   return lines;
 }
 addEventListener('config', (resolve, reject, args) => { try { kvSet('brief_cfg', JSON.stringify(args || {})); resolve(); } catch (e) { reject(e); } });
+addEventListener('status', (resolve) => { resolve({ lastCheckin: kvGet('last_checkin'), sent: kvGet('brief_sent'), last: kvGet('brief_last'), hasCfg: !!kvGet('brief_cfg') }); });
 addEventListener('checkIn', async (resolve, reject) => {
   try {
+    kvSet('last_checkin', new Date().toISOString());
     let cfg = {}; try { cfg = JSON.parse(kvGet('brief_cfg') || '{}'); } catch (e) {}
     if (!cfg.on) { resolve(); return; }
     const now = new Date(); const [h, mi] = String(cfg.time || '06:30').split(':').map(Number); const at = new Date(now); at.setHours(isNaN(h) ? 6 : h, isNaN(mi) ? 30 : mi, 0, 0);

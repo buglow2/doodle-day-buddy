@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, loadFeedback, loadPcMemos, loadTimers, loadAlarms, loadTSound, COLORS } from './data.js';
 import { checkUpdate, applyWebNow, installApk, noteApplied, isNative, WEB_VERSION } from './update.js';
-import { buildReminders, scheduleReminders, scheduleTimers, webNotifyToday, askWebPermission, isNativeApp } from './remind.js';
-import { loadBriefCfg, saveBriefCfg, pushBriefCfg, setRemCache, fetchBrief, fmtN, IDX_ALL, FX_ALL, NEWS_ALL, FX_SYM, newsCatsOf } from './brief.js';
+import { buildReminders, scheduleReminders, scheduleTimers, scheduleBriefFallback, webNotifyToday, askWebPermission, isNativeApp } from './remind.js';
+import { loadBriefCfg, saveBriefCfg, pushBriefCfg, setRemCache, fetchBrief, briefStatus, fmtN, IDX_ALL, FX_ALL, NEWS_ALL, FX_SYM, newsCatsOf } from './brief.js';
 import { scheduleEventAlarm } from './notify.js';
 import { currentUser, signIn, signUp, signOut, pull, push, subscribe } from './sync.js';
 import { lunarText, lunarShort, holidayName } from './kcal.js';
@@ -40,7 +40,7 @@ export default function App() {
   const [briefTick, setBriefTick] = useState(0);
   useEffect(() => { const h = () => setBriefTick(t => t + 1); window.addEventListener('mp-brief-cfg', h); return () => window.removeEventListener('mp-brief-cfg', h); }, []);
   // 알림은 아침 브리핑 시간(기본 6:30) 한 번으로 합침: 브리핑 켜짐 → 브리핑 알림 안에 D-Day·일정·피드백을 함께 / 꺼짐 → 같은 시간에 따로 예약
-  useEffect(() => { const t = setTimeout(() => { setRemCache(reminders); const bc = loadBriefCfg(); if (bc.on) { pushBriefCfg(bc); scheduleReminders({}, bc.time); } else scheduleReminders(reminders, bc.time); webNotifyToday(reminders[todayStr()] || []); }, 800); return () => clearTimeout(t); }, [reminders, briefTick]);
+  useEffect(() => { const t = setTimeout(() => { setRemCache(reminders); const bc = loadBriefCfg(); if (bc.on) { pushBriefCfg(bc); scheduleReminders({}, bc.time); scheduleBriefFallback(reminders, bc.time); } else { scheduleBriefFallback(null); scheduleReminders(reminders, bc.time); } webNotifyToday(reminders[todayStr()] || []); }, 800); return () => clearTimeout(t); }, [reminders, briefTick]);
 
   // 로그인돼 있으면 클라우드에서 내려받아 합치기 + 실시간 구독
   useEffect(() => {
@@ -646,7 +646,8 @@ function BriefCard() {
   const [edit, setEdit] = useState(false);
   const native = isNativeApp();
   const load = async (c) => { setBusy(true); try { setData(await fetchBrief(c || cfg)); } catch { setData({ idx: [], fx: null, news: [], errs: ['전체'] }); } setBusy(false); };
-  useEffect(() => { pushBriefCfg(cfg); if (cfg.on) load(cfg); }, []);
+  const [bst, setBst] = useState(null);
+  useEffect(() => { pushBriefCfg(cfg); if (cfg.on) load(cfg); briefStatus().then(setBst).catch(() => {}); }, []);
   const upd = o => { const c = { ...cfg, ...o }; setCfg(c); saveBriefCfg(c); };
   const tog = (k, v) => upd({ [k]: cfg[k].includes(v) ? cfg[k].filter(x => x !== v) : cfg[k].concat([v]) });
   const chip = (on, label, fn) => <button key={label} onClick={fn} style={{ padding: '4px 9px', borderRadius: 999, fontSize: 12, border: '1px solid ' + (on ? '#60a5fa' : 'rgba(255,255,255,0.25)'), background: on ? 'rgba(59,130,246,0.25)' : 'transparent', color: on ? '#dbeafe' : 'rgba(255,255,255,0.8)' }}>{label}</button>;
@@ -657,6 +658,7 @@ function BriefCard() {
         <button onClick={() => load()} disabled={busy} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: '#e5e7eb', borderRadius: 8, padding: '2px 8px', fontSize: 11 }}>{busy ? '…' : '↻'}</button>
         <button onClick={() => setEdit(v => !v)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: '#e5e7eb', borderRadius: 8, padding: '2px 8px', fontSize: 11 }}>⚙ 설정</button>
       </div>
+      {native && cfg.on ? <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>{bst && !bst.err ? ('백그라운드 확인: ' + (bst.lastCheckin ? new Date(bst.lastCheckin).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '아직 없음') + (bst.sent ? ' · 마지막 발송 ' + bst.sent.slice(5).replace('-', '/') : '') + (bst.hasCfg ? '' : ' · ⚠️ 설정 미전달')) : '백그라운드 상태 확인 불가' + (bst && bst.err ? ' (' + bst.err + ')' : '')} · 안 울리면 폰 설정 → 앱 → MomentPlan → 배터리 "제한 없음"</div> : null}
       {edit ? <div style={{ fontSize: 12, color: '#e5e7eb', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={cfg.on} onChange={e => upd({ on: e.target.checked })} /> 매일 알림 받기 · 시간 <input type="time" value={cfg.time} onChange={e => e.target.value && upd({ time: e.target.value })} style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: 6, padding: '2px 6px' }} /></label>
         <div><div style={{ marginBottom: 4, color: 'rgba(255,255,255,0.85)' }}>주가지수</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{IDX_ALL.map(x => chip(cfg.idx.includes(x), x, () => tog('idx', x)))}</div></div>

@@ -1,14 +1,10 @@
 // 폰 로컬 알림 예약 (Capacitor Local Notifications)
 // 진짜 앱(Capacitor)에서만 동작합니다. 웹(브라우저 미리보기)에서는 조용히 건너뜁니다.
-// 웹 빌드가 패키지를 찾으려다 에러 나지 않도록, import 없이 window.Capacitor 를 통해 접근합니다.
+// ⚠️ Capacitor 3+는 플러그인을 import 해야 등록됨(window.Capacitor.Plugins 에 자동으로 안 생김) → 직접 import
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
-function getLN() {
-  try {
-    const C = (typeof window !== 'undefined') ? window.Capacitor : null;
-    if (!C || !C.isNativePlatform || !C.isNativePlatform()) return null;
-    return (C.Plugins && C.Plugins.LocalNotifications) || null;
-  } catch { return null; }
-}
+function getLN() { try { return Capacitor.isNativePlatform() ? LocalNotifications : null; } catch { return null; } }
 
 // 일정 알림 예약: ev.date="YYYY-MM-DD", time="HH:MM"
 export async function scheduleEventAlarm(ev, time) {

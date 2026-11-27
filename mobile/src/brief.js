@@ -1,5 +1,7 @@
 // 아침 브리핑(지수·환율·뉴스 제목) — 앱 화면 카드용 + 백그라운드 알림 설정 전달
 // 설치형 앱: CapacitorHttp가 켜져 있어 모든 자료를 가져옴 / 웹: 브라우저 보안(CORS) 때문에 환율만 가져올 수 있음
+import { Capacitor } from '@capacitor/core';
+import { BackgroundRunner } from '@capacitor/background-runner';
 export const IDX_ALL = ['KOSPI', 'KOSDAQ', 'S&P500', 'NASDAQ', 'DOW', 'NIKKEI'];
 export const FX_ALL = ['USD', 'JPY', 'EUR', 'CNY'];
 export const NEWS_ALL = ['종합', '국내', '경제', 'IT', '과학', '세계', '건강', '연예', '스포츠'];
@@ -13,7 +15,10 @@ export const DEF_CFG = { on: true, time: '06:30', idx: ['KOSPI', 'KOSDAQ', 'S&P5
 export function newsCatsOf(c) { const base = Array.isArray(c.newsCats) ? c.newsCats : (c.news ? [c.news] : []); const kw = String(c.keywords || '').split(/[,，]/).map(x => x.trim()).filter(Boolean).map(x => '#' + x); return base.concat(kw); }
 export function loadBriefCfg() { try { return { ...DEF_CFG, ...(JSON.parse(localStorage.getItem(KEY) || 'null') || {}) }; } catch { return { ...DEF_CFG }; } }
 export function saveBriefCfg(c) { try { localStorage.setItem(KEY, JSON.stringify(c)); } catch {} pushBriefCfg(c); try { window.dispatchEvent(new Event('mp-brief-cfg')); } catch {} }
-function getBR() { try { const C = window.Capacitor; if (!C || !C.isNativePlatform || !C.isNativePlatform()) return null; return (C.Plugins && C.Plugins.BackgroundRunner) || null; } catch { return null; } }
+// ⚠️ 예전엔 window.Capacitor.Plugins.BackgroundRunner 로 찾았는데 (등록 이름도 CapacitorBackgroundRunner라) 항상 비어 있어 백그라운드 설정이 전달 안 됨 → 직접 import
+function getBR() { try { return Capacitor.isNativePlatform() ? BackgroundRunner : null; } catch { return null; } }
+// 백그라운드 실행 상태(진단용): 마지막으로 깨어난 시각·마지막 브리핑 발송
+export async function briefStatus() { const br = getBR(); if (!br) return null; try { return await br.dispatchEvent({ label: 'com.momentplan.brief', event: 'status', details: {} }); } catch (e) { return { err: String((e && e.message) || e) }; } }
 export function setRemCache(map) { try { localStorage.setItem('mp_rem_cache', JSON.stringify(map || {})); } catch {} }
 function remCache() { try { return JSON.parse(localStorage.getItem('mp_rem_cache') || '{}'); } catch { return {}; } }
 export async function pushBriefCfg(c) { const br = getBR(); if (!br) return false; c = { ...c, rem: remCache() }; try { try { if (c && c.on && br.requestPermissions) await br.requestPermissions({ apis: ['notifications'] }); } catch {} await br.dispatchEvent({ label: 'com.momentplan.brief', event: 'config', details: c }); return true; } catch { return false; } }

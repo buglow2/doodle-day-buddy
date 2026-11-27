@@ -2,6 +2,8 @@
 // - 앱(Capacitor)으로 설치된 경우: 앞으로 30일치 알림을 폰에 예약 (앱을 꺼도 울림)
 // - 웹(브라우저)으로 쓰는 경우: 앱을 열 때 '오늘 알림' 카드 + (허용 시) 알림 1회
 import { ddayInfo } from './dday.js';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 const pad = n => String(n).padStart(2, '0');
 const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -28,7 +30,8 @@ export function buildReminders(ddays, events, feedback, days = 30) {
   return out;
 }
 
-function getLN() { try { const C = window.Capacitor; if (!C || !C.isNativePlatform || !C.isNativePlatform()) return null; return (C.Plugins && C.Plugins.LocalNotifications) || null; } catch { return null; } }
+// ⚠️ 예전엔 window.Capacitor.Plugins.LocalNotifications 로 찾았는데 Capacitor 3+에선 import 안 하면 비어 있음 → 알림이 하나도 예약 안 되던 원인
+function getLN() { try { return Capacitor.isNativePlatform() ? LocalNotifications : null; } catch { return null; } }
 export const isNativeApp = () => !!getLN();
 
 // 설치형 앱: 앞으로 30일치를 매일 아침 9시에 예약 (기존 예약은 지우고 다시)
@@ -76,6 +79,25 @@ export async function scheduleTimers(timers, alarms = [], sound = true) {
       else a.days.forEach(d => list.push({ id: 7800000 + (n++), title: '⏰ ' + a.label, body, channelId: ch, schedule: { on: { weekday: d + 1, hour: h, minute: m }, allowWhileIdle: true } })); });
     if (list.length) await ln.schedule({ notifications: list });
     localStorage.setItem('mp_timer_ids', JSON.stringify(list.map(x => x.id)));
+    return true;
+  } catch { return false; }
+}
+
+// 아침 브리핑 '안전망': 정한 시각에 확실히 울리는 예약 알림(정확한 알람)을 7일치 걸어 둠.
+// 백그라운드가 뉴스·지수를 가져오면 같은 번호(880000+날짜)로 내용을 바꿔 다시 알려 줌. 백그라운드가 막혀도 이 알림은 울림.
+export async function scheduleBriefFallback(map, time = '06:30') {
+  const ln = getLN(); if (!ln) return false;
+  try {
+    let prev = []; try { prev = JSON.parse(localStorage.getItem('mp_brieffb_ids') || '[]'); } catch {}
+    if (prev.length) { try { await ln.cancel({ notifications: prev.map(id => ({ id })) }); } catch {} }
+    if (!map) { localStorage.setItem('mp_brieffb_ids', '[]'); return true; }
+    await ln.requestPermissions();
+    const [h, m] = String(time || '06:30').split(':').map(Number); const now = Date.now(); const list = [];
+    for (let i = 0; i < 7; i++) { const d = new Date(); d.setDate(d.getDate() + i); d.setHours(isNaN(h) ? 6 : h, isNaN(m) ? 30 : m, 0, 0); if (d.getTime() <= now) continue;
+      const items = (map[ymd(d)] || []); const body = items.map(x => x.icon + ' ' + x.text).concat(['📈 지수·환율·📰 뉴스는 잠시 뒤 이어서 와요 (안 오면 앱을 열어 주세요)']).join('\n');
+      list.push({ id: 880000 + d.getDate(), title: '☀️ 아침 브리핑 ' + (d.getMonth() + 1) + '/' + d.getDate() + (items.length ? ' · 챙길 일 ' + items.length + '개' : ''), body, schedule: { at: d, allowWhileIdle: true } }); }
+    if (list.length) await ln.schedule({ notifications: list });
+    localStorage.setItem('mp_brieffb_ids', JSON.stringify(list.map(x => x.id)));
     return true;
   } catch { return false; }
 }
