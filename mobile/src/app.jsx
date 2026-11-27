@@ -2,9 +2,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, loadFeedback, loadPcMemos, loadTimers, loadAlarms, loadTSound, COLORS } from './data.js';
 import { checkUpdate, applyWebNow, installApk, noteApplied, isNative, WEB_VERSION } from './update.js';
 import { buildReminders, scheduleReminders, scheduleTimers, scheduleBriefFallback, webNotifyToday, askWebPermission, isNativeApp } from './remind.js';
-import { loadBriefCfg, saveBriefCfg, pushBriefCfg, setRemCache, fetchBrief, briefStatus, fmtN, IDX_ALL, FX_ALL, NEWS_ALL, FX_SYM, newsCatsOf } from './brief.js';
+import { loadBriefCfg, saveBriefCfg, pushBriefCfg, setRemCache, fetchBrief, fetchNews, briefStatus, fmtN, IDX_ALL, FX_ALL, NEWS_ALL, FX_SYM, newsCatsOf } from './brief.js';
 import { scheduleEventAlarm } from './notify.js';
-import { currentUser, signIn, signUp, signOut, pull, push, subscribe } from './sync.js';
+import { currentUser, signIn, signUp, signOut, pull, push, subscribe, onAuth } from './sync.js';
 import { lunarText, lunarShort, holidayName } from './kcal.js';
 import { ddayInfo, ddayLabel, ddayKindText } from './dday.js';
 
@@ -43,18 +43,13 @@ export default function App() {
   useEffect(() => { const t = setTimeout(() => { setRemCache(reminders); const bc = loadBriefCfg(); if (bc.on) { pushBriefCfg(bc); scheduleReminders({}, bc.time); scheduleBriefFallback(reminders, bc.time); } else { scheduleBriefFallback(null); scheduleReminders(reminders, bc.time); } webNotifyToday(reminders[todayStr()] || []); }, 800); return () => clearTimeout(t); }, [reminders, briefTick]);
 
   // 로그인돼 있으면 클라우드에서 내려받아 합치기 + 실시간 구독
+  // 자동 로그인: 저장된 세션을 바로 쓰고, 나중에 복원돼도(인터넷 늦게 연결 등) 자동으로 동기화 시작
   useEffect(() => {
-    let unsub = () => {};
-    (async () => {
-      const u = await currentUser();
-      setUser(u);
-      if (u) {
-        const cloud = await pull();
-        if (cloud) { setAll(cloud); refresh(); }
-        unsub = subscribe(d => { setAll(d); refresh(); });
-      }
-    })();
-    return () => { try { unsub(); } catch {} };
+    let unsub = () => {}; let started = false;
+    const start = async (u) => { if (!u || started) return; started = true; setUser(u); const cloud = await pull(); if (cloud) { setAll(cloud); refresh(); } unsub = subscribe(d => { setAll(d); refresh(); }); };
+    (async () => { const u = await currentUser(); if (u) start(u); })();
+    const off = onAuth((u, ev) => { if (u) start(u); else if (ev === 'SIGNED_OUT') { setUser(null); started = false; try { unsub(); } catch {} } });
+    return () => { try { unsub(); } catch {} off(); };
   }, []);
 
   // 변경 후 클라우드에 올리기 (로그인 시)
@@ -92,7 +87,7 @@ export default function App() {
           <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>{todayStr()} ({WD[new Date().getDay()]}){syncMsg ? ' · ' + syncMsg : ''}</div>
         </div>
         <button onClick={() => setShowShare(true)} title="일정 공유" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#e5e7eb', borderRadius: 999, padding: '6px 11px', fontSize: 12, cursor: 'pointer' }}>📤 공유</button>
-        <button onClick={() => user ? onSignOut() : setShowAuth(true)} style={{
+        <button onClick={() => user ? (window.confirm('로그아웃할까요? (로그아웃하면 다음에 다시 로그인해야 해요)') && onSignOut()) : setShowAuth(true)} style={{
           background: user ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.1)', border: '1px solid ' + (user ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.2)'),
           color: user ? '#86efac' : '#e5e7eb', borderRadius: 999, padding: '6px 12px', fontSize: 12, cursor: 'pointer'
         }}>{user ? '☁' : '☁ 로그인'}</button>
@@ -109,7 +104,7 @@ export default function App() {
           onMemo={(ds, txt) => { setMemo(ds, txt); setMemos(loadMemos()); pushCloud(); }} />}
         {tab === 'add' && <AddEvent initialDate={addDate} onAdd={(ev, time) => { const it = addEvent(ev); if (time) scheduleEventAlarm(it, time); refresh(); pushCloud(); setTab('month'); }} onImport={txt => { if (importFromPcBackup(txt)) { refresh(); pushCloud(); } }} />}
         {tab === 'dday' && <Dday ddays={ddays} onAdd={dd => { addDday(dd); refresh(); pushCloud(); }} onDel={id => { deleteDday(id); refresh(); pushCloud(); }} />}
-        {tab === 'ledger' && <Ledger events={events} />}
+        {tab === 'ledger' && <Ledger events={events} user={user} onLogin={() => setShowAuth(true)} />}
       </main>
 
       <nav style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.1)', background: '#111827', paddingBottom: 'env(safe-area-inset-bottom)' }}>
@@ -144,18 +139,14 @@ function Today({ evByDate, ddays, reminders, feedback, timers, alarms, tsound, o
   const openFb = (feedback || []).filter(f => f && !f.isDismissed && !f.completedAt);
   const [perm, setPerm] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   const upcomingDd = ddays.map(d => ({ ...d, left: ddayInfo(d).left })).filter(d => d.left >= 0).sort((a, b) => a.left - b.left).slice(0, 5);
-  return (
-    <div style={{ padding: 14 }}>
-      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
-        {lunarText(t)}{holidayName(t) ? ' · ' : ''}<span style={{ color: '#fca5a5' }}>{holidayName(t) || ''}</span>
-      </div>
-      {(timers || []).length + (alarms || []).length ? <div style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.45)', borderRadius: 12, padding: '10px 12px', marginBottom: 14 }}>
+  const SEC = {
+    timers: ((timers || []).length + (alarms || []).length) ? <><div style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.45)', borderRadius: 12, padding: '10px 12px', marginBottom: 14 }}>
         <b style={{ fontSize: 14, color: '#fca5a5' }}>⏱ PC 타이머·알람 {tsound ? '🔔' : '🔕'}</b>
         {timers.slice().sort((a, b) => a.at - b.at).map(x => <div key={x.id} style={{ fontSize: 13, color: '#fee2e2', marginTop: 4 }}>⏱ {new Date(x.at).toTimeString().slice(0, 5)} · {x.label}</div>)}
         {(alarms || []).map(x => <div key={x.id} style={{ fontSize: 13, color: '#fee2e2', marginTop: 4 }}>⏰ {(x.days || []).length >= 7 ? '매일' : x.days.map(d => '일월화수목금토'[d]).join('·')} {x.hm} · {x.label}</div>)}
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>{isNativeApp() ? '그 시각에 이 폰에서도 알림이 울려요.' : '알림은 설치형 앱에서만 울려요 (웹은 목록만).'}</div>
-      </div> : null}
-      <div style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.40)', borderRadius: 12, padding: '10px 12px', marginBottom: 14 }}>
+      </div></> : null,
+    remind: <><div style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.40)', borderRadius: 12, padding: '10px 12px', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
           <b style={{ flex: 1, fontSize: 14, color: '#fcd34d' }}>🔔 오늘 알림 {todayRem.length ? '(' + todayRem.length + ')' : ''}</b>
           {!isNativeApp() && perm !== 'granted' && perm !== 'unsupported' ? <button onClick={async () => setPerm(await askWebPermission())} style={{ background: 'rgba(245,158,11,0.25)', border: '1px solid rgba(245,158,11,0.6)', color: '#fde68a', borderRadius: 8, padding: '3px 8px', fontSize: 11 }}>알림 허용</button> : null}
@@ -166,15 +157,15 @@ function Today({ evByDate, ddays, reminders, feedback, timers, alarms, tsound, o
           {soon.slice(0, 6).map((x, i) => <div key={i} style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.88)', padding: '2px 0' }}><span style={{ color: '#fcd34d', marginRight: 6 }}>{x.ds.slice(5).replace('-', '/')}</span>{x.icon} {x.text}</div>)}
         </div> : null}
         <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>{isNativeApp() ? '매일 아침 ' + loadBriefCfg().time + ' 브리핑 알림에 함께 들어가요.' : '웹으로 쓰는 중: 앱을 열 때 알려드려요. (앱 설치형은 꺼져 있어도 알림)'}</div>
-      </div>
-      <BriefCard />
-      {openFb.length ? <>
+      </div></>,
+    brief: <BriefCard />,
+    feedback: openFb.length ? <>
         <h3 style={{ margin: '4px 0 8px', fontSize: 15, color: '#c4b5fd' }}>💬 확인할 피드백 ({openFb.length})</h3>
         {openFb.slice(0, 8).map(f => <div key={f.id} style={{ display: 'flex', gap: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 6, fontSize: 14 }}><span style={{ width: 8, height: 8, borderRadius: 999, background: f.color && f.color[0] === '#' ? f.color : '#a78bfa', marginTop: 6, flexShrink: 0 }} /><span style={{ flex: 1, whiteSpace: 'pre-wrap' }}>{f.content}</span><span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>{String(f.createdAt || '').slice(5, 10).replace('-', '/')}</span></div>)}
-      </> : null}
-      <h3 style={{ margin: '4px 0 10px', fontSize: 15, color: '#93c5fd' }}>오늘 일정 ({list.length})</h3>
-      {list.length ? list.map(e => <EvRow key={e.id} e={e} onDel={onDel} />) : <Empty>오늘 일정이 없어요.</Empty>}
-      {upcomingDd.length > 0 && <>
+      </> : null,
+    events: <><h3 style={{ margin: '4px 0 10px', fontSize: 15, color: '#93c5fd' }}>오늘 일정 ({list.length})</h3>
+      {list.length ? list.map(e => <EvRow key={e.id} e={e} onDel={onDel} />) : <Empty>오늘 일정이 없어요.</Empty>}</>,
+    dday: upcomingDd.length > 0 ? <>
         <h3 style={{ margin: '18px 0 10px', fontSize: 15, color: '#fca5a5' }}>다가오는 D-Day</h3>
         {upcomingDd.map(d => (
           <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 8 }}>
@@ -182,9 +173,45 @@ function Today({ evByDate, ddays, reminders, feedback, timers, alarms, tsound, o
             <b style={{ color: '#f59e0b' }}>{ddayLabel(d.left)}</b>
           </div>
         ))}
-      </>}
+      </> : null,
+  };
+  const DEF_ORDER = ['timers', 'remind', 'brief', 'feedback', 'events', 'dday'];
+  const [order, setOrder] = useState(() => { try { const o = JSON.parse(localStorage.getItem('mp_today_order') || 'null'); if (Array.isArray(o)) return o.filter(k => DEF_ORDER.includes(k)).concat(DEF_ORDER.filter(k => !o.includes(k))); } catch {} return DEF_ORDER; });
+  const visible = order.filter(k => SEC[k]);
+  const reorder = vis => { const next = vis.concat(order.filter(k => !vis.includes(k))); setOrder(next); try { localStorage.setItem('mp_today_order', JSON.stringify(next)); } catch {} };
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+        {lunarText(t)}{holidayName(t) ? ' · ' : ''}<span style={{ color: '#fca5a5' }}>{holidayName(t) || ''}</span>
+        <span style={{ float: 'right', fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>칸을 1초 누르고 끌면 순서 변경</span>
+      </div>
+      <HoldSort items={visible} onChange={reorder} render={k => <div style={{ marginBottom: 4 }}>{SEC[k]}</div>} ghost={k => <div style={{ padding: '14px 16px', border: '1px solid #fbbf24', borderRadius: 12, fontSize: 15, fontWeight: 700, color: '#fde68a' }}>{({ timers: '⏱ PC 타이머·알람', remind: '🔔 오늘 알림', brief: '☀️ 아침 브리핑', feedback: '💬 확인할 피드백', events: '📅 오늘 일정', dday: '⏳ 다가오는 D-Day' })[k]} — 놓을 곳으로 끌기</div>} />
     </div>
   );
+}
+
+// ★공통 규칙(PC와 같음): 1초 누르기 → 끌면 놓일 자리를 점선으로 미리보기 → 놓으면 그 자리로. 짧게 누르면 그냥 누르기.
+function HoldSort({ items, render, onChange, ghost }) {
+  const [drag, setDrag] = useState(null);
+  const refs = React.useRef({}); const tm = React.useRef(null); const st = React.useRef(null);
+  useEffect(() => {
+    const pt = e => (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+    const mv = e => { const s = st.current; if (!s) return; const p = pt(e);
+      if (!s.armed) { if (Math.abs(p.clientY - s.sy) + Math.abs(p.clientX - s.sx) > 10) { clearTimeout(tm.current); st.current = null; } return; }
+      if (e.cancelable) e.preventDefault(); let to = 0; s.rects.forEach((rc, j) => { if (j !== s.i && rc && p.clientY > rc.top + rc.height / 2) to++; }); s.to = to; setDrag(d => d && { ...d, y: p.clientY, to }); };
+    const up = () => { const s = st.current; clearTimeout(tm.current); st.current = null; if (s && s.armed) { setDrag(null); if (s.to != null && s.to !== s.i) { const arr = items.slice(); const [x] = arr.splice(s.i, 1); arr.splice(s.to, 0, x); onChange(arr); } } };
+    document.addEventListener('touchmove', mv, { passive: false }); document.addEventListener('touchend', up); document.addEventListener('touchcancel', up); document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+    return () => { document.removeEventListener('touchmove', mv); document.removeEventListener('touchend', up); document.removeEventListener('touchcancel', up); document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+  }, [items, onChange]);
+  const down = k => e => { if (e.button) return; const p = (e.touches && e.touches[0]) || e; clearTimeout(tm.current); st.current = { k, sx: p.clientX, sy: p.clientY, armed: false };
+    tm.current = setTimeout(() => { const s = st.current; if (!s) return; const rects = items.map(x => refs.current[x] ? refs.current[x].getBoundingClientRect() : null); const i = items.indexOf(k); const r = rects[i]; if (!r) return; try { navigator.vibrate && navigator.vibrate(30); } catch {} Object.assign(s, { armed: true, rects, i, to: i }); setDrag({ k, i, to: i, y: s.sy, dy: s.sy - r.top, h: r.height, w: r.width, x: r.left }); }, 1000); };
+  let view = items.map(k => ({ k }));
+  if (drag) { view = view.filter(v => v.k !== drag.k); view.splice(drag.to, 0, { ph: true }); }
+  return <div onContextMenu={e => { if (st.current) e.preventDefault(); }}>
+    {view.map(v => v.ph ? <div key="ph" style={{ height: drag.h, border: '2px dashed #fbbf24', borderRadius: 12, background: 'rgba(251,191,36,0.12)', marginBottom: 4 }} />
+      : <div key={v.k} ref={el => { if (!drag) refs.current[v.k] = el; }} onTouchStart={down(v.k)} onMouseDown={down(v.k)} style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: drag ? 'none' : 'auto' }}>{render(v.k)}</div>)}
+    {drag ? <div style={{ position: 'fixed', left: drag.x, top: drag.y - drag.dy, width: drag.w, pointerEvents: 'none', zIndex: 9999, opacity: 0.92, transform: 'scale(1.03)', boxShadow: '0 12px 30px rgba(0,0,0,0.6)', borderRadius: 12, background: '#0b1020' }}>{ghost ? ghost(drag.k) : render(drag.k)}</div> : null}
+  </div>;
 }
 
 function Month({ cur, setCur, evByDate, memos, pcMemos, feedback, reminders, onDel, onAddDay, onMemo }) {
@@ -304,9 +331,14 @@ function AddEvent({ initialDate, onAdd, onImport }) {
 function Dday({ ddays, onAdd, onDel }) {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(todayStr());
-  const [kind, setKind] = useState('once'); // once | yearly | lunar | monthly | hundred
-  const list = ddays.map(d => ({ d, info: ddayInfo(d), kindTxt: ddayKindText(d) }))
+  const [kind, setKind] = useState('once'); // 새로 만들 D-Day의 반복 방식: once | yearly | lunar | monthly | hundred
+  const [filter, setFilter] = useState('all'); // 목록 보기 종류(탭)
+  const [adding, setAdding] = useState(false);
+  const kindOf = d => d.countUp ? 'hundred' : d.isLunar ? 'lunar' : d.type === 'repeat' ? 'monthly' : (d.type === 'anniversary' && d.isYearly !== false) ? 'yearly' : 'once';
+  const list = ddays.map(d => ({ d, info: ddayInfo(d), kindTxt: ddayKindText(d), k: kindOf(d) }))
     .sort((a, b) => a.info.left - b.info.left);
+  const shown = filter === 'all' ? list : list.filter(x => x.k === filter);
+  const KINDS = [['once', '한 번'], ['yearly', '매년'], ['lunar', '매년 음력'], ['monthly', '매월'], ['hundred', '100일 단위']];
   const add = () => {
     if (!title.trim()) return;
     const base = { title: title.trim(), date };
@@ -315,23 +347,29 @@ function Dday({ ddays, onAdd, onDel }) {
     else if (kind === 'hundred') onAdd({ ...base, type: 'anniversary', isYearly: false, countUp: true });
     else if (kind === 'monthly') onAdd({ ...base, type: 'repeat', repeatUnit: 'monthly' });
     else onAdd({ ...base, type: 'anniversary', isYearly: false });
-    setTitle('');
+    setTitle(''); setAdding(false); setFilter('all');
   };
+  const tabBtn = (on) => ({ flexShrink: 0, padding: '6px 11px', borderRadius: 999, border: '1px solid ' + (on ? '#60a5fa' : 'rgba(255,255,255,0.2)'), background: on ? 'rgba(59,130,246,0.3)' : 'transparent', color: '#fff', fontSize: 13 });
   return (
     <div style={{ padding: 16 }}>
-      <h3 style={{ marginTop: 4, fontSize: 16 }}>D-Day</h3>
-      <input value={title} onChange={e => setTitle(e.target.value)} placeholder="예: 시험 / 엄마 생신 / 보험료" style={{ ...inp }} />
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inp, marginBottom: 0, flex: 1 }} />
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+        <h3 style={{ margin: 0, fontSize: 16, flex: 1 }}>D-Day <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 400 }}>{list.length}개</span></h3>
+        <button onClick={() => setAdding(v => !v)} style={{ background: adding ? 'rgba(255,255,255,0.12)' : '#3b82f6', border: 'none', color: '#fff', borderRadius: 999, padding: '7px 14px', fontSize: 14, fontWeight: 700 }}>{adding ? '닫기' : '＋ 추가'}</button>
       </div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {[['once', '한 번'], ['yearly', '매년'], ['lunar', '매년 음력'], ['monthly', '매월'], ['hundred', '100일 단위']].map(k => (
-          <button key={k[0]} onClick={() => setKind(k[0])} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid ' + (kind === k[0] ? '#60a5fa' : 'rgba(255,255,255,0.15)'), background: kind === k[0] ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.06)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>{k[1]}</button>
-        ))}
+      {adding ? <div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(96,165,250,0.35)', borderRadius: 12, padding: 12, marginBottom: 14 }}>
+        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} placeholder="이름 (예: 시험 / 엄마 생신 / 보험료)" style={{ ...inp }} />
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inp }} />
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', marginBottom: 6 }}>반복 방식</div>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+          {KINDS.map(k => <button key={k[0]} onClick={() => setKind(k[0])} style={{ flex: '1 0 28%', padding: '8px 0', borderRadius: 8, border: '1px solid ' + (kind === k[0] ? '#60a5fa' : 'rgba(255,255,255,0.15)'), background: kind === k[0] ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 13 }}>{k[1]}</button>)}
+        </div>
+        <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.75)', marginBottom: 10, lineHeight: 1.5 }}>{kind === 'lunar' ? '🌙 위 날짜를 음력 생일로 보고, 해마다 양력 날짜로 바꿔서 알려드려요. (예: 음력 3월 5일 → 날짜칸에 그 해-03-05)' : kind === 'hundred' ? '💯 만난 날·출생일을 넣으면 100일·200일·…·1000일을 자동으로 세요. (시작일 = 1일째)' : kind === 'monthly' ? '💳 매월 같은 날 (카드값·보험료 등)' : kind === 'yearly' ? '🎂 매년 같은 양력 날짜' : '📌 한 번만 (시험·마감 등)'} · 7일·3일·1일 전과 당일에 알려드려요.</div>
+        <button disabled={!title.trim()} onClick={add} style={{ ...bigBtn, marginBottom: 0, opacity: title.trim() ? 1 : 0.4 }}>{title.trim() ? '＋ D-Day 저장' : '이름을 먼저 입력하세요'}</button>
+      </div> : null}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 12, paddingBottom: 2 }}>
+        {[['all', '전체']].concat(KINDS).map(k => { const n = k[0] === 'all' ? list.length : list.filter(x => x.k === k[0]).length; return <button key={k[0]} onClick={() => setFilter(k[0])} style={tabBtn(filter === k[0])}>{k[1]} {n}</button>; })}
       </div>
-      <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.75)', marginBottom: 10, lineHeight: 1.5 }}>{kind === 'lunar' ? '🌙 위 날짜를 음력 생일로 보고, 해마다 양력 날짜로 바꿔서 알려드려요. (예: 음력 3월 5일 → 날짜칸에 그 해-03-05)' : kind === 'hundred' ? '💯 만난 날·출생일을 넣으면 100일·200일·…·1000일을 자동으로 세요. (시작일 = 1일째)' : kind === 'monthly' ? '💳 매월 같은 날 (카드값·보험료 등)' : kind === 'yearly' ? '🎂 매년 같은 양력 날짜' : '📌 한 번만 (시험·마감 등)'} · 7일·3일·1일 전과 당일에 알려드려요.</div>
-      <button disabled={!title.trim()} onClick={add} style={{ ...bigBtn, marginBottom: 16, opacity: title.trim() ? 1 : 0.4 }}>＋ D-Day 추가</button>
-      {list.length ? list.map(({ d, info, kindTxt }) => {
+      {shown.length ? shown.map(({ d, info, kindTxt }) => {
         const past = info.left < 0;
         return (
           <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 8 }}>
@@ -353,7 +391,7 @@ function Dday({ ddays, onAdd, onDel }) {
             <button onClick={() => onDel(d.id)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 16, flexShrink: 0 }}>✕</button>
           </div>
         );
-      }) : <Empty>등록된 D-Day가 없어요.</Empty>}
+      }) : <Empty>{filter === 'all' ? '등록된 D-Day가 없어요. 위 ＋ 추가를 눌러 만들어 보세요.' : '이 종류의 D-Day가 없어요.'}</Empty>}
     </div>
   );
 }
@@ -525,7 +563,7 @@ function SharePanel({ evByDate, onClose }) {
   );
 }
 
-function Ledger({ events }) {
+function Ledger({ events, user, onLogin }) {
   const [cur, setCur] = useState(new Date());
   const y = cur.getFullYear(), m = cur.getMonth();
   const ym = `${y}-${pad(m + 1)}`;
@@ -580,7 +618,12 @@ function Ledger({ events }) {
             })}
           </div>
         );
-      }) : <Empty>이 달의 가계부 내역이 없어요.</Empty>}
+      }) : (() => { const all = events.filter(e => typeof e.amount === 'number' && e.date); const months = [...new Set(all.map(e => e.date.slice(0, 7)))].sort(); const near = months.filter(x => x < ym).pop() || months.find(x => x > ym);
+        return <div style={{ textAlign: 'center', padding: '18px 8px', color: 'rgba(255,255,255,0.85)', fontSize: 14, lineHeight: 1.6 }}>
+          {!user ? <>로그인하면 PC 가계부 내역이 보여요.<br /><button onClick={onLogin} style={{ ...bigBtn, marginTop: 10 }}>☁ 로그인</button></>
+            : all.length ? <>{m + 1}월에는 가계부 내역이 없어요. (전체 {all.length}건)<br />{near ? <button onClick={() => { const [yy, mm] = near.split('-').map(Number); setCur(new Date(yy, mm - 1, 1)); }} style={{ marginTop: 8, background: '#3b82f6', border: 'none', color: '#fff', borderRadius: 999, padding: '7px 14px', fontSize: 13 }}>가장 가까운 달 보기 ({Number(near.slice(5))}월)</button> : null}</>
+            : <>PC에서 가계부를 입력하면 여기에 보여요.</>}
+        </div>; })()}
       <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 8 }}>※ 조회 전용 — 입력·수정은 PC 앱에서 하세요.</div>
     </div>
   );
@@ -647,7 +690,16 @@ function BriefCard() {
   const native = isNativeApp();
   const load = async (c) => { setBusy(true); try { setData(await fetchBrief(c || cfg)); } catch { setData({ idx: [], fx: null, news: [], errs: ['전체'] }); } setBusy(false); };
   const [bst, setBst] = useState(null);
+  // 뉴스 분야를 카드 안에서 바로 바꿔 보기 (알림에 넣을 분야는 🔔 표시로 따로 켜고 끔)
+  const [cat, setCat] = useState(() => { try { return localStorage.getItem('mp_brief_view') || newsCatsOf(loadBriefCfg())[0] || '경제'; } catch { return '경제'; } });
+  const [ncache, setNcache] = useState({}); const [nbusy, setNbusy] = useState(false);
+  useEffect(() => { if (data && data.news) setNcache(c => { const n = { ...c }; data.news.forEach(g => { n[g.cat] = g.list; }); return n; }); }, [data]);
+  const pickCat = async (c, force) => { setCat(c); try { localStorage.setItem('mp_brief_view', c); } catch {} if (ncache[c] && !force) return; setNbusy(true); try { const l = await fetchNews(c, cfg.newsN || 10); setNcache(x => ({ ...x, [c]: l })); } catch { setNcache(x => ({ ...x, [c]: null })); } setNbusy(false); };
+  const allCats = NEWS_ALL.concat(String(cfg.keywords || '').split(/[,，]/).map(x => x.trim()).filter(Boolean).map(x => '#' + x));
+  const inNoti = c => c[0] === '#' ? true : (cfg.newsCats || []).includes(c);
+  const togNoti = c => { if (c[0] === '#') return; upd({ news: undefined, newsCats: inNoti(c) ? cfg.newsCats.filter(y => y !== c) : (cfg.newsCats || []).concat([c]) }); };
   useEffect(() => { pushBriefCfg(cfg); if (cfg.on) load(cfg); briefStatus().then(setBst).catch(() => {}); }, []);
+  useEffect(() => { if (data && !(cat in ncache) && !(data.news || []).some(g => g.cat === cat)) pickCat(cat); }, [data]);
   const upd = o => { const c = { ...cfg, ...o }; setCfg(c); saveBriefCfg(c); };
   const tog = (k, v) => upd({ [k]: cfg[k].includes(v) ? cfg[k].filter(x => x !== v) : cfg[k].concat([v]) });
   const chip = (on, label, fn) => <button key={label} onClick={fn} style={{ padding: '4px 9px', borderRadius: 999, fontSize: 12, border: '1px solid ' + (on ? '#60a5fa' : 'rgba(255,255,255,0.25)'), background: on ? 'rgba(59,130,246,0.25)' : 'transparent', color: on ? '#dbeafe' : 'rgba(255,255,255,0.8)' }}>{label}</button>;
@@ -671,7 +723,9 @@ function BriefCard() {
       {data ? <div style={{ fontSize: 13, color: '#f1f5f9', lineHeight: 1.6 }}>
         {data.idx.length ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px' }}>{data.idx.map(x => <span key={x.name}>{x.name} <b>{fmtN(x.p)}</b> <span style={{ color: x.ch == null ? '#cbd5e1' : x.ch >= 0 ? '#f87171' : '#60a5fa' }}>{x.ch == null ? '' : (x.ch >= 0 ? '▲' : '▼') + Math.abs(x.ch).toFixed(2) + '%'}</span></span>)}</div> : null}
         {data.fx ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px', marginTop: 4 }}>{data.fx.list.map(x => <span key={x.c}>{FX_SYM[x.c]} <b>{fmtN(x.v)}</b>원</span>)}</div> : null}
-        {data.news.length ? data.news.map(g => <details key={g.cat} open={data.news.length === 1} style={{ marginTop: 6 }}><summary style={{ cursor: 'pointer', color: '#7dd3fc', fontWeight: 700, fontSize: 13 }}>📰 {g.cat.replace(/^#/, '🔎 ')} <span style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 400 }}>({g.list.length}) · {g.list[0] ? g.list[0].t.replace(/ - [^-]+$/, '').slice(0, 30) : ''}</span></summary><ol style={{ margin: '4px 0 0', paddingLeft: 20 }}>{g.list.map((n, i) => <li key={i} style={{ marginBottom: 3 }}><a href={n.u} target="_blank" rel="noreferrer" style={{ color: '#e2e8f0', textDecoration: 'none' }}>{n.t}</a></li>)}</ol></details>) : null}
+        <div style={{ display: 'flex', gap: 5, overflowX: 'auto', margin: '8px 0 6px', paddingBottom: 2 }}>{allCats.map(c => <button key={c} onClick={() => pickCat(c)} style={{ flexShrink: 0, padding: '5px 10px', borderRadius: 999, fontSize: 12.5, border: '1px solid ' + (cat === c ? '#38bdf8' : 'rgba(255,255,255,0.25)'), background: cat === c ? 'rgba(56,189,248,0.3)' : 'transparent', color: '#fff', fontWeight: cat === c ? 700 : 400 }}>{c.replace(/^#/, '🔎 ')}{inNoti(c) ? ' 🔔' : ''}</button>)}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 2 }}><b style={{ flex: 1, color: '#7dd3fc' }}>📰 {cat.replace(/^#/, '🔎 ')}</b>{cat[0] !== '#' ? <button onClick={() => togNoti(cat)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 999, padding: '2px 8px', fontSize: 11 }}>{inNoti(cat) ? '🔔 아침 알림에 포함됨' : '🔕 아침 알림에 넣기'}</button> : null}<button onClick={() => pickCat(cat, true)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 8, padding: '2px 7px', fontSize: 11 }}>{nbusy ? '…' : '↻'}</button></div>
+        {nbusy && !ncache[cat] ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>불러오는 중…</div> : ncache[cat] ? <ol style={{ margin: '4px 0 0', paddingLeft: 20 }}>{ncache[cat].map((n, i) => <li key={i} style={{ marginBottom: 3 }}><a href={n.u} target="_blank" rel="noreferrer" style={{ color: '#e2e8f0', textDecoration: 'none' }}>{n.t}</a></li>)}</ol> : ncache[cat] === null ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{native ? '뉴스를 못 가져왔어요 (인터넷 확인 후 ↻)' : '뉴스는 설치형 앱에서 보여요.'}</div> : <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>위에서 분야를 누르면 바로 보여요.</div>}
         {data.errs.length ? <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>{native ? '가져오지 못함: ' + data.errs.join(', ') + ' (인터넷 확인)' : (data.errs.filter(e => e !== '환율').length ? '지수·뉴스는 설치형 앱에서 보여요.' : '')}</div> : null}
       </div> : <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>{busy ? '불러오는 중…' : '↻ 를 누르면 오늘 자료를 가져와요.'}</div>}
     </div>

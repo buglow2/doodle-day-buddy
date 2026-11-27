@@ -16,7 +16,7 @@ function writeAll(data) {
 
 export function loadEvents() { return readAll().events || []; }
 export function loadDdays() { return readAll().ddays || []; }
-export function getAll() { return readAll(); }
+export function getAll() { return { ...readAll(), deleted: loadDeleted() }; }
 export function setAll(data) { const cur = readAll(); writeAll({ events: data.events || [], ddays: data.ddays || [], memos: data.memos || {}, feedback: data.feedback || cur.feedback || [], pcMemos: data.pcMemos || cur.pcMemos || [], timers: data.timers || cur.timers || [], alarms: data.alarms || cur.alarms || [], tsound: data.tsound != null ? data.tsound : cur.tsound }); }
 export function loadFeedback() { return readAll().feedback || []; }
 export function loadPcMemos() { return readAll().pcMemos || []; }
@@ -34,7 +34,11 @@ export function addEvent(ev) {
   return item;
 }
 
+// 폰에서 지운 항목 기록(클라우드와 합칠 때 다시 살아나지 않게) — 최근 300개
+function markDeleted(id) { try { const a = JSON.parse(localStorage.getItem('mp_deleted_ids') || '[]'); a.push(id); localStorage.setItem('mp_deleted_ids', JSON.stringify(a.slice(-300))); } catch {} }
+export function loadDeleted() { try { return JSON.parse(localStorage.getItem('mp_deleted_ids') || '[]'); } catch { return []; } }
 export function deleteEvent(id) {
+  markDeleted(id);
   const d = readAll();
   d.events = (d.events || []).filter(e => e.id !== id);
   writeAll(d);
@@ -49,6 +53,7 @@ export function addDday(dd) {
 }
 
 export function deleteDday(id) {
+  markDeleted(id);
   const d = readAll();
   d.ddays = (d.ddays || []).filter(x => x.id !== id);
   writeAll(d);

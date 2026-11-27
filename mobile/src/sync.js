@@ -8,9 +8,14 @@ export const sb = createClient(SUPA_URL, SUPA_ANON, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
 
+// 자동 로그인: 폰에 저장된 로그인 정보(세션)를 먼저 확인 → 인터넷이 늦게 붙어도 로그아웃으로 보이지 않음
+// (예전엔 매번 서버에 물어봐서(getUser) 앱 켤 때 인터넷이 잠깐 안 되면 '로그인 필요'로 보였음)
 export async function currentUser() {
+  try { const { data } = await sb.auth.getSession(); if (data && data.session && data.session.user) return data.session.user; } catch {}
   try { const { data } = await sb.auth.getUser(); return (data && data.user) || null; } catch { return null; }
 }
+// 로그인 상태가 바뀌면(저장된 세션 복원·토큰 갱신 포함) 알려줌
+export function onAuth(cb) { try { const { data } = sb.auth.onAuthStateChange((ev, session) => cb(session ? session.user : null, ev)); return () => { try { data.subscription.unsubscribe(); } catch {} }; } catch { return () => {}; } }
 
 export async function signIn(email, password) {
   return sb.auth.signInWithPassword({ email: email.trim(), password });
@@ -57,8 +62,12 @@ export async function push(payload) {
     const { data } = await sb.from(TABLE).select('data').eq('user_id', u.id).maybeSingle();
     full = (data && data.data) || {};
   } catch {}
-  full.events = payload.events || [];
-  full.ddays = payload.ddays || [];
+  // ⚠️ 통째로 덮어쓰지 않고 합치기: 클라우드(PC가 올린 최신) + 폰에서 추가·수정한 것 − 폰에서 지운 것
+  //    (예전엔 폰 목록으로 덮어써서, 폰이 오래된 목록이면 PC에서 새로 쓴 일정이 지워질 위험이 있었음)
+  const del = new Set(payload.deleted || []);
+  const merge = (cloud, phone) => { const m = new Map(); (cloud || []).forEach(x => { if (x && x.id && !del.has(x.id)) m.set(x.id, x); }); (phone || []).forEach(x => { if (x && x.id && !del.has(x.id)) m.set(x.id, { ...(m.get(x.id) || {}), ...x }); }); return [...m.values()]; };
+  full.events = merge(full.events, payload.events);
+  full.ddays = merge(full.ddays, payload.ddays);
   full.mobileMemos = payload.memos || {};
   const { error } = await sb.from(TABLE).upsert({
     user_id: u.id, data: full, updated_at: new Date().toISOString()

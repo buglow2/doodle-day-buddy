@@ -3218,18 +3218,24 @@ function DDBTimerClock() {
     const [qcSet, setQcSet] = O.useState(null);
     const [mv, setMv] = O.useState(null);
     const face = O.useRef(null), holdT = O.useRef(null), noClick = O.useRef(false);
+    // 여러 PC 동시 사용: 한 곳에서 '확인'하면 다른 PC에서도 울리지 않게 — 타이머는 목록에서 지워짐(동기화), 알람은 확인 기록(alarmAcks)을 동기화
+    const acks = ((state.settings || {}).alarmAcks) || {};
+    const [ready, setReady] = O.useState(false); // 앱 켠 직후엔 클라우드 최신 상태를 받을 때까지(12초) 지난 알림을 울리지 않음
+    O.useEffect(() => { const t = setTimeout(() => setReady(true), 12000); return () => clearTimeout(t); }, []);
+    O.useEffect(() => { setFired(f => f.filter(x => x.alarm ? !acks[x.id] : timers.some(t => t.id === x.id))); }, [JSON.stringify(timers.map(t => t.id)), JSON.stringify(acks)]);
     const firedKeys = O.useRef((() => { try { return JSON.parse(localStorage.getItem("ddb_alarm_fired") || "[]"); } catch (e) { return []; } })());
     O.useEffect(() => { const iv = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(iv); }, []);
     const setCfg = o2 => dispatch({ type: "UPDATE_SETTINGS", settings: { timerClock: { ...cfg, ...o2 } } });
     const setTimers = arr => dispatch({ type: "UPDATE_SETTINGS", settings: { timers: arr } });
     const setAlarms = arr => dispatch({ type: "UPDATE_SETTINGS", settings: { alarms: arr } });
     O.useEffect(() => {
+        if (!ready) return;
         const due = timers.filter(t => t.at <= now && !fired.some(f => f.id === t.id));
-        alarms.forEach(a => { if (!a || !a.on) return; const m = /^(\d{1,2}):(\d{2})$/.exec(a.hm || ""); if (!m) return; const d = new Date(now); d.setHours(+m[1], +m[2], 0, 0); const occ = d.getTime(); if (!(a.days || []).includes(d.getDay()) || now < occ || now - occ > 9e4) return; const key = a.id + "@" + occ; if (firedKeys.current.includes(key)) return; firedKeys.current = firedKeys.current.concat([key]).slice(-60); try { localStorage.setItem("ddb_alarm_fired", JSON.stringify(firedKeys.current)); } catch (e) {} due.push({ id: key, label: a.label, at: occ, alarm: true }); });
+        alarms.forEach(a => { if (!a || !a.on) return; const m = /^(\d{1,2}):(\d{2})$/.exec(a.hm || ""); if (!m) return; const d = new Date(now); d.setHours(+m[1], +m[2], 0, 0); const occ = d.getTime(); if (!(a.days || []).includes(d.getDay()) || now < occ || now - occ > 9e4) return; const key = a.id + "@" + occ; if (firedKeys.current.includes(key) || acks[key]) return; firedKeys.current = firedKeys.current.concat([key]).slice(-60); try { localStorage.setItem("ddb_alarm_fired", JSON.stringify(firedKeys.current)); } catch (e) {} due.push({ id: key, label: a.label, at: occ, alarm: true }); });
         if (!due.length) return; setFired(f => f.concat(due));
         due.forEach(t => { try { if (cfg.sound) { const C = window.AudioContext || window.webkitAudioContext; if (C) { const ac = new C(); [0, .35, .7].forEach(dl => { const os = ac.createOscillator(), g = ac.createGain(); os.frequency.value = 880; os.connect(g); g.connect(ac.destination); g.gain.setValueAtTime(.25, ac.currentTime + dl); g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + dl + .3); os.start(ac.currentTime + dl); os.stop(ac.currentTime + dl + .32); }); } } } catch (e) {} try { if (window.Notification) { if (Notification.permission === "granted") new Notification("⏰ " + t.label, { body: "설정한 시간이 됐어요 (" + new Date(t.at).toTimeString().slice(0, 5) + ")" }); else if (Notification.permission !== "denied") Notification.requestPermission(); } } catch (e) {} });
     }, [now]);
-    const ack = (t, snooze) => { setFired(f => f.filter(x => x.id !== t.id)); if (t.alarm) { if (snooze) ddbAddTimer(state, dispatch, t.label, Date.now() + snooze); return; } const rest = (((state.settings || {}).timers) || []).filter(x => x && x.id !== t.id); setTimers(snooze ? rest.concat([{ ...t, id: t.id + "s", at: Date.now() + snooze }]) : rest); };
+    const ack = (t, snooze) => { setFired(f => f.filter(x => x.id !== t.id)); if (t.alarm) { const keep = {}; Object.keys(acks).forEach(k => { if (Date.now() - acks[k] < 2 * 864e5) keep[k] = acks[k]; }); keep[t.id] = Date.now(); const nt = snooze ? [...(((state.settings || {}).timers) || []), { id: ddbNewId("tm"), label: String(t.label || "알람"), at: Date.now() + snooze, createdAt: Date.now() }] : undefined; dispatch({ type: "UPDATE_SETTINGS", settings: nt ? { alarmAcks: keep, timers: nt } : { alarmAcks: keep } }); return; } const rest = (((state.settings || {}).timers) || []).filter(x => x && x.id !== t.id); setTimers(snooze ? rest.concat([{ ...t, id: t.id + "s", at: Date.now() + snooze }]) : rest); };
     const upcoming = timers.map(t => ({ ...t, kind: "t" })).concat(alarms.filter(a => a && a.on).map(a => ({ ...a, kind: "a", at: ddbAlarmNext(a, now) })).filter(a => a.at)).filter(x => x.at > now).sort((a, b) => a.at - b.at);
     const next = upcoming[0];
     const left = next ? next.at - now : null;
@@ -4629,7 +4635,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.100";
+const DDB_VERSION = "1.00.101";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -6178,7 +6184,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v537"
+                children: "v538"
             }), (() => {
                 const S = [{
                     k: "cal",
