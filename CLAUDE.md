@@ -65,6 +65,7 @@
 - [완료·실기 확인 필요] 폰 오늘 탭 순서 끌기가 '잡힌 상태'에서 안 끝나던 버그(v542): 끄는 칸을 DOM에서 빼서 폰 터치 신호가 앱에 안 옴 → 접어서 남겨 두고 그 칸에도 리스너 + 6초 무동작 자동 해제, 고스트는 손가락 위치. native-since는 1.0.99 유지(뉴스 맞춤 탭은 플러그인 없으면 일반 브라우저로 대체) → 화면 자동 갱신으로 전달
 - [완료·실기 확인 필요] AI메모 상세 이미지 저화질(v543): 원인=캡처는 200px·저화질(0.42) 썸네일만 저장, 편집 저장 큰 그림은 localStorage(5~10MB 한도)라 저장 실패 → 원본 해상도를 IndexedDB(`ddb_images`/`full`, 키 날짜|썸네일 지문, 370일)에 보관 + 동기화 썸네일 320px·0.62. 확대 보기는 원본(이 PC). 다른 기기는 썸네일만. 이미지편집 화면에서 흐린 문제(사용자 확인: 편집 화면에서 볼 때) = 윈도우 배율 125%·150%에서 그림을 CSS 1배로 보여줘 실제로는 확대돼 흐림 → v544 `fitTo` 최대 배율 1/devicePixelRatio(그림 1px=모니터 1px), 최대 크기는 1180 고정 대신 편집 판 크기. 저장은 원본 해상도 유지
 - [긴급·완료·실기 확인 필요] PC 업데이트 후 데이터 '다 날아감'(v545): 추정 원인=localStorage(약 10MB) 가득 참(예전 큰 그림 ddb_imgbig_*·act 로그 썸네일) → 로그인 정보 갱신 저장 실패 → 다음 실행 때 로그인 풀림 → 설계상 빈 상태로 시작 + 보관본(autobak)도 용량 부족으로 저장 실패. 수정: ①큰 그림 IndexedDB로 이사·localStorage 비움 ②autobak을 IndexedDB(`bak`)에도 ③빈 상태로 켜지면 상단 경고+한 번에 되돌리기 배너(`DDBRecoverBanner`) ④클라우드 업로드 안전장치(받아오기 전 업로드 금지·빈 상태로 클라우드 덮어쓰기 금지, `pulledRef`/`cloudNRef`) ⑤Electron 파일 백업에 날짜별 하루 보관본 30일(`day-*.json`) ⑥act 로그 이미지 썸네일 96px+지문 키 ⑦RESTORE_STATE·LOAD_FROM_CLOUD가 기본값(Hl·settings)과 합치도록(빈 필드로 화면 깨짐 방지). 복구 안내: ☁ 로그인 또는 설정→백업·복구(자동 백업 파일)
+- [완료·사용자 복구함] 데이터 유실은 백업 '되돌리기'로 복구(사용자 확인). v546: 저장 공간 지킴이 `DDBStorageGuard`(localStorage 6MB 넘으면 30일 지난 aiDaily 사진 미리보기를 IndexedDB `arch|날짜`로 옮기고 state에서 제거(`AI_DAILY_ARCHIVE`, rec.arch=장수, 일기에서 '🗄 보관된 사진 보기'), 120일 지난 활동기록 정리, 8MB 넘으면 경고), 동기화 썸네일 240px·0.55로 축소
 - [결정·진행 예정] 이미지 보관: ②폴더 지정(원본) + ③클라우드 **2560px 확정**(WebP 90%, 장당 0.5~1.5MB). Supabase Storage 버킷 SQL 사용자 실행 필요. 사용자 관심: 유료 사용자에게 저장 공간 판매(공간 대여) → 처음부터 사용자별 사용량·한도(plan/quota) 구조로 설계할 것
 - [보류] 보안 단계(공개 배포 저장소·PAT·CI 전환·난독화·법적 문서·Private 전환), Microsoft Store(MSIX), 폰 푸시(FCM), 팀 권한
 - 결정됨: 표 닫기 시 수정분은 항상 새 탭(덮어쓰기 안 함). Ctrl+S도 새 탭.
@@ -143,6 +144,7 @@
 - **APK 서명 고정(v537)**: `~/.android/debug.keystore` 복사만으론 CI에서 실제로 그 열쇠로 서명되는지 보장 안 됨(1.0.99가 폰에서 설치 거부됨) → gradle에 `-Pandroid.injected.signing.store.file=…/debug.keystore`(비번 android, alias androiddebugkey)로 직접 지정 + 빌드마다 서명 SHA-256을 `::notice`로 기록(정답 E6:AF:26:00…). 열쇠가 바뀐 APK는 폰에서 기존 앱 삭제 후 설치해야 함.
 - ⚠️ 폰 터치 끌기: 터치가 시작된 요소를 DOM에서 제거하면 이후 touchmove/touchend가 document로 안 옴 → 끄는 요소는 숨기기만(높이 0) 하고 요소에도 리스너. 폰 기능 추가 시 native-since를 꼭 올려야 하는지 판단(선택 기능이면 대체 동작으로 두고 안 올림 → 자동 갱신 유지).
 - ⚠️ `aitimer.js`(outputs)는 임시 사본 — 이제 app.js가 원본(DDBRecoverBanner가 그 블록 안에 있음). 다시 덮어쓰지 말 것.
+- ⚠️ state 전체가 localStorage(`Ef`)에 저장되고 그대로 클라우드에 올라감 → state에 사진·큰 글을 무한정 쌓으면 결국 10MB 한도로 로그인 풀림·저장 실패. 새 기능이 state를 키우면 반드시 보관(아카이브)·한도 설계를 같이 할 것.
 - ⚠️ 클라우드 업로드(qS의 m)는 반드시 pull 후에만, 빈 상태로 덮어쓰기 금지. localStorage엔 큰 데이터 금지(가득 차면 로그인 토큰 저장 실패 → 빈 화면 시작).
 - 이미지 원본 보관 = `ddbSaveFullImg(day, thumb, url)`/`ddbGetFullImg(day, thumb)`(IndexedDB). 썸네일은 `ddbMakeThumb(img)`. 큰 데이터는 절대 localStorage에 넣지 말 것(한도 초과로 조용히 실패).
 - 폰 '오늘' 탭 순서 `mp_today_order`, 공통 `HoldSort`(app.jsx, 터치·마우스, touchmove passive:false로 스크롤 막음). 폰 push는 합치기(`mp_deleted_ids`로 폰에서 지운 것만 제거). 자동 로그인 = `currentUser()`가 getSession 우선 + `onAuth`(onAuthStateChange).
