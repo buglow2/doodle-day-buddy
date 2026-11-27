@@ -84,7 +84,7 @@ export default function App() {
       <header style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', paddingTop: 'max(14px, env(safe-area-inset-top))', background: '#111827', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 800, fontSize: 20 }}>📅 MomentPlan</div>
-          <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>{todayStr()} ({WD[new Date().getDay()]}){syncMsg ? ' · ' + syncMsg : ''}</div>
+          <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12 }}>{todayStr()} ({WD[new Date().getDay()]}){syncMsg ? ' · ' + syncMsg : ''} · <span onClick={() => window.dispatchEvent(new Event('mp-check-update'))} title="눌러서 업데이트 확인" style={{ textDecoration: 'underline', cursor: 'pointer' }}>v{WEB_VERSION}</span></div>
         </div>
         <button onClick={() => setShowShare(true)} title="일정 공유" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#e5e7eb', borderRadius: 999, padding: '6px 11px', fontSize: 12, cursor: 'pointer' }}>📤 공유</button>
         <button onClick={() => user ? (window.confirm('로그아웃할까요? (로그아웃하면 다음에 다시 로그인해야 해요)') && onSignOut()) : setShowAuth(true)} style={{
@@ -738,12 +738,14 @@ function UpdateBanner() {
   const [st, setSt] = useState(null); const [pct, setPct] = useState(null); const [err, setErr] = useState(''); const [hide, setHide] = useState(false);
   useEffect(() => {
     if (!isNative()) return; noteApplied();
-    let busy = false; const run = async () => { if (busy) return; busy = true; try { const r = await checkUpdate(); if (r && r.kind !== 'none') { setSt(r); setHide(false); } } catch {} busy = false; };
+    let busy = false; const run = async (manual) => { if (busy) return; busy = true; try { const r = await checkUpdate(); if (r && r.kind !== 'none') { setSt(r); setHide(false); } else if (manual === true) { setSt({ kind: 'latest' }); setHide(false); setTimeout(() => setHide(true), 2500); } } catch (e) { if (manual === true) { setSt({ kind: 'err', msg: String((e && e.message) || e) }); setHide(false); } } busy = false; };
+    const mc = () => run(true); window.addEventListener('mp-check-update', mc);
     const t = setTimeout(run, 2500); const v = () => { if (document.visibilityState === 'visible') run(); };
     document.addEventListener('visibilitychange', v); const iv = setInterval(run, 3 * 3600e3);
-    return () => { clearTimeout(t); clearInterval(iv); document.removeEventListener('visibilitychange', v); };
+    return () => { clearTimeout(t); clearInterval(iv); document.removeEventListener('visibilitychange', v); window.removeEventListener('mp-check-update', mc); };
   }, []);
   if (!st || hide) return null;
+  if (st.kind === 'latest' || st.kind === 'err') return <div style={{ padding: '8px 14px', fontSize: 13, background: st.kind === 'err' ? 'rgba(239,68,68,0.18)' : 'rgba(34,197,94,0.16)', color: '#f1f5f9' }}>{st.kind === 'err' ? '업데이트 확인 실패: ' + st.msg : '✓ 최신 버전이에요 (v' + WEB_VERSION + ')'}</div>;
   const box = { display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', background: st.kind === 'apk' ? 'rgba(59,130,246,0.18)' : 'rgba(34,197,94,0.16)', borderBottom: '1px solid rgba(255,255,255,0.1)', fontSize: 13, color: '#f1f5f9' };
   const btn = (bg) => ({ background: bg, border: 'none', color: '#fff', borderRadius: 999, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' });
   if (st.kind === 'web-ready') return (
