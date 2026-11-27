@@ -364,6 +364,7 @@ function Dday({ ddays, onAdd, onDel }) {
           {KINDS.map(k => <button key={k[0]} onClick={() => setKind(k[0])} style={{ flex: '1 0 28%', padding: '8px 0', borderRadius: 8, border: '1px solid ' + (kind === k[0] ? '#60a5fa' : 'rgba(255,255,255,0.15)'), background: kind === k[0] ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 13 }}>{k[1]}</button>)}
         </div>
         <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.75)', marginBottom: 10, lineHeight: 1.5 }}>{kind === 'lunar' ? '🌙 위 날짜를 음력 생일로 보고, 해마다 양력 날짜로 바꿔서 알려드려요. (예: 음력 3월 5일 → 날짜칸에 그 해-03-05)' : kind === 'hundred' ? '💯 만난 날·출생일을 넣으면 100일·200일·…·1000일을 자동으로 세요. (시작일 = 1일째)' : kind === 'monthly' ? '💳 매월 같은 날 (카드값·보험료 등)' : kind === 'yearly' ? '🎂 매년 같은 양력 날짜' : '📌 한 번만 (시험·마감 등)'} · 7일·3일·1일 전과 당일에 알려드려요.</div>
+        {kind === 'lunar' && date ? (() => { try { const r = ddayInfo({ date, type: 'anniversary', isYearly: true, isLunar: true }); return <div style={{ fontSize: 13, color: '#c7d2fe', marginBottom: 10 }}>🌙 음력 {Number(date.slice(5, 7))}월 {Number(date.slice(8, 10))}일 → 다가오는 날: 양력 {r.next ? r.next.replace(/-0?/g, '.').replace(/^(\d+)\./, '$1.') : '-'} ({ddayLabel(r.left)})</div>; } catch { return null; } })() : null}
         <button disabled={!title.trim()} onClick={add} style={{ ...bigBtn, marginBottom: 0, opacity: title.trim() ? 1 : 0.4 }}>{title.trim() ? '＋ D-Day 저장' : '이름을 먼저 입력하세요'}</button>
       </div> : null}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 12, paddingBottom: 2 }}>

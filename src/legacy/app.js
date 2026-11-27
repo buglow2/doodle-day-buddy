@@ -4635,7 +4635,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.101";
+const DDB_VERSION = "1.00.102";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -6184,7 +6184,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v538"
+                children: "v539"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -11950,8 +11950,8 @@ function QT({
                     onChange: z => u(z.target.value),
                     className: se
                 }), v ? o.jsx("p", {
-                    className: "text-indigo-300/60 text-[10px] mt-1",
-                    children: DDBTR("🌙 입력한 날짜를 음력으로 저장합니다.")
+                    className: "text-indigo-200 text-[11px] mt-1",
+                    children: (() => { try { if (!c) return DDBTR("🌙 입력한 날짜를 음력으로 저장합니다."); const r = ddbDdInfo({ date: c, isYearly: true, isLunar: true }); const q = String(r.dateStr || "").split("-"); return "🌙 음력 " + Number(c.slice(5, 7)) + "월 " + Number(c.slice(8, 10)) + "일 → 다가오는 날: 양력 " + q[0] + "." + Number(q[1]) + "." + Number(q[2]) + " (D-" + r.daysLeft + ")"; } catch (e2) { return DDBTR("🌙 입력한 날짜를 음력으로 저장합니다."); } })()
                 }) : o.jsx("p", {
                     className: "text-white/25 text-[10px] mt-1",
                     children: DDBTR("☀️ 양력 기준")
