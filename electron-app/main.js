@@ -138,7 +138,7 @@ async function createWindow() {
     } catch (e) { return null; }
   }
   ipcMain.handle('ddb-capture', async () => await captureScreenDataUrl());
-  ipcMain.handle('ddb-clipboard-image', (_e, dataUrl) => { try { const img = nativeImage.createFromDataURL(String(dataUrl || '')); if (!img.isEmpty()) clipboard.writeImage(img); return true; } catch (e) { return false; } });
+  ipcMain.handle('ddb-clipboard-image', (_e, dataUrl) => { try { const img = nativeImage.createFromDataURL(String(dataUrl || '')); if (img.isEmpty()) return false; clipboard.writeImage(img); try { if (clipboard.readImage().isEmpty()) { clipboard.clear(); clipboard.writeImage(img); } } catch (e2) {} return !clipboard.readImage().isEmpty(); } catch (e) { return false; } });
   ipcMain.handle('ddb-save-capture', (_e, arg) => { try { const dataUrl = (arg && arg.u) || arg || ''; let dir = (arg && arg.dir) || ''; if (!dir) dir = path.join(app.getPath('pictures'), 'MomentPlan'); try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {} const b = Buffer.from(String(dataUrl).split(',')[1] || '', 'base64'); const fn = 'capture-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.png'; const fp = path.join(dir, fn); fs.writeFileSync(fp, b); return fp; } catch (e) { return null; } });
   ipcMain.handle('ddb-pick-capture-dir', async () => { try { const r = await dialog.showOpenDialog(win, { title: '캡처 저장 폴더 선택', properties: ['openDirectory', 'createDirectory'] }); return (r.canceled || !r.filePaths || !r.filePaths[0]) ? null : r.filePaths[0]; } catch (e) { return null; } });
   // 영역 드래그 캡처 오버레이
@@ -196,8 +196,8 @@ async function createWindow() {
   const capCfgPath = path.join(app.getPath('userData'), 'ddb-capture.json');
   try { const j = JSON.parse(fs.readFileSync(capCfgPath, 'utf8')); if (j && j.w > 0 && j.h > 0) capFixed = { w: Math.round(j.w), h: Math.round(j.h) }; } catch (e) {}
   ipcMain.on('ddb-cap-fixed', (_e, sz) => { try { if (sz && sz.w > 0 && sz.h > 0) { capFixed = { w: Math.round(sz.w), h: Math.round(sz.h) }; fs.writeFileSync(capCfgPath, JSON.stringify(capFixed)); } } catch (e) {} });
-  let capPrefs = { guideColor: '#22c55e', overlayBar: true, presets: [], autoCopy: false, autoSave: false };
-  ipcMain.handle('ddb-cap-prefs', (_e, obj) => { try { if (obj && typeof obj === 'object') { capPrefs = { guideColor: obj.guideColor || '#22c55e', overlayBar: obj.overlayBar !== false, presets: Array.isArray(obj.presets) ? obj.presets.slice(0, 6) : [], autoCopy: !!obj.autoCopy, autoSave: !!obj.autoSave }; } } catch (e) {} return true; });
+  let capPrefs = { guideColor: '#22c55e', overlayBar: true, presets: [], autoCopy: true, autoSave: false };
+  ipcMain.handle('ddb-cap-prefs', (_e, obj) => { try { if (obj && typeof obj === 'object') { capPrefs = { guideColor: obj.guideColor || '#22c55e', overlayBar: obj.overlayBar !== false, presets: Array.isArray(obj.presets) ? obj.presets.slice(0, 6) : [], autoCopy: obj.autoCopy !== false, autoSave: !!obj.autoSave }; } } catch (e) {} return true; });
   ipcMain.on('ddb-cap-toggle', (_e, d) => { try { if (d && d.key) { capPrefs[d.key] = !!d.val; if (win) win.webContents.send('ddb-cap-toggle', d); } } catch (e) {} });
   ipcMain.on('ddb-open-capset', () => { try { if (overlayWin) { overlayWin.close(); overlayWin = null; } } catch (e) {} try { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); win.webContents.send('ddb-open-capset'); } } catch (e) {} });
   async function startRegionCapture() {
