@@ -775,7 +775,7 @@ function DDBImageEditor() {
     function flatten() { const c = fcRef.current; if (!c) return null; const f = fitRef.current || 1; const pct = Math.max(5, Math.min(400, outPct || 100)); const mult = (1 / f) * (pct / 100); const r = imgRegion(); return c.toDataURL({ format: outFmt === "jpg" ? "jpeg" : outFmt, quality: 0.95, multiplier: mult, left: r.left, top: r.top, width: r.width, height: r.height, backgroundColor: outFmt === "png" ? undefined : "#ffffff" }); }
     function dataUrlToBlob(u) { const b = atob(u.split(",")[1]); const mime = u.slice(u.indexOf(":") + 1, u.indexOf(";")); const ar = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) ar[i] = b.charCodeAt(i); return new Blob([ar], { type: mime }); }
     async function pickDir() { try { if (!window.showDirectoryPicker) { flash("이 버전에선 폴더 지정을 지원하지 않아요"); return; } const h = await window.showDirectoryPicker(); dirH.current = h; flash("폴더 지정: " + (h.name || "")); } catch {} }
-    async function doSave() { const c = fcRef.current; if (!c) return; c.discardActiveObject(); c.renderAll(); const u = flatten(); if (!u) return; saveHist(u); try { const im0 = new Image(); im0.onload = () => { try { const mk = (maxW, maxH, q) => { const r = Math.min(maxW / im0.width, maxH / im0.height, 1) || 1; const w = Math.max(1, Math.round(im0.width * r)), h = Math.max(1, Math.round(im0.height * r)); const cv = document.createElement("canvas"); cv.width = w; cv.height = h; cv.getContext("2d").drawImage(im0, 0, 0, w, h); return cv.toDataURL("image/jpeg", q); }; const _thumb = ddbMakeThumb(im0, 320, 400, 0.62); const _day = ddbLocalDay(); Dp({ type: "AI_DAILY_ADD", day: _day, kind: "images", item: _thumb }); ddbSaveFullImg(_day, _thumb, u); try { ddbLogAct("image", { thumb: _thumb }); } catch (e3) {} } catch (e2) {} }; im0.src = u; } catch (e1) {} const b = dataUrlToBlob(u); const ext = outFmt === "jpg" ? "jpg" : outFmt; const base = ((sv.nameOn && sv.fname) ? sv.fname : "MomentPlan").replace(/[\\/:*?"<>|]+/g, "_"); const nm = base + "-" + saveN + "." + ext; if (sv.pathOn && window.showDirectoryPicker) { try { if (!dirH.current) await pickDir(); if (!dirH.current) return; const fh = await dirH.current.getFileHandle(nm, { create: true }); const w = await fh.createWritable(); await w.write(b); await w.close(); setSaveN(n => n + 1); flash("저장: " + nm); } catch { flash("저장 실패 — 권한을 확인하세요"); } } else { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = nm; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); setSaveN(n => n + 1); flash("저장: " + nm); } }
+    async function doSave() { const c = fcRef.current; if (!c) return; c.discardActiveObject(); c.renderAll(); const u = flatten(); if (!u) return; saveHist(u); try { const im0 = new Image(); im0.onload = () => { try { const mk = (maxW, maxH, q) => { const r = Math.min(maxW / im0.width, maxH / im0.height, 1) || 1; const w = Math.max(1, Math.round(im0.width * r)), h = Math.max(1, Math.round(im0.height * r)); const cv = document.createElement("canvas"); cv.width = w; cv.height = h; cv.getContext("2d").drawImage(im0, 0, 0, w, h); return cv.toDataURL("image/jpeg", q); }; const _thumb = ddbMakeThumb(im0, 320, 400, 0.62); const _day = ddbLocalDay(); Dp({ type: "AI_DAILY_ADD", day: _day, kind: "images", item: _thumb }); ddbSaveFullImg(_day, _thumb, u); try { ddbLogAct("image", { thumb: ddbMakeThumb(im0, 96, 96, 0.5), k: ddbHashStr(_thumb) }); } catch (e3) {} } catch (e2) {} }; im0.src = u; } catch (e1) {} const b = dataUrlToBlob(u); const ext = outFmt === "jpg" ? "jpg" : outFmt; const base = ((sv.nameOn && sv.fname) ? sv.fname : "MomentPlan").replace(/[\\/:*?"<>|]+/g, "_"); const nm = base + "-" + saveN + "." + ext; if (sv.pathOn && window.showDirectoryPicker) { try { if (!dirH.current) await pickDir(); if (!dirH.current) return; const fh = await dirH.current.getFileHandle(nm, { create: true }); const w = await fh.createWritable(); await w.write(b); await w.close(); setSaveN(n => n + 1); flash("저장: " + nm); } catch { flash("저장 실패 — 권한을 확인하세요"); } } else { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = nm; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); setSaveN(n => n + 1); flash("저장: " + nm); } }
     async function doCopy() { const c = fcRef.current; if (!c) return; c.discardActiveObject(); c.renderAll(); const rr = imgRegion(); const u = c.toDataURL({ format: "png", multiplier: (1 / (fitRef.current || 1)), left: rr.left, top: rr.top, width: rr.width, height: rr.height }); try { const b = dataUrlToBlob(u); await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]); flash("복사됨! 붙여넣기(Ctrl+V)"); } catch { flash("복사 실패"); } }
     function savePal() { setPal(p => { const np = [color, ...p.filter(x => x.toLowerCase() !== color.toLowerCase())].slice(0, 6); try { localStorage.setItem("ddb_img_pal", JSON.stringify(np)); } catch {} return np; }); flash("색상 저장됨", 1400); }
 
@@ -2335,8 +2335,17 @@ function ddbSaveBigImg(day, dataUrl) { try { const key = ddbBigImgKey(day); let 
 // 원본 해상도 이미지 보관(이 PC 안, IndexedDB — localStorage는 5~10MB 한도라 큰 사진이 저장 실패하던 문제 해결). 키 = 날짜|썸네일 지문
 function ddbHashStr(s) { s = String(s || ""); let h = 5381; for (let i = 0; i < s.length; i += 3) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + "_" + s.length; }
 let _ddbImgDbP = null;
-function ddbImgDb() { if (_ddbImgDbP) return _ddbImgDbP; _ddbImgDbP = new Promise((res, rej) => { try { const rq = indexedDB.open("ddb_images", 1); rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains("full")) db.createObjectStore("full", { keyPath: "k" }); }; rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); } catch (e) { rej(e); } }); _ddbImgDbP.catch(() => { _ddbImgDbP = null; }); return _ddbImgDbP; }
+function ddbImgDb() { if (_ddbImgDbP) return _ddbImgDbP; _ddbImgDbP = new Promise((res, rej) => { try { const rq = indexedDB.open("ddb_images", 2); rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains("full")) db.createObjectStore("full", { keyPath: "k" }); if (!db.objectStoreNames.contains("bak")) db.createObjectStore("bak", { keyPath: "k" }); }; rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); } catch (e) { rej(e); } }); _ddbImgDbP.catch(() => { _ddbImgDbP = null; }); return _ddbImgDbP; }
 async function ddbSaveFullImg(day, thumb, url) { try { if (!url) return; const db = await ddbImgDb(); await new Promise((res, rej) => { const tx = db.transaction("full", "readwrite"); const os = tx.objectStore("full"); os.put({ k: day + "|" + ddbHashStr(thumb), day, t: Date.now(), url }); try { const cut = Date.now() - 370 * 864e5; os.openCursor().onsuccess = ev => { const cur = ev.target.result; if (!cur) return; if ((cur.value.t || 0) < cut) cur.delete(); cur.continue(); }; } catch (e) {} tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } catch (e) {} }
+async function ddbGetFullImgByKey(day, key) { try { const db = await ddbImgDb(); return await new Promise(res => { const rq = db.transaction("full").objectStore("full").get(day + "|" + key); rq.onsuccess = () => res(rq.result ? rq.result.url : null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
+// 예전 방식(localStorage)의 큰 그림 → IndexedDB로 옮기고 localStorage 비우기 (localStorage가 가득 차서 로그인 정보·데이터 저장이 실패하던 원인 제거)
+async function ddbMigrateLegacyImgs() { try { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("ddb_imgbig_") === 0) keys.push(k); } if (!keys.length) return; const db = await ddbImgDb(); for (const k of keys) { let arr = []; try { arr = JSON.parse(localStorage.getItem(k) || "[]"); } catch (e) {} const day = k.slice(11); await new Promise(res => { const tx = db.transaction("full", "readwrite"); arr.forEach((u, i) => tx.objectStore("full").put({ k: "legacy|" + day + "|" + i, day, t: Date.now(), url: u })); tx.oncomplete = res; tx.onerror = res; }); localStorage.removeItem(k); } } catch (e) {} }
+async function ddbGetLegacyBigs(day) { const ls = ddbGetBigImgs(day); if (ls.length) return ls; try { const db = await ddbImgDb(); return await new Promise(res => { const out = []; const rq = db.transaction("full").objectStore("full").openCursor(IDBKeyRange.bound("legacy|" + day + "|", "legacy|" + day + "|\uffff")); rq.onsuccess = ev => { const c = ev.target.result; if (!c) { out.sort((a, b) => a.i - b.i); return res(out.map(x => x.u)); } out.push({ i: +String(c.value.k).split("|")[2], u: c.value.url }); c.continue(); }; rq.onerror = () => res([]); }); } catch (e) { return []; } }
+// 데이터 보관본(IndexedDB, 용량 넉넉) — 로그인 풀린 채 켜졌을 때 기존 데이터를 여기에도 보관
+async function ddbBakPut(rec) { try { const db = await ddbImgDb(); await new Promise(res => { const tx = db.transaction("bak", "readwrite"); tx.objectStore("bak").put({ k: "autobak", ...rec }); tx.oncomplete = res; tx.onerror = res; }); } catch (e) {} }
+async function ddbBakGet() { try { const db = await ddbImgDb(); return await new Promise(res => { const rq = db.transaction("bak").objectStore("bak").get("autobak"); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
+function ddbCountData(d) { try { d = d || {}; return (d.events || []).length + (d.ddays || []).length + (d.todos || []).length + (d.memoTabs || []).reduce((t, x) => t + ((x && x.items) || []).length, 0) + (d.memoTabs || []).filter(x => x && x.aiText && String(x.aiText).trim()).length; } catch (e) { return 0; } }
+try { setTimeout(() => ddbMigrateLegacyImgs(), 1500); } catch (e) {}
 async function ddbGetFullImg(day, thumb) { try { const db = await ddbImgDb(); return await new Promise(res => { const rq = db.transaction("full").objectStore("full").get(day + "|" + ddbHashStr(thumb)); rq.onsuccess = () => res(rq.result ? rq.result.url : null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
 // 동기화용 작은 그림(목록·다른 기기용) — 예전 150~200px 저화질 → 320px 선명하게
 function ddbMakeThumb(img, maxW, maxH, q) { const r = Math.min((maxW || 320) / img.width, (maxH || 400) / img.height, 1) || 1; const cv = document.createElement("canvas"); cv.width = Math.max(1, Math.round(img.width * r)); cv.height = Math.max(1, Math.round(img.height * r)); const g = cv.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(img, 0, 0, cv.width, cv.height); return cv.toDataURL("image/jpeg", q || 0.62); }
@@ -3215,6 +3224,21 @@ function DDBQuickEdge() {
     ] }), document.body);
 }
 // 화면 구석 시계: 현재 시간 / 가장 가까운 타이머·알람 남은 시간 (정한 분 전부터 노랑→주황→빨강). 1초 눌러 끌면 다른 구석으로 이동.
+// 로그인이 풀린 채 켜져 빈 화면일 때: 기존 데이터가 안전하게 보관돼 있음을 알리고 한 번에 되돌리기
+function DDBRecoverBanner() {
+    const { state, dispatch } = vt();
+    const [rec, setRec] = O.useState(() => window.__ddbStartedEmpty || null);
+    const [done, setDone] = O.useState("");
+    O.useEffect(() => { if (rec) return; const t = setTimeout(async () => { if (ddbCountData(state) > 0) return; const b = await ddbBakGet(); if (b && b.n > 0 && Date.now() - new Date(b.at).getTime() < 3 * 864e5) setRec(b); }, 2500); return () => clearTimeout(t); }, []);
+    if (done) return Rr.createPortal(o.jsx("div", { style: { position: "fixed", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 2147483600, background: "#14532d", border: "1px solid #22c55e", color: "#fff", padding: "10px 16px", borderRadius: 10, fontSize: 14 }, onClick: () => setDone(""), children: done }), document.body);
+    if (!rec || ddbCountData(state) > 0) return null;
+    const restore = () => { try { dispatch({ type: "RESTORE_STATE", state: JSON.parse(rec.data) }); setRec(null); setDone("✅ 이전 데이터(항목 " + rec.n + "개)로 되돌렸어요. 클라우드 동기화를 쓰시면 ☁ 로그인도 해 주세요."); setTimeout(() => setDone(""), 8000); } catch (e) { setDone("되돌리기 실패 — 설정 → 백업·복구에서 자동 백업으로 되돌려 주세요."); } };
+    return Rr.createPortal(o.jsxs("div", { "data-ddb-recover": "1", style: { position: "fixed", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 2147483600, width: "min(640px, 94vw)", background: "#451a03", border: "2px solid #f59e0b", color: "#fff", padding: "12px 16px", borderRadius: 12, boxShadow: "0 16px 40px rgba(0,0,0,.6)" }, children: [
+        o.jsx("div", { style: { fontWeight: 800, fontSize: 15, marginBottom: 4 }, children: "⚠️ 화면이 비어 있지만 데이터는 안전하게 보관돼 있어요" }),
+        o.jsx("div", { style: { fontSize: 13, lineHeight: 1.55, color: "#fde68a" }, children: "로그인이 풀린 상태로 켜져서 빈 화면으로 시작했어요. 보관본: " + String(rec.at).slice(0, 16).replace("T", " ") + " · 항목 " + rec.n + "개. 새로 입력하기 전에 되돌리세요." }),
+        o.jsxs("div", { style: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }, children: [o.jsx("button", { onClick: restore, style: { padding: "7px 14px", borderRadius: 8, border: "none", background: "#f59e0b", color: "#1c1917", fontWeight: 800, cursor: "pointer" }, children: "🛟 이전 데이터로 되돌리기" }), o.jsx("span", { style: { fontSize: 12.5, color: "#fff", alignSelf: "center" }, children: "또는 ☁ 로그인하면 클라우드 데이터를 받아와요" }), o.jsx("button", { onClick: () => setRec(null), style: { marginLeft: "auto", padding: "7px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,.4)", background: "transparent", color: "#fff", cursor: "pointer" }, children: "닫기" })] })
+    ] }), document.body);
+}
 function DDBTimerClock() {
     const { state, dispatch } = vt();
     const cfg = ddbTimerCfg(state);
@@ -3377,7 +3401,7 @@ function DDBBackupPanel() {
     const native = typeof window !== "undefined" && window.ddbNative && window.ddbNative.backupList;
     const load = async () => { try { const l = native ? await window.ddbNative.backupList() : []; setList(Array.isArray(l) ? l : []); } catch { setList([]); } };
     O.useEffect(() => { load(); }, []);
-    const fmtName = f => { const m = String(f).match(/^bk-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})/); return m ? (m[1] + " " + m[2] + ":" + m[3]) : f; };
+    const fmtName = f => { const dm = String(f).match(/^day-(\d{4}-\d{2}-\d{2})/); if (dm) return "📅 " + dm[1] + " 하루 보관본"; const m = String(f).match(/^bk-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})/); return m ? (m[1] + " " + m[2] + ":" + m[3]) : f; };
     const restore = async f => { if (!window.confirm("이 시점(" + fmtName(f) + ")으로 되돌릴까요?\n현재 내용이 이 백업 시점 내용으로 바뀝니다.")) return; try { const j = await window.ddbNative.backupRead(f); if (!j) { setMsg("백업을 읽지 못했어요."); return; } const data = JSON.parse(j); dispatch({ type: "RESTORE_STATE", state: data }); setMsg("✅ 복구 완료! 화면이 백업 시점으로 돌아갔어요."); } catch (e) { setMsg("복구 실패: " + ((e && e.message) || "")); } };
     const [ab, setAb] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_autobak_v1") || "null"); return v && v.data ? v : null; } catch (e) { return null; } });
     const restoreAb = () => { if (!ab) return; if (!window.confirm("로그인 없이 켜졌을 때 따로 보관해 둔 데이터(" + String(ab.at).slice(0, 16).replace("T", " ") + ", 항목 " + ab.n + "개)로 되돌릴까요?\n현재 화면 내용이 그 데이터로 바뀝니다.")) return; try { dispatch({ type: "RESTORE_STATE", state: JSON.parse(ab.data) }); setMsg("✅ 보관본으로 되돌렸어요."); } catch (e) { setMsg("되돌리기 실패: " + ((e && e.message) || "")); } };
@@ -3385,7 +3409,7 @@ function DDBBackupPanel() {
     if (!native) return o.jsxs("div", { children: [abBox, o.jsx("p", { className: "text-white/80 text-[11px]", children: "설치형(Windows/Mac) 앱에서만 자동 백업 목록이 지원돼요. 브라우저에선 클라우드 동기화로 보호됩니다." }), msg && o.jsx("p", { className: "text-emerald-300 text-xs mt-2", children: msg })] });
     return o.jsxs("div", { children: [
         abBox,
-        o.jsxs("div", { className: "flex items-center justify-between mb-1", children: [o.jsx("p", { className: "text-white/80 text-[11px]", children: "8초마다 자동 저장 (최근 10개 보관). 필요하면 되돌리기." }), o.jsx("button", { onClick: load, className: "text-[10px] text-white/40 hover:text-white/70 underline bg-transparent border-none cursor-pointer", children: "새로고침" })] }),
+        o.jsxs("div", { className: "flex items-center justify-between mb-1", children: [o.jsx("p", { className: "text-white/80 text-[11px]", children: "8초마다 자동 저장 (최근 10개 + 날짜별 하루 보관본 30일). 필요하면 되돌리기." }), o.jsx("button", { onClick: load, className: "text-[10px] text-white/40 hover:text-white/70 underline bg-transparent border-none cursor-pointer", children: "새로고침" })] }),
         list.length === 0 ? o.jsx("p", { className: "text-white/30 text-xs py-2", children: "아직 백업이 없어요 (조금 사용하면 생겨요)." }) : o.jsx("div", { className: "flex flex-col gap-1 max-h-52 overflow-y-auto thin-scroll", children: list.map((b, i) => o.jsxs("div", { className: "flex items-center gap-2 bg-white/5 rounded-lg px-3 py-1.5", children: [o.jsxs("span", { className: "text-white/80 text-xs flex-1", children: [i === 0 ? "🟢 " : "", fmtName(b.file), o.jsxs("span", { className: "text-white/30 ml-1", children: ["(", Math.round((b.size || 0) / 1024), "KB)"] })] }), o.jsx("button", { onClick: () => restore(b.file), className: "px-2.5 py-1 rounded border border-blue-400/50 text-blue-100 bg-blue-500/20 hover:bg-blue-500/35 text-[11px] cursor-pointer", children: "되돌리기" })] }, b.file)) }),
         msg && o.jsx("p", { className: "text-emerald-300 text-xs mt-2", children: msg })
     ] });
@@ -3736,8 +3760,8 @@ function DDBMemoOverview() {
                                     cell([o.jsx("div", { className: "px-2 py-1 text-sky-300 text-[11px] font-bold flex-shrink-0", children: "📊 Table" }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2", children: tbls.length ? tbls.map((md, i2) => o.jsxs("div", { className: "relative", children: [stbl(md, i2), o.jsx("button", { onClick: () => dsp({ type: "AI_DAILY_DEL", day: dd, kind: "tables", idx: i2 }), className: "absolute top-0 right-0 text-white/60 bg-black/50 rounded text-[10px] px-1 cursor-pointer border-none", children: "✕" })] }, i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "AI메모에 표 붙여넣으면 여기" }) })])
                                 ] }),
                                 o.jsxs("div", { style: { flex: "1 1 50%", minHeight: 0, display: "flex" }, children: [
-                                    o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,0.12)" }, children: [o.jsx("div", { className: "px-2 py-1 text-purple-300 text-[11px] font-bold flex-shrink-0", children: "🖼 Image" }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2 flex flex-wrap gap-1.5 content-start", children: imgs.length ? imgs.map((src, i2) => o.jsxs("div", { className: "relative", children: [o.jsx("img", { src: src, onClick: async () => { const big = ddbGetBigImgs(dd); const off = Math.max(0, big.length - imgs.length); const full = await Promise.all(imgs.map(t => ddbGetFullImg(dd, t))); setLightbox({ list: imgs.map((t, k) => full[k] || big[off + k] || t), idx: i2 }); }, style: { maxWidth: 88, maxHeight: 88, borderRadius: 5, border: "1px solid rgba(255,255,255,0.15)", background: "#000", cursor: "pointer" } }), o.jsx("button", { onClick: () => dsp({ type: "AI_DAILY_DEL", day: dd, kind: "images", idx: i2 }), className: "absolute top-0.5 right-0.5 text-white/70 bg-black/55 rounded text-[10px] px-1 cursor-pointer border-none", children: "✕" })] }, i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "작업/저장한 이미지가 여기" }) })] }),
-                                    cell([o.jsxs("div", { className: "px-2 py-1 text-pink-300 text-[11px] font-bold flex-shrink-0", children: ["🕒 그날 한 일 (", acts.length, ")"] }), o.jsx("div", { className: "flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-1", children: acts.length ? acts.map((a, i2) => { const m = aMeta(a); const clickable = a.kind === "image" || a.kind === "memo"; const onRow = async () => { if (a.kind === "image") { const base = imgs.indexOf(a.thumb) >= 0 ? imgs : [a.thumb]; const big = ddbGetBigImgs(dd); const off = Math.max(0, big.length - base.length); const full = await Promise.all(base.map(x => ddbGetFullImg(dd, x))); setLightbox({ list: base.map((x, k) => full[k] || big[off + k] || x), idx: Math.max(0, base.indexOf(a.thumb)) }); } else if (a.kind === "memo") { const mt = (t.memoTabs || []).find(x => x.id === a.tabId); setMemoBig({ title: mt ? ddbTT(mt.title) : (a.tab || "메모"), content: mt ? ((mt.items || []).map(it => it.content).join("\n\n") || a.preview || "") : (a.preview || "") }); } }; return o.jsxs("div", { onClick: clickable ? onRow : void 0, className: "flex items-start gap-1.5", style: clickable ? { cursor: "pointer" } : void 0, children: [o.jsx("span", { style: { color: "rgba(255,255,255,0.4)", fontSize: 10, width: 30, flexShrink: 0, paddingTop: 1 }, children: aTime(a.t) }), o.jsx("span", { style: { width: 6, height: 6, borderRadius: "50%", background: m.c, flexShrink: 0, marginTop: 4 } }), o.jsx("span", { style: { flex: 1, minWidth: 0, color: "rgba(255,255,255,0.85)", fontSize: 11, wordBreak: "break-word", textDecoration: clickable ? "underline dotted rgba(255,255,255,0.3)" : "none" }, children: m.txt }), m.thumb && o.jsx("img", { src: m.thumb, style: { width: 40, height: 40, objectFit: "cover", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", flexShrink: 0 } })] }, i2); }) : o.jsx("span", { className: "text-white/25 text-[11px] px-1", children: "메모·이미지편집·가계부·할일·검색 기록이 여기" }) })])
+                                    o.jsxs("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,0.12)" }, children: [o.jsx("div", { className: "px-2 py-1 text-purple-300 text-[11px] font-bold flex-shrink-0", children: "🖼 Image" }), o.jsx("div", { className: "flex-1 overflow-y-auto p-2 flex flex-wrap gap-1.5 content-start", children: imgs.length ? imgs.map((src, i2) => o.jsxs("div", { className: "relative", children: [o.jsx("img", { src: src, onClick: async () => { const big = await ddbGetLegacyBigs(dd); const off = Math.max(0, big.length - imgs.length); const full = await Promise.all(imgs.map(t => ddbGetFullImg(dd, t))); setLightbox({ list: imgs.map((t, k) => full[k] || big[off + k] || t), idx: i2 }); }, style: { maxWidth: 88, maxHeight: 88, borderRadius: 5, border: "1px solid rgba(255,255,255,0.15)", background: "#000", cursor: "pointer" } }), o.jsx("button", { onClick: () => dsp({ type: "AI_DAILY_DEL", day: dd, kind: "images", idx: i2 }), className: "absolute top-0.5 right-0.5 text-white/70 bg-black/55 rounded text-[10px] px-1 cursor-pointer border-none", children: "✕" })] }, i2)) : o.jsx("span", { className: "text-white/25 text-[11px]", children: "작업/저장한 이미지가 여기" }) })] }),
+                                    cell([o.jsxs("div", { className: "px-2 py-1 text-pink-300 text-[11px] font-bold flex-shrink-0", children: ["🕒 그날 한 일 (", acts.length, ")"] }), o.jsx("div", { className: "flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-1", children: acts.length ? acts.map((a, i2) => { const m = aMeta(a); const clickable = a.kind === "image" || a.kind === "memo"; const onRow = async () => { if (a.kind === "image") { const ki = a.k ? imgs.findIndex(x => ddbHashStr(x) === a.k) : imgs.indexOf(a.thumb); const base = ki >= 0 ? imgs : [a.thumb]; const big = await ddbGetLegacyBigs(dd); const off = Math.max(0, big.length - base.length); const full = await Promise.all(base.map(x => ddbGetFullImg(dd, x))); if (ki < 0 && a.k) full[0] = await ddbGetFullImgByKey(dd, a.k); setLightbox({ list: base.map((x, k) => full[k] || big[off + k] || x), idx: Math.max(0, ki) }); } else if (a.kind === "memo") { const mt = (t.memoTabs || []).find(x => x.id === a.tabId); setMemoBig({ title: mt ? ddbTT(mt.title) : (a.tab || "메모"), content: mt ? ((mt.items || []).map(it => it.content).join("\n\n") || a.preview || "") : (a.preview || "") }); } }; return o.jsxs("div", { onClick: clickable ? onRow : void 0, className: "flex items-start gap-1.5", style: clickable ? { cursor: "pointer" } : void 0, children: [o.jsx("span", { style: { color: "rgba(255,255,255,0.4)", fontSize: 10, width: 30, flexShrink: 0, paddingTop: 1 }, children: aTime(a.t) }), o.jsx("span", { style: { width: 6, height: 6, borderRadius: "50%", background: m.c, flexShrink: 0, marginTop: 4 } }), o.jsx("span", { style: { flex: 1, minWidth: 0, color: "rgba(255,255,255,0.85)", fontSize: 11, wordBreak: "break-word", textDecoration: clickable ? "underline dotted rgba(255,255,255,0.3)" : "none" }, children: m.txt }), m.thumb && o.jsx("img", { src: m.thumb, style: { width: 40, height: 40, objectFit: "cover", borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", flexShrink: 0 } })] }, i2); }) : o.jsx("span", { className: "text-white/25 text-[11px] px-1", children: "메모·이미지편집·가계부·할일·검색 기록이 여기" }) })])
                                 ] })
                             ] }, dd);
                         }) })
@@ -4225,7 +4249,7 @@ function zv() {
         } else {
             // 데이터 보호: 로그인 없이(세션 만료 등) 빈 상태로 시작할 때, 덮어쓰이기 전 기존 데이터를 따로 보관
             const raw = localStorage.getItem(Ef);
-            if (raw && raw.length > 200) { try { const p = JSON.parse(raw); const n = (p.events || []).length + (p.memoTabs || []).reduce((t, x) => t + ((x && x.items) || []).length, 0) + (p.ddays || []).length; if (n > 0) localStorage.setItem("ddb_autobak_v1", JSON.stringify({ at: new Date().toISOString(), n: n, data: raw })); } catch (e2) {} }
+            if (raw && raw.length > 200) { try { const p = JSON.parse(raw); const n = (p.events || []).length + (p.memoTabs || []).reduce((t, x) => t + ((x && x.items) || []).length, 0) + (p.ddays || []).length; if (n > 0) { const _rec = { at: new Date().toISOString(), n: n, data: raw }; ddbBakPut(_rec); window.__ddbStartedEmpty = _rec; try { localStorage.setItem("ddb_autobak_v1", JSON.stringify(_rec)); } catch (e3) {} } } catch (e2) {} }
         }
     } catch {}
     return Hl
@@ -4234,7 +4258,7 @@ function zv() {
 function Hv(e) {
     try {
         localStorage.setItem(Ef, JSON.stringify(e))
-    } catch {}
+    } catch { try { localStorage.removeItem("ddb_cap_recent"); localStorage.removeItem("ddb_autobak_v1"); for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.indexOf("ddb_imgbig_") === 0) localStorage.removeItem(k); } localStorage.setItem(Ef, JSON.stringify(e)); } catch (e2) { try { console.error("저장 공간 부족: 데이터 저장 실패", e2); } catch (e3) {} } }
 }
 
 function Vk() {
@@ -4582,11 +4606,11 @@ function Gk(e, t) {
             const lc = _cnt(e), cc = _cnt(cloud);
             // 안전 가드: 클라우드가 로컬보다 내용이 적으면(=삭제/유실 위험) 덮어쓰지 않고 로컬 유지
             if (lc > 0 && cc < lc) { try { console.warn("[DDB] 클라우드 동기화 건너뜀: 클라우드(" + cc + ") < 로컬(" + lc + ") — 로컬 데이터 보호"); } catch (e2) {} return e; }
-            return { ...cloud, currentYear: r, currentMonth: n };
+            return { ...Hl, ...cloud, settings: { ...(Hl.settings || {}), ...(cloud.settings || {}) }, currentYear: r, currentMonth: n };
         }
         case "RESTORE_STATE": {
             const { currentYear: r, currentMonth: n } = e;
-            return { ...(t.state || {}), currentYear: r, currentMonth: n };
+            const _rs = t.state || {}; return { ...Hl, ..._rs, settings: { ...(Hl.settings || {}), ...(_rs.settings || {}) }, currentYear: r, currentMonth: n };
         }
         default:
             return e
@@ -4645,7 +4669,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.107";
+const DDB_VERSION = "1.00.108";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -4725,7 +4749,7 @@ function qS({
     const {
         state: t,
         dispatch: r
-    } = vt(), [n, s] = O.useState(null), [a, i] = O.useState(!1), [l, c] = O.useState("idle"), [u, h] = O.useState(null), d = O.useRef(null), f = O.useRef(null), x = O.useRef(!0);
+    } = vt(), [n, s] = O.useState(null), [a, i] = O.useState(!1), [l, c] = O.useState("idle"), [u, h] = O.useState(null), d = O.useRef(null), f = O.useRef(null), x = O.useRef(!0), pulledRef = O.useRef(!1), cloudNRef = O.useRef(-1);
     O.useEffect(() => {
         if (!Af()) return;
         const _ = $a();
@@ -4747,7 +4771,7 @@ function qS({
             }
         } = _.auth.onAuthStateChange((E, b) => {
             const T = (b == null ? void 0 : b.user) ?? null;
-            s(T), f.current = T
+            s(T), f.current = T; if (T && !pulledRef.current && (E === "SIGNED_IN" || E === "INITIAL_SESSION")) p(T.id)
         });
         return () => k.unsubscribe()
     }, []), O.useEffect(() => {
@@ -4772,6 +4796,7 @@ function qS({
                         error: b
                     } = await k.from("user_data").select("data").eq("user_id", _).single();
                     if (b && b.code !== "PGRST116") throw b;
+                    pulledRef.current = !0; cloudNRef.current = E != null && E.data ? ddbCountData(E.data) : 0;
                     E != null && E.data && Object.keys(E.data).length > 0 && (r({
                         type: "LOAD_FROM_CLOUD",
                         state: E.data
@@ -4783,6 +4808,9 @@ function qS({
         }, [r]),
         m = O.useCallback(async () => {
             const _ = $a();
+            // ★ 안전장치: 클라우드에서 먼저 받아오기 전엔 올리지 않음 + 화면이 비었는데 클라우드엔 데이터가 있으면 절대 덮어쓰지 않음
+            if (_ && f.current && !pulledRef.current) { await p(f.current.id); if (cloudNRef.current > 0) return; }
+            if (_ && f.current && ddbCountData(t) === 0 && cloudNRef.current > 0) { console.warn("빈 상태 업로드 차단 (클라우드 항목 " + cloudNRef.current + "개 보호)"); c("error"); return; }
             if (!(!_ || !f.current)) {
                 c("syncing");
                 try {
@@ -4800,7 +4828,7 @@ function qS({
                         onConflict: "user_id"
                     });
                     if (k) throw k;
-                    c("synced"), h(new Date().toLocaleTimeString("ko-KR"))
+                    cloudNRef.current = ddbCountData(t); c("synced"), h(new Date().toLocaleTimeString("ko-KR"))
                 } catch (k) {
                     console.error("cloud upload error:", k), c("error")
                 }
@@ -6194,7 +6222,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v544"
+                children: "v545"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -19879,7 +19907,7 @@ function YO() {
             }), o.jsx(ST, {
                 open: f,
                 onClose: () => x(!1)
-            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBTableDropZones, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBCountrySetup, {}), o.jsx(DDBAnnivBanner, {}), o.jsx(DDBTimerClock, {}), o.jsx(DDBQuickEdge, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBHotkeys, {}), o.jsx(DDBPaintBanner, {})]
+            }), o.jsx(DDBTeamModal, {}), o.jsx(DDBAnnounceModal, {}), o.jsx(DDBMemoOverview, {}), o.jsx(DDBImageEditor, {}), o.jsx(DDBTableWindow, {}), o.jsx(DDBTableDropZones, {}), o.jsx(DDBPomodoro, {}), o.jsx(DDBGantt, {}), o.jsx(DDBFeedbackLog, {}), o.jsx(DDBMemoPopup, {}), o.jsx(DDBReceiptTool, {}), o.jsx(DDBCountrySetup, {}), o.jsx(DDBAnnivBanner, {}), o.jsx(DDBTimerClock, {}), o.jsx(DDBRecoverBanner, {}), o.jsx(DDBQuickEdge, {}), o.jsx(DDBAiFlusher, {}), o.jsx(DDBAiDigest, {}), o.jsx(DDBCaptureSettings, {}), o.jsx(DDBPrintPreview, {}), o.jsx(DDBThemeStyle, {}), o.jsx(DDBDesignEditor, {}), o.jsx(DDBCalBtnMenu, {}), o.jsx(DDBHotkeys, {}), o.jsx(DDBPaintBanner, {})]
         })
     })
 }

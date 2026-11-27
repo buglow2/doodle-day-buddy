@@ -282,14 +282,16 @@ async function createWindow() {
       // 최근 10개만 유지
       const all = fs.readdirSync(BKDIR).filter(f => f.startsWith('bk-') && f.endsWith('.json')).sort();
       while (all.length > 10) { try { fs.unlinkSync(path.join(BKDIR, all.shift())); } catch (e) {} }
+      // 하루 보관본(30일): 그날 가장 큰(=내용 많은) 상태를 남김 → 빈 화면·실수로 줄어든 상태가 최근 10개를 밀어내도 복구 가능
+      try { const d = new Date(); const dn = 'day-' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + '.json'; const dp = path.join(BKDIR, dn); let old = 0; try { old = fs.statSync(dp).size; } catch (e) {} if (json.length >= old * 0.6) fs.writeFileSync(dp, json, 'utf8'); const days = fs.readdirSync(BKDIR).filter(f => f.startsWith('day-') && f.endsWith('.json')).sort(); while (days.length > 30) { try { fs.unlinkSync(path.join(BKDIR, days.shift())); } catch (e) {} } } catch (e) {}
       return true;
     } catch (e) { return false; }
   });
   ipcMain.handle('ddb-backup-list', () => {
-    try { if (!fs.existsSync(BKDIR)) return []; return fs.readdirSync(BKDIR).filter(f => f.startsWith('bk-') && f.endsWith('.json')).sort().reverse().map(f => { let sz = 0; try { sz = fs.statSync(path.join(BKDIR, f)).size; } catch (e) {} return { file: f, size: sz }; }); } catch (e) { return []; }
+    try { if (!fs.existsSync(BKDIR)) return []; return fs.readdirSync(BKDIR).filter(f => (f.startsWith('bk-') || f.startsWith('day-')) && f.endsWith('.json')).sort().reverse().map(f => { let sz = 0; try { sz = fs.statSync(path.join(BKDIR, f)).size; } catch (e) {} return { file: f, size: sz }; }); } catch (e) { return []; }
   });
   ipcMain.handle('ddb-backup-read', (_e, file) => {
-    try { if (!/^bk-[\w.\-]+\.json$/.test(String(file))) return null; const p = path.join(BKDIR, file); if (!p.startsWith(BKDIR) || !fs.existsSync(p)) return null; return fs.readFileSync(p, 'utf8'); } catch (e) { return null; }
+    try { if (!/^(bk|day)-[\w.\-]+\.json$/.test(String(file))) return null; const p = path.join(BKDIR, file); if (!p.startsWith(BKDIR) || !fs.existsSync(p)) return null; return fs.readFileSync(p, 'utf8'); } catch (e) { return null; }
   });
 
   // 창을 닫기 전에 클라우드 동기화를 한 번 실행하고 종료 (최대 5초 대기)
