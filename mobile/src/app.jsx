@@ -193,25 +193,34 @@ function Today({ evByDate, ddays, reminders, feedback, timers, alarms, tsound, o
 
 // ★공통 규칙(PC와 같음): 1초 누르기 → 끌면 놓일 자리를 점선으로 미리보기 → 놓으면 그 자리로. 짧게 누르면 그냥 누르기.
 function HoldSort({ items, render, onChange, ghost }) {
+  // ⚠️ 끌고 있는 칸을 화면에서 빼 버리면(DOM 제거) 폰은 손가락 움직임·떼기 신호를 그 칸에만 보내서 앱이 못 받음 → '끌기 상태'에서 안 끝나던 원인.
+  //    그래서 끄는 칸은 지우지 않고 높이 0으로 접어 두고, 그 칸 자체에도 신호를 받는 귀(리스너)를 붙임. 6초 동안 움직임이 없으면 자동 취소.
   const [drag, setDrag] = useState(null);
-  const refs = React.useRef({}); const tm = React.useRef(null); const st = React.useRef(null);
-  useEffect(() => {
-    const pt = e => (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
-    const mv = e => { const s = st.current; if (!s) return; const p = pt(e);
-      if (!s.armed) { if (Math.abs(p.clientY - s.sy) + Math.abs(p.clientX - s.sx) > 10) { clearTimeout(tm.current); st.current = null; } return; }
-      if (e.cancelable) e.preventDefault(); let to = 0; s.rects.forEach((rc, j) => { if (j !== s.i && rc && p.clientY > rc.top + rc.height / 2) to++; }); s.to = to; setDrag(d => d && { ...d, y: p.clientY, to }); };
-    const up = () => { const s = st.current; clearTimeout(tm.current); st.current = null; if (s && s.armed) { setDrag(null); if (s.to != null && s.to !== s.i) { const arr = items.slice(); const [x] = arr.splice(s.i, 1); arr.splice(s.to, 0, x); onChange(arr); } } };
-    document.addEventListener('touchmove', mv, { passive: false }); document.addEventListener('touchend', up); document.addEventListener('touchcancel', up); document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
-    return () => { document.removeEventListener('touchmove', mv); document.removeEventListener('touchend', up); document.removeEventListener('touchcancel', up); document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
-  }, [items, onChange]);
-  const down = k => e => { if (e.button) return; const p = (e.touches && e.touches[0]) || e; clearTimeout(tm.current); st.current = { k, sx: p.clientX, sy: p.clientY, armed: false };
-    tm.current = setTimeout(() => { const s = st.current; if (!s) return; const rects = items.map(x => refs.current[x] ? refs.current[x].getBoundingClientRect() : null); const i = items.indexOf(k); const r = rects[i]; if (!r) return; try { navigator.vibrate && navigator.vibrate(30); } catch {} Object.assign(s, { armed: true, rects, i, to: i }); setDrag({ k, i, to: i, y: s.sy, dy: s.sy - r.top, h: r.height, w: r.width, x: r.left }); }, 1000); };
-  let view = items.map(k => ({ k }));
-  if (drag) { view = view.filter(v => v.k !== drag.k); view.splice(drag.to, 0, { ph: true }); }
+  const refs = React.useRef({}); const tm = React.useRef(null); const st = React.useRef(null); const idle = React.useRef(null);
+  const itemsRef = React.useRef(items); itemsRef.current = items; const cbRef = React.useRef(onChange); cbRef.current = onChange;
+  const pt = e => (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+  const finish = (commit) => { const s = st.current; clearTimeout(tm.current); clearTimeout(idle.current); st.current = null; if (s && s.detach) s.detach(); if (s && s.armed) { setDrag(null); if (commit && s.to != null && s.to !== s.i) { const arr = itemsRef.current.slice(); const [x] = arr.splice(s.i, 1); arr.splice(s.to, 0, x); cbRef.current(arr); } } };
+  const mv = e => { const s = st.current; if (!s) return; const p = pt(e);
+    if (!s.armed) { if (Math.abs(p.clientY - s.sy) + Math.abs(p.clientX - s.sx) > 10) finish(false); return; }
+    if (e.cancelable) e.preventDefault(); clearTimeout(idle.current); idle.current = setTimeout(() => finish(false), 6000);
+    let to = 0; s.rects.forEach((rc, j) => { if (j !== s.i && rc && p.clientY > rc.top + rc.height / 2) to++; }); s.to = to; setDrag(d => d && { ...d, y: p.clientY, to }); };
+  const up = () => finish(true);
+  const down = k => e => { if (e.button) return; const p = (e.touches && e.touches[0]) || e; finish(false); const el = e.currentTarget;
+    const s = { k, sx: p.clientX, sy: p.clientY, armed: false };
+    const opt = { passive: false };
+    const targets = [document, el];
+    targets.forEach(t => { t.addEventListener('touchmove', mv, opt); t.addEventListener('touchend', up); t.addEventListener('touchcancel', up); t.addEventListener('mousemove', mv); t.addEventListener('mouseup', up); });
+    s.detach = () => targets.forEach(t => { t.removeEventListener('touchmove', mv, opt); t.removeEventListener('touchend', up); t.removeEventListener('touchcancel', up); t.removeEventListener('mousemove', mv); t.removeEventListener('mouseup', up); });
+    st.current = s;
+    tm.current = setTimeout(() => { const s2 = st.current; if (!s2 || s2 !== s) return; const its = itemsRef.current; const rects = its.map(x => refs.current[x] ? refs.current[x].getBoundingClientRect() : null); const i = its.indexOf(k); const r = rects[i]; if (!r) return finish(false); try { navigator.vibrate && navigator.vibrate(30); } catch {} Object.assign(s, { armed: true, rects, i, to: i }); idle.current = setTimeout(() => finish(false), 6000); setDrag({ k, i, to: i, y: s.sy, dy: s.sy - r.top, h: r.height, w: r.width, x: r.left }); }, 1000); };
+  useEffect(() => () => finish(false), []);
+  // 화면 순서: 끄는 칸은 제자리에 '접힌 채' 남겨 두고(신호 받기용), 다른 칸들 사이에 점선 자리를 넣음
+  let seq = items.map(k => ({ k }));
+  if (drag) { const others = items.filter(k => k !== drag.k).map(k => ({ k })); others.splice(drag.to, 0, { ph: true }); seq = others; seq.splice(Math.min(drag.i, seq.length), 0, { k: drag.k, hidden: true }); }
   return <div onContextMenu={e => { if (st.current) e.preventDefault(); }}>
-    {view.map(v => v.ph ? <div key="ph" style={{ height: drag.h, border: '2px dashed #fbbf24', borderRadius: 12, background: 'rgba(251,191,36,0.12)', marginBottom: 4 }} />
-      : <div key={v.k} ref={el => { if (!drag) refs.current[v.k] = el; }} onTouchStart={down(v.k)} onMouseDown={down(v.k)} style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: drag ? 'none' : 'auto' }}>{render(v.k)}</div>)}
-    {drag ? <div style={{ position: 'fixed', left: drag.x, top: drag.y - drag.dy, width: drag.w, pointerEvents: 'none', zIndex: 9999, opacity: 0.92, transform: 'scale(1.03)', boxShadow: '0 12px 30px rgba(0,0,0,0.6)', borderRadius: 12, background: '#0b1020' }}>{ghost ? ghost(drag.k) : render(drag.k)}</div> : null}
+    {seq.map(v => v.ph ? <div key="ph" style={{ height: drag.h, border: '2px dashed #fbbf24', borderRadius: 12, background: 'rgba(251,191,36,0.12)', marginBottom: 4 }} />
+      : <div key={v.k} ref={el => { if (!drag) refs.current[v.k] = el; }} onTouchStart={down(v.k)} onMouseDown={down(v.k)} style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: drag ? 'none' : 'auto', ...(v.hidden ? { height: 0, overflow: 'hidden', opacity: 0 } : {}) }}>{render(v.k)}</div>)}
+    {drag ? <div style={{ position: 'fixed', left: drag.x, top: drag.y - 28, width: drag.w, pointerEvents: 'none', zIndex: 9999, opacity: 0.92, transform: 'scale(1.03)', boxShadow: '0 12px 30px rgba(0,0,0,0.6)', borderRadius: 12, background: '#0b1020' }}>{ghost ? ghost(drag.k) : render(drag.k)}</div> : null}
   </div>;
 }
 
