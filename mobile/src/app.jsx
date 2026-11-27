@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { loadEvents, loadDdays, addEvent, deleteEvent, addDday, deleteDday, importFromPcBackup, getAll, setAll, loadMemos, setMemo, loadFeedback, loadPcMemos, loadTimers, loadAlarms, loadTSound, COLORS } from './data.js';
+import { Browser } from '@capacitor/browser';
 import { checkUpdate, applyWebNow, installApk, noteApplied, isNative, WEB_VERSION } from './update.js';
 import { buildReminders, scheduleReminders, scheduleTimers, scheduleBriefFallback, webNotifyToday, askWebPermission, isNativeApp } from './remind.js';
 import { loadBriefCfg, saveBriefCfg, pushBriefCfg, setRemCache, fetchBrief, fetchNews, briefStatus, fmtN, IDX_ALL, FX_ALL, NEWS_ALL, FX_SYM, newsCatsOf } from './brief.js';
@@ -726,7 +727,7 @@ function BriefCard() {
         {data.fx ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px', marginTop: 4 }}>{data.fx.list.map(x => <span key={x.c}>{FX_SYM[x.c]} <b>{fmtN(x.v)}</b>원</span>)}</div> : null}
         <div style={{ display: 'flex', gap: 5, overflowX: 'auto', margin: '8px 0 6px', paddingBottom: 2 }}>{allCats.map(c => <button key={c} onClick={() => pickCat(c)} style={{ flexShrink: 0, padding: '5px 10px', borderRadius: 999, fontSize: 12.5, border: '1px solid ' + (cat === c ? '#38bdf8' : 'rgba(255,255,255,0.25)'), background: cat === c ? 'rgba(56,189,248,0.3)' : 'transparent', color: '#fff', fontWeight: cat === c ? 700 : 400 }}>{c.replace(/^#/, '🔎 ')}{inNoti(c) ? ' 🔔' : ''}</button>)}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 2 }}><b style={{ flex: 1, color: '#7dd3fc' }}>📰 {cat.replace(/^#/, '🔎 ')}</b>{cat[0] !== '#' ? <button onClick={() => togNoti(cat)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 999, padding: '2px 8px', fontSize: 11 }}>{inNoti(cat) ? '🔔 아침 알림에 포함됨' : '🔕 아침 알림에 넣기'}</button> : null}<button onClick={() => pickCat(cat, true)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 8, padding: '2px 7px', fontSize: 11 }}>{nbusy ? '…' : '↻'}</button></div>
-        {nbusy && !ncache[cat] ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>불러오는 중…</div> : ncache[cat] ? <ol style={{ margin: '4px 0 0', paddingLeft: 20 }}>{ncache[cat].map((n, i) => <li key={i} style={{ marginBottom: 3 }}><a href={n.u} target="_blank" rel="noreferrer" style={{ color: '#e2e8f0', textDecoration: 'none' }}>{n.t}</a></li>)}</ol> : ncache[cat] === null ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{native ? '뉴스를 못 가져왔어요 (인터넷 확인 후 ↻)' : '뉴스는 설치형 앱에서 보여요.'}</div> : <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>위에서 분야를 누르면 바로 보여요.</div>}
+        {nbusy && !ncache[cat] ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>불러오는 중…</div> : ncache[cat] ? <ol style={{ margin: '4px 0 0', paddingLeft: 20 }}>{ncache[cat].map((n, i) => <li key={i} style={{ marginBottom: 3 }}><a href={n.u} onClick={e => { e.preventDefault(); openInApp(n.u); }} rel="noreferrer" style={{ color: '#e2e8f0', textDecoration: 'none' }}>{n.t}</a></li>)}</ol> : ncache[cat] === null ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{native ? '뉴스를 못 가져왔어요 (인터넷 확인 후 ↻)' : '뉴스는 설치형 앱에서 보여요.'}</div> : <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>위에서 분야를 누르면 바로 보여요.</div>}
         {data.errs.length ? <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>{native ? '가져오지 못함: ' + data.errs.join(', ') + ' (인터넷 확인)' : (data.errs.filter(e => e !== '환율').length ? '지수·뉴스는 설치형 앱에서 보여요.' : '')}</div> : null}
       </div> : <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>{busy ? '불러오는 중…' : '↻ 를 누르면 오늘 자료를 가져와요.'}</div>}
     </div>
@@ -757,4 +758,10 @@ function UpdateBanner() {
       <button style={btn('#3b82f6')} disabled={pct != null && pct < 100} onClick={async () => { setErr(''); setPct(0); try { await installApk(st.latest.apkUrl, setPct); setPct(null); } catch (e) { setPct(null); setErr('설치 화면을 못 열었어요. 처음 한 번은 "이 출처 허용"(MomentPlan)을 켜 주세요. (' + ((e && e.message) || e) + ')'); } }}>{pct != null ? '받는 중…' : '업데이트'}</button>
       <button style={{ ...btn('transparent'), color: 'rgba(255,255,255,0.85)' }} onClick={() => setHide(true)}>나중에</button>
       {err ? <div style={{ width: '100%', fontSize: 12, color: '#fecaca' }}>{err}</div> : null}</div>);
+}
+
+// 뉴스·링크를 앱 안에서 열기: 설치형 앱은 앱 위에 겹쳐 뜨는 브라우저 창(크롬 맞춤 탭) → 닫기(✕)/뒤로가기 하면 바로 앱으로 돌아옴
+async function openInApp(url) {
+  try { if (isNative()) { await Browser.open({ url, toolbarColor: '#111827', presentationStyle: 'popover' }); return; } } catch {}
+  try { window.open(url, '_blank', 'noopener'); } catch {}
 }
