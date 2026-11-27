@@ -589,7 +589,9 @@ function DDBImageEditor() {
     const undo = () => loadHist(-1);
     const redo = () => loadHist(1);
 
-    function fitTo(nw, nh) { const maxW = Math.min(1180, window.innerWidth - 80), maxH = window.innerHeight - 170; const f = Math.min(1, maxW / nw, maxH / nh); return f || 1; }
+    // 화면 배율(윈도우 125%·150% 등)을 고려: 그림 1픽셀 = 모니터 1픽셀이 되는 배율(1/dpr)을 최대로 → 캡처가 찍은 그대로 선명하게 보임
+    //  (예전엔 최대 1배(CSS)라 125% 화면에서 1.25배로 늘어나 흐릿했음). 저장은 1/f 배로 내보내므로 원본 해상도 그대로.
+    function fitTo(nw, nh) { const dpr = Math.max(1, window.devicePixelRatio || 1); const bx = boardBox(); const maxW = Math.max(240, Math.min(bx.W, window.innerWidth - 80)), maxH = Math.max(240, Math.min(bx.H, window.innerHeight - 170)); const f = Math.min(1 / dpr, maxW / nw, maxH / nh); return f || 1; }
     function loadImage(url, keepHist) {
         ensureFabric().then(fab => {
             const c = fcRef.current; if (!c) return;
@@ -4643,7 +4645,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.106";
+const DDB_VERSION = "1.00.107";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -6192,7 +6194,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v543"
+                children: "v544"
             }), (() => {
                 const S = [{
                     k: "cal",
