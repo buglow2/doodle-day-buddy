@@ -1,159 +1,94 @@
-# CLAUDE.md — MomentPlan(Doodle Day Buddy) 작업 메모
+# CLAUDE.md — MomentPlan(Doodle Day Buddy) 작업 메모 (요약판)
 
-사용자: buglow. 한국어로 답변. 코딩 지식 적으므로 용어는 풀어서 설명. 기술 제약 있으면 착수 전에 먼저 물어볼 것.
+## 사용자·답변 규칙
+- 사용자: buglow. **한국어로 답변.** 코딩 지식 적음 → 용어는 쉬운 말로 풀어서.
+- 기술 제약이 있으면 착수 전에 먼저 물어볼 것. 큰 신규 기능은 구현 전에 문제점·대안 먼저 제시.
+- 보고 형식(매 보고 끝, 1~2줄 요약 금지): **①이번에 한 것 ②아직 못 한 요청 ③사용자가 문제라고 한 것의 처리 상태 ④답이 필요한 질문.** 미완료는 매번 다시 보여준다.
+- 버그 제보 시 먼저 어느 버전(v5XX)을 보는지 확인(구버전 캐시·미배포인 경우 많음).
+- 코드만 보고 "고쳤다" 하지 말 것 — 화면/동작으로 확인.
 
-## 제품 방향 (요약)
-- 올인원 업무 다이어리: 이미지편집(PPT급)·표(엑셀/한글급)·메모·가계부·D-Day·캘린더를 한 앱에서.
-- 핸드폰 연동(알림·가계부 조회), 회사 공동사용(팀 공유·쓰기/편집 권한 분리)이 최종 목표.
-- 참고 프로그램(엑셀·한글·PPT)의 동작·습성까지 세밀히 재현. UX/UI 직관성 우선.
+## 제품 방향
+- 올인원 업무 다이어리: 이미지편집(PPT급)·표(엑셀/한글급)·메모·가계부·D-Day·캘린더.
+- 목표: 폰 연동(알림·가계부 조회), 회사 공동사용(팀 공유·권한 분리). 엑셀·한글·PPT 동작을 세밀히 재현, UX 직관성 우선.
 
-## ★★ 창·팝업 규칙 (사용자 반복 지적 — 무엇을 만들든 설명 없이 기본 적용)
-- **창이 필요한 모든 것**(설정창·대화상자·도구창·목록창 등)은 만들 때부터: 제목줄 끌어 이동 · 가장자리 크기조절 · 화면 밖/툴바 뒤로 안 숨음 · **위치·크기 등 창 관련 상태를 전부 저장해 다음에 켜면 그 자리·그 크기로**. 사용자: "당연한 상식, 매번 설명하기 힘듦". → `DDBFloatWin` 사용.
-- 툴팁·설명창·드롭다운·색 선택 등 **떠 있는 창은 절대 패널/창 안에 갇히면 안 됨**(패널 overflow에 잘림). 반드시 `document.body`로 포털(`Rr.createPortal`) + `position:fixed` + 화면 경계 안으로 위치 보정.
-- **설정창·대화상자 같은 '창'은 반드시 `DDBFloatWin`(id,title,init,onClose)** 사용: 제목줄 끌어 이동·가장자리 8방향 크기조절·항상 화면 안(잘림 없음)·누르면 맨 앞·위치/크기 기억(`ddb_fw_<id>`). 사용자: "모든 팝업창은 툴바 등에 가려지지 않고 항상 창크기조절+창이동 가능" (v533: 퀵커맨드 설정·타이머/알람 창·시계 목록/설정 적용). 작은 드롭다운 메뉴만 DDBPortalPop.
-- 이미 있는 도구 사용: `DDBPortalPop`(부모 요소 기준 자동 배치·아래 공간 부족하면 위로·`up`/`matchW` 옵션) 또는 `ddbFloatPos(anchorEl,w,minH)`. 새로 `className:"absolute top-full …"` 팝업 만들지 말 것.
-- v516에서 AI메모 ⓘ·색 팔레트·메모/할일/Do 색 선택·이미지편집 드롭다운·배속 선택을 포털로 전환. 남은 후보: 1342xxx `vm` 호버 목록(bottom-full, 애니메이션형) — 다음에 같이 점검.
+## ★★ 창·팝업 규칙 (설명 없이 항상 기본 적용)
+- 창(설정창·대화상자·도구창·목록창)은 반드시 `DDBFloatWin`(id,title,init,onClose): 제목줄 끌어 이동 · 가장자리 8방향 크기조절 · 화면 밖/툴바 뒤로 안 숨음 · 누르면 맨 앞 · **위치·크기 기억**(`ddb_fw_<id>`) · **Esc로 닫기**.
+- 툴팁·드롭다운·색 선택 등 떠 있는 것은 패널 안에 갇히면 안 됨 → `document.body`로 포털(`Rr.createPortal`) + `position:fixed` + 화면 안 보정. 작은 메뉴는 `DDBPortalPop`(up/matchW) 또는 `ddbFloatPos(anchorEl,w,minH)`. `absolute top-full` 팝업 새로 만들지 말 것.
+- 기존 창은 손댈 때 같이 전환(일괄 전환 작업은 안 함).
+- 새 창/패널 기본 크기는 넉넉하게, 바꾼 크기는 항상 기억(사용자가 매우 싫어함).
+- 마우스 올리면 나타나는 버튼은 글 사이에 끼우지 말 것 → absolute로 겹쳐 띄우고 읽기전용에선 숨김.
+- 커스텀 메뉴/대화상자 배경은 불투명. 엑셀식 메뉴는 흰 배경·어두운 글씨.
+- **대비 규칙**: 어두운 패널에서 `text-white/45~55` 금지. 라벨 최소 `/80`, 본문 `/85` 이상.
 
-## 요청 추적 (★매 보고 끝에 이 목록을 사용자에게 보여주고 갱신할 것 — 사용자 지시)
-보고 형식: ①이번에 한 것 ②아직 못 한 요청 ③사용자가 문제라고 한 것의 처리 상태 ④답이 필요한 질문. 1~2줄 요약 금지. 사용자가 다 안 읽고 다음 지시할 수 있으므로 미완료는 매번 다시 보여준다.
-- [완료·push대기] 팝업이 창 안에 갇혀 잘리는 문제 → 화면 전체 기준으로 뜨게(포털) 전환 (v516)
-- [완료·push대기] AI메모 ⓘ = 클릭 팝업(규칙 7개 정리·기호 바로 변경·버튼으로 명령 넣기, 넣으면 '내용' 자리 선택돼 바로 입력) (v515)
-- [완료·push대기] 표 창 가장자리 8방향 크기조절(커서 표시)+우하단 손잡이 강조 (v515)
-- [완료·push대기] 표 창 닫기: 안 고쳤으면 바로 닫힘, 고쳤으면 '표 N' 새 탭 저장(원본 유지) (v515)
-- [완료·push대기] 표 탭 끌면 바로 위(~90px)에 🗑 버리기 칸 + 메모 폴더 칸, 버리면 8초 '되돌리기' (v515) — 실제 마우스 끌기는 실기 확인 필요
-- [완료·push대기] 디자인 관련 설정 전부 '🎨 디자인' 탭으로 통합(스킨·요일색·기능버튼 모양·글꼴/크기·패널) (v514)
-- [완료·push대기] AI메모 자동정리: 빈 줄(엔터 2번)로 나눈 묶음=일정 1개, 첫 줄=제목·나머지=일정 메모. '지금 정리' 버튼도 같은 규칙(~~·!! 포함) (v514)
-- [완료·push대기] 메모 창 열 때 항상 전부 접힌 목록 (v514)
-- [완료·push대기] 메모/표 끌어서 상단 바에 놓기→버튼 생성, 버튼=보기 전용 팝업+✏수정 (v513)
-- [완료·설치확인 필요] 메모 Enter/→/← 그 자리 펼치기·접기 (v511)
-- [실기 확인 중] 앱 안 업데이트 설치(SmartScreen 회피) (v512, v518 앱측·v519 서버측 타이밍 수정) — v515→1.0.79 알림에서 첫 실제 테스트 요청함. v517: 알림 문구를 OS별 파일목록 대신 "앱이 직접 설치" 안내로 변경, 실패 사유 표시
-- [완료·push대기] 도킹 메모창 기본 높이 340px(약 8줄)·끌어서 바꾼 높이를 이 기기에 저장(`ddb_slot_h`, 재시작해도 유지)·하단 손잡이 굵게/보이게 (v520)
-- [완료·push대기] 읽기전용 팝업에서 마우스 올리면 "⠿ 이동" 버튼이 끼어들어 글 위치가 밀리던 문제 → 읽기전용엔 안 뜸, 편집모드에선 겹쳐 떠서 안 밀림 (v520)
-- [완료·push대기] 메모 작성칸에서 Esc → 쓰던 글 저장하고 목록으로 (v521)
-- [완료·화면확인 필요] 작업일지 스킨을 모든 창(data-ddb-panel)·대화상자·팝업으로 확장(CSS, 가계부 파랑/빨강 테두리는 유지) (v521)
-- [완료·push대기] 표 탭 끌 때 휴지통은 항상 탭 위(아래로 끌다 실수 삭제 방지), 메모 폴더는 아래 (v521)
-- [완료·push대기] 이미지편집: 도형 선택 후 +/- = 선 굵기(그룹·다중선택 포함), 이미지·글자만 크기 (v521)
-- [완료·push대기] 달력 제목 좁을 때 줄바꿈 안 되게(한 줄·말줄임) (v521)
-- [완료·push대기] 가계부 하단 입금/출금/전체 호버 목록도 포털로(창 안에 안 갇힘) (v521)
-- [완료·push대기] 가계부 소분류(subCategory) 입력칸+자동완성(이전 입력값), 엑셀 내보내기 소분류 열 (v521)
-- [완료·실기 확인 필요] 셀 서식 대화상자 엑셀식 전면 재작성(v522): 표시형식 보기·범주별 옵션·사용자 지정, 맞춤 8/5종+방향 다이얼, 글꼴 목록·미리보기, 테두리 선 모양 그림·미리보기·클릭 적용, 채우기 팔레트+무늬 18종
-- [완료·실기 확인 필요] 1단계: 표 리본 [홈]/[페이지 레이아웃] 탭 + 페이지 레이아웃(여백·방향·크기·인쇄영역·나누기·인쇄제목·크기조정·시트옵션) + 새 인쇄 화면(엑셀 파일→인쇄식)·페이지 설정 대화상자 (v523)
-- [완료·실기 확인 필요] 2단계: 홈 탭 엑셀 배치 재구성(클립보드·글꼴·맞춤·표시형식·스타일·셀·편집, 분할단추·메뉴 18종, 서식 복사, 자동합계, 채우기, 지우기, 찾기/바꾸기, 빠른 실행 💾↶↷) (v524)
-- [완료·실기 확인 필요] 3단계(v525): 조건부 서식(셀 강조 6종·상위/하위 4종·색조 5종(정적)·규칙 지우기·규칙 관리자), 표 서식 9종(머리글·줄무늬·테두리), 화면 페이지 나누기 점선, 인쇄 머리글/바닥글(페이지 번호·날짜·표 이름)
-- [완료·배포 필요(deploy.bat)] 폰: D-Day 미리 알림(7·3·1일 전·당일)+🔔알림일정+피드백 메모 알림, 음력 매년(isLunar), 100일 단위(countUp), 오늘 탭 알림 카드·피드백 목록, 달력에 PC 메모·피드백·D-Day 점 표시 (v526/모바일)
-- [완료·push대기] PC D-Day도 음력(isLunar) 실제 계산(이전엔 음력 날짜를 양력으로 계산하던 버그)·100일 단위 옵션 (v526)
-- [완료·APK 빌드 성공(v1.0.92), 폰 설치·알림 실기 확인 필요] 휴대폰 설치형 앱(APK) 자동 빌드(build.yml android 잡) + 아침 브리핑(지수·환율·뉴스 제목, 정한 시각 이후 15분 주기 백그라운드 확인 → 알림 1회) (v527)
-- [완료·push대기] 색조 = 규칙 저장(page.scales) + 값 바뀌면 1.5초 안에 자동 재칠 (v526)
-- [완료·v521 보호장치] 로그인 없이 시작 시 기존 데이터를 `ddb_autobak_v1`에 보관 + 설정→백업·복구에 "🛟 되돌리기", 빈 상태는 파일 백업 안 함. (원래 설계: 로컬 데이터는 (자동로그인+세션 있음) 또는 restore_once 일 때만 불러옴(679xxx `Ef`). 세션 만료 상태로 켜면 빈 상태로 시작 → 저장(Hv)이 기존 로컬 데이터를 덮을 수 있음. 데이터 유실 사례와 연관 가능성.
-- [완료·실기 확인 필요] AI메모 문단 → 기능 보내기(v530): 헤더 '⇄ 보내기' 또는 왼쪽 색 띠에 0.45초 마우스 → 왼쪽 서랍(💬피드백·✅할 일·📋Do!·⏱타이머) + 문단 카드. 단추를 문단에 끌기 / 문단 1초 눌러 단추로 끌기 / 문단 오른쪽 클릭 메뉴. 보낸 문단은 AI메모에서 항상 빠짐
-- [완료·실기 확인 필요] 화면 구석 타이머 시계(v530): 기본 우하단, 현재 시각+가장 가까운 타이머 남은 시간, 30분 전부터 노랑→주황→빨강, 0초 팝업·소리·데스크톱 알림·5분 뒤 다시. 클릭=목록/새 타이머, 오른쪽 클릭=설정(위치·현재시각·색 시작 10/30/60분·소리·📱휴대폰에도 알림·숨기기)
-- [완료·APK 재빌드 필요] 폰: '휴대폰에도 알림' 켠 PC 타이머를 동기화로 받아 그 시각 LocalNotification 예약 + 오늘 탭 '⏱ PC 타이머' 카드. 한계: 폰 앱이 동기화(열기)된 뒤에 예약됨 → 진짜 실시간 푸시는 FCM(보류)
-- [완료·실기 확인 필요] 퀵커맨드(v531): 이름 '⚡ 퀵커맨드'. 단추 위 오른쪽 클릭=설정(단추 보이기/숨기기·순서(1초 눌러 끌기)·여는 곳 2개 켜기/끄기·타이머 빠른 시간 편집). 여는 곳 = ①AI메모 왼쪽 색 띠/⚡ 단추 ②화면 맨 왼쪽 끝 서랍(마우스 대거나 문단 끌고 오면 나옴) — 사용자가 둘 다 써 보고 하나 끌 예정
-- [완료·실기 확인 필요] 타이머 창(v531): ⏱ 타이머(빠른 시간 사용자 편집·N분 뒤·시:분 한 번) / ⏰ 알람(시:분+매일·평일·주말·요일 반복). 시계 목록에서 알람 켜기/끄기·삭제, 시계 1초 눌러 끌기로 구석 이동, 폰 알림 🔔소리/🔕무음 선택
-- [완료·실기 확인 필요] 퀵커맨드 = **화면 왼쪽 끝**(사용자 원래 의도, v532): 왼쪽 끝을 3등분한 구역(기본 가운데)에 마우스 대면 스르륵 나오고 떠나면 숨음(슬라이드 인/아웃). 단추=선 아이콘(말풍선·체크박스·목록·스톱워치)+이름. 손잡이 ⋮⋮ 1초 눌러 끌면 위/가운데/아래 이동(점선 미리보기). AI메모 안 ⚡ 단추·색 띠는 기본 꺼짐(설정에서 켤 수 있음)
-- [완료·실기 확인 필요] 팝업 창 이동·크기조절(v533): `DDBFloatWin` 공통 창 — 퀵커맨드 설정·타이머/알람·시계 목록/설정. 화면 밖으로 안 나감, 위치·크기 기억
-- 결정됨(사용자): 창 규칙은 **앞으로 만드는 모든 창**에 기본 적용(기존 창 일괄 전환 작업은 따로 안 함, 손댈 때 같이 전환). 창 이동은 제목줄 바로 끌기, '1초 누르기'는 단추·항목 자리 바꿀 때만.
-- [완료·실기 확인 필요] D-Day 기념일 카드 날짜 표기(v534): 음력 기념일 = "음 11.23 (양 12.31)"(괄호에 다음 실제 양력 날짜), 양력 기념일 = "01.05 (음 11.28)"(다음 날짜의 음력, 예전엔 처음 입력한 해 기준이라 틀렸음). 폰 D-Day 목록도 같은 표기
-- [완료·실기 확인 필요] 이미지로 내보내기(선택 날짜·하루·한 달) 긴 글 잘림 → 잘라내지 않고 줄바꿈, 날짜 1개면 폭 최대 760px(2개 560·3개 이상 420) (v533, `ddbWrapLines`)
-- [완료·CI/실기 확인 필요] 폰 앱 업데이트 A+B(v535/1.0.98): B=화면 자동 갱신(새 릴리스의 mobile-web zip을 몰래 받아 다음 실행 때 적용, '지금 적용' 버튼), A=폰 기능 바뀐 버전이면 앱이 APK 직접 받아 설치 화면 띄움('설치' 한 번). 1.0.98 APK만 마지막으로 수동 설치 필요
-- [완료·실기 확인 필요] 폰 알림 전부 안 울리던 버그 수정(v536/1.0.99): 플러그인을 import 안 해서 알림 예약·브리핑 설정 전달이 0건이었음 + 6:30 안전망 알림 + 브리핑 카드에 백그라운드 상태 표시
-- [사용자 조치 필요] 폰은 아직 옛 APK(1.0.98 이전, 자동 갱신 없음) → v538 기능 안 보임. 1.0.101+ APK 서명 지문 E6AF26… 확인됨(CI notice). 자동 차단기 끄고·기존 앱 삭제·고정 링크 설치 1회 필요. v540: 폰 머리에 버전 표시(v1.0.xx, 누르면 업데이트 확인)
-- [완료·실기 확인 필요] 폰(v538): 자동 로그인(저장된 세션 먼저 사용·늦게 복원돼도 자동 동기화·로그아웃은 확인창), D-Day 탭=목록 보기 필터(전체/한 번/매년/음력/매월/100일)·추가는 '＋ 추가' 폼(반복 방식), 가계부 빈 달 안내(로그인 필요/가장 가까운 달로), 오늘 탭 칸 1초 눌러 끌어 순서 변경(저장), 아침 브리핑 카드 안 분야 칩으로 바로 바꿔 보기(🔔=알림 포함 표시·토글), 폰→클라우드 저장을 덮어쓰기→합치기(PC 일정 지워짐 방지)
-- [완료·실기 확인 필요] PC 타이머/알람 여러 PC 중복 울림(v538): 켠 직후 12초는 클라우드 최신 상태 받기 전이라 지난 알림 안 울림, 알람 확인 기록 `settings.alarmAcks` 동기화, 다른 곳에서 확인된 팝업 자동 닫힘. 한계: PC는 user_data 실시간 구독이 없어 두 PC가 동시에 켜져 있으면 둘 다 울림(재시작/동기화 시 반영)
-- [완료·검증] 음력 D-Day 계산 확인(v539): 음력 1961-01-01 매년 → 2027.2.7(설날)·D-72·66번째 (PC·폰 동일). 사용자 아버님 항목은 화면상 양력 02.06 매년으로 저장된 것으로 보임(설 전날) → 편집에서 🌙 음력·1961-01-01로 바꾸라고 안내. PC·폰 추가 폼에 '음력 → 다가오는 양력 날짜(D-N)' 미리보기 추가
-- [완료·APK 필요(1.0.104)] 폰 뉴스 헤드라인을 앱 밖으로 안 나가고 앱 위에 겹치는 브라우저 창(크롬 맞춤 탭, `@capacitor/browser`)으로 열기 — ✕/뒤로가기로 바로 앱 복귀. native-since 1.0.104
-- [완료·실기 확인 필요] 폰 오늘 탭 순서 끌기가 '잡힌 상태'에서 안 끝나던 버그(v542): 끄는 칸을 DOM에서 빼서 폰 터치 신호가 앱에 안 옴 → 접어서 남겨 두고 그 칸에도 리스너 + 6초 무동작 자동 해제, 고스트는 손가락 위치. native-since는 1.0.99 유지(뉴스 맞춤 탭은 플러그인 없으면 일반 브라우저로 대체) → 화면 자동 갱신으로 전달
-- [완료·실기 확인 필요] AI메모 상세 이미지 저화질(v543): 원인=캡처는 200px·저화질(0.42) 썸네일만 저장, 편집 저장 큰 그림은 localStorage(5~10MB 한도)라 저장 실패 → 원본 해상도를 IndexedDB(`ddb_images`/`full`, 키 날짜|썸네일 지문, 370일)에 보관 + 동기화 썸네일 320px·0.62. 확대 보기는 원본(이 PC). 다른 기기는 썸네일만. 이미지편집 화면에서 흐린 문제(사용자 확인: 편집 화면에서 볼 때) = 윈도우 배율 125%·150%에서 그림을 CSS 1배로 보여줘 실제로는 확대돼 흐림 → v544 `fitTo` 최대 배율 1/devicePixelRatio(그림 1px=모니터 1px), 최대 크기는 1180 고정 대신 편집 판 크기. 저장은 원본 해상도 유지
-- [긴급·완료·실기 확인 필요] PC 업데이트 후 데이터 '다 날아감'(v545): 추정 원인=localStorage(약 10MB) 가득 참(예전 큰 그림 ddb_imgbig_*·act 로그 썸네일) → 로그인 정보 갱신 저장 실패 → 다음 실행 때 로그인 풀림 → 설계상 빈 상태로 시작 + 보관본(autobak)도 용량 부족으로 저장 실패. 수정: ①큰 그림 IndexedDB로 이사·localStorage 비움 ②autobak을 IndexedDB(`bak`)에도 ③빈 상태로 켜지면 상단 경고+한 번에 되돌리기 배너(`DDBRecoverBanner`) ④클라우드 업로드 안전장치(받아오기 전 업로드 금지·빈 상태로 클라우드 덮어쓰기 금지, `pulledRef`/`cloudNRef`) ⑤Electron 파일 백업에 날짜별 하루 보관본 30일(`day-*.json`) ⑥act 로그 이미지 썸네일 96px+지문 키 ⑦RESTORE_STATE·LOAD_FROM_CLOUD가 기본값(Hl·settings)과 합치도록(빈 필드로 화면 깨짐 방지). 복구 안내: ☁ 로그인 또는 설정→백업·복구(자동 백업 파일)
-- [완료·사용자 복구함] 데이터 유실은 백업 '되돌리기'로 복구(사용자 확인). v546: 저장 공간 지킴이 `DDBStorageGuard`(localStorage 6MB 넘으면 30일 지난 aiDaily 사진 미리보기를 IndexedDB `arch|날짜`로 옮기고 state에서 제거(`AI_DAILY_ARCHIVE`, rec.arch=장수, 일기에서 '🗄 보관된 사진 보기'), 120일 지난 활동기록 정리, 8MB 넘으면 경고), 동기화 썸네일 240px·0.55로 축소
-- [완료·실기 확인 필요] 표(v547): ①페이지 나누기 점선이 칸 중간에 걸리던 문제 — 원인: 표 화면은 칸마다 격자선 1px을 더 그리는데(열 73+1, 행 19+1) 점선 계산은 안 더해서 오른쪽·아래로 갈수록 어긋남(A4 세로 기본: 열 9px, 행 약 51px=2.5행). 인쇄 자체는 원래 칸 단위로 잘림 → 점선 위치만 화면 격자 공식(round((크기+1)×배율))으로 맞춤 + 확대 배율·머리글 크기 반영 ②표 창 ✕ 옆 □ 최대화/❐ 이전 크기(제목줄 더블클릭도), `ddb_table_geo.max` 기억 ③인쇄 미리보기 Esc 닫기: 포커스가 미리보기 그림(iframe)·입력칸 안이면 키가 안 와서 실패 → 열 때 포커스 해제·iframe 클릭 막기·iframe 키도 받기 ④캡처 자동 복사: 기본 켜짐(autoCopy 미설정=켜짐), 복사 후 클립보드 확인·실패 시 재시도/브라우저 방식
-- [완료·실기 확인 필요] v548: ①폰 오늘 탭 순서 바꾸기 = 1초 누르면 모든 칸이 제목 한 줄(54px)로 접힘 → 한 줄 높이만 움직이면 한 칸 이동(HoldSort label 모드) ②PC 상단 기능 바 '📅 D-Day 목록' 단추(type "ddlist", 처음 1회 자동 추가 `ddlistSeeded`, '+ 기능'에서 추가 가능): 마우스 올리면 가까운 날부터 촤르륵 나열, 클릭=고정(Esc/바깥 클릭 닫기), 분류 칩 전체·매년·음력·한 번·100일·반복(달력 반복 일정 포함, 가계부 제외), 마지막 분류 기억 `ddb_ddlist_cat`. `DDBDdList`/`ddbDdListItems`/`ddbRepeatNext` ③표 화면 점선 = 내용 끝이 아니라 **용지 한 장 경계**(내용이 작아도 A4 한 장 크기 칸까지, A4 세로 기본 = I열|J열 사이·51행 아래) ④메모 상세 사진 확대: 원본 못 찾으면 그날 원본을 시각(±3분)으로 다시 찾음, 그래도 없으면 작은 미리보기를 억지로 키우지 않고 '원본 없음' 안내 ⑤메모 상세 닫았다 열면 확대 보기·메모 크게 보기 등 초기화, Esc는 확대 보기부터 닫음
-- [완료·실기 확인 필요] 사진 보관(v549): Supabase SQL(`storage-photos-setup.sql`, .gitignore로 로컬만) 사용자 실행 완료 — 비공개 버킷 `photos`(8MB·이미지만), 경로 `<uid>/<날짜>/<지문>.webp`, 본인 폴더만 RLS, 한도표 `storage_quota`(기본 1GB, plan), `my_photo_usage()` rpc. 앱: `ddbSaveFullImg`가 저장 때 `ddbPhotoOnSaved` → ②폴더(기기 설정 `ddb_photo_cfg.dir`, `ddbNative.saveCapture` 재사용=PNG) ③클라우드 올리기 예약(`ddbPhotoSync`: IDB full 중 `cloud` 표시 없는 것 최근순으로 2560px WebP 90% 업로드 후 `cloud:1`, 20초 뒤·10분마다·online 시). 원본 조회 `ddbGetFullImg/ByKey`가 이 PC에 없으면 `ddbPhotoCloudGet`으로 받아 IDB에 캐시. 설정 → 기능 → 🖼 사진 보관(`DDBPhotoPanel`: 켜기/끄기·사용량 막대·지금 올리기·폴더 고르기). 프로젝트는 FREE(전체 1GB) — 유료 공간 대여 시 storage_quota.limit_bytes·plan만 바꾸면 됨
-- [완료·화면 검증함] 표(v550): ①최대화·크기조절 때 칸이 옛 크기만큼만 그려지던 문제 — FortuneSheet는 window resize 신호에만 다시 그림 → 표 창 크기 바뀌면 resize 이벤트 대신 보냄 ②셀 병합 무반응 — mergeCells/cancelMerge는 범위 '배열'을 받는데 객체 하나를 넘김 → [r] ③Ctrl+휠 확대/축소(표 아래 −/＋ 단추 대신 클릭, 앱 화면 확대는 막음) ④[삽입] 탭 '그림' = FortuneSheet 숨은 도구줄(toolbarItems ["image"], CSS로 .fortune-toolbar 숨김)의 #fortune-img-upload 클릭 ⑤정렬: 한 칸 선택이면 이어진 표 전체로 넓힘·머리글 자동 판단, 사용자 지정 정렬 창(`DDBSortDialog`, DDBFloatWin, 기준 추가/삭제/복사/위아래·머리글 체크), 필터 = `applyOp filter_select`(FortuneSheet 자체 ▼ 단추·값 골라 보기), 필터 메뉴 글자 한국어(`DDB_FS_KO`로 en 언어팩 덮어씀) ⑥인쇄 '맞춤' 배율이 1 이하로만 줄던 것(엑셀식) → 작은 표는 용지에 꽉 차게 키움(최대 400%), 인쇄 화면에 '인쇄 영역 A1:H11 · N쪽 · 맞춤 배율 N%' 표시
-- [완료·화면 검증함(v552에서)] 표(v551): ①선택하여 붙여넣기 — 복사(Ctrl+C/X·리본·우클릭) 때 칸·서식·테두리·열 너비·병합을 `window.__ddbTblClip`에 기억(`snapClip`, 외부에서 다시 복사했으면 클립보드 글과 비교해 무시) → `pasteSpecial(mode,{op,skipBlanks,transpose})`: all·formula·formulaNum·keepFmt·noBorder·colWidth·value·valueNum·valueFmt·format·link + 행/열 바꿈·연산(더하기/빼기/곱하기/나누기)·내용 있는 셀만. 수식 상대참조 이동 `shiftF`. 우클릭 '선택하여 붙여넣기 ▸' 하위 메뉴·홈 붙여넣기 ▼·창 `DDBPasteSpecialDialog` ②[파일] 탭: 열기(XLSX/XLS/CSV→새 탭, CSV는 UTF-8 아니면 EUC-KR로 읽음) `ddbXlsxToFortune`, 엑셀로 저장(모든 시트, 값·수식·숫자서식·열너비·병합) `ddbFortuneToXlsx`, CSV로 저장(BOM 붙여 엑셀 한글 안 깨짐) — 노드에서 왕복 검증함 ③⚠️ `setCellValuesByRange`에 줄마다 칸 수가 다른 2차원 배열을 넘기면 FortuneSheet가 React 오류로 **앱 전체가 멈춤** → 항상 직사각형으로 채워서 넘길 것(doPaste 수정)
-- [완료·화면 검증함] 표 셀 참조·수식(v552): ①F4 = 수식 입력 중 커서 위치 참조를 A1→$A$1→A$1→$A1→A1 순환(범위 A1:B2는 두 끝 같이, `ddbCycleRef`; FortuneSheet는 F4를 무시만 해서 직접 처리) ②참조 이동 공통 `ddbShiftRefs`(상대=이동, $=고정, 시트이름!·'따옴표 시트'! 지원, 글자 "..." 안·함수명 LOG10( 무시, 범위 밖=#REF!) — 선택하여 붙여넣기·채우기에 사용. 표 자체 Ctrl+C/V·채우기 핸들도 상대참조 이동함(FortuneSheet functionCopy) ③채우기(리본·Ctrl+D 아래/Ctrl+R 오른쪽)가 수식을 글자 그대로 복사하던 버그 → 상대참조 이동+서식 ④순환 참조: 1.2초마다 수식 칸 의존 관계에서 고리 찾기(`ddbFindCycles`) → 노란 경고줄 + 그 칸 0 표시(엑셀식) ⑤수식 계산기 보정 `ddbPatchFormulaParser`(@fortune-sheet/formula-parser Parser.prototype): 연산 오류가 "DIV/0"처럼 나오던 것 → #DIV/0!·#VALUE! 등, 빈 칸 참조(=D10)가 TRUE로 나오던 것 → 빈 값(=D10="" 참, =D10+5=5) ⑥리본 LBig이 그림 요소(SVG)를 못 받아 [파일]·[삽입] 아이콘이 안 보이던 것 수정. 검증: 단가×수량 채우기(200/600/1200), $E$1 세금(20/60/120), #DIV/0!, IF 빈칸, #VALUE!, SUM, 순환 경고, F4 4단계, 붙여넣기 종류(값·서식·행열바꿈·수식·테두리없음·곱하기)
-- [완료·화면 검증함] 표 정렬(v553): 엑셀처럼 줄 통째로 이동 — 값·칸 서식(색·굵게·숫자서식 등)·테두리·수식 함께, 수식 상대참조는 옮겨간 줄에 맞게(`ddbShiftRefs(f, 새행-옛행, 0)`), 범위에 병합 칸 있으면 정렬 거부(엑셀 규칙). 선택하여 붙여넣기의 외부 클립보드 비교는 공백 무시로 완화
-- [완료·대부분 화면 검증] 표(v554): ①Esc = 부가 창·메뉴 닫기(우클릭 메뉴·리본 메뉴·셀서식·조건부서식·페이지설정; 이동창들은 각자, 인쇄 화면 안 페이지 설정은 Esc로 그것만 닫힘) ②인쇄 맞춤 배율: 키울 때는 한 장 안에 가로·세로 다 들어가는 만큼만(한 페이지에 모든 행 맞추기가 가로 2쪽으로 넘치던 문제), 줄일 때는 엑셀 규칙 ③행 높이(pt)/열 너비(글자 수) 창 `DDBRcSizeDialog`, 자동 맞춤(글자 폭 측정), 숨기기/취소, 우클릭 메뉴·홈>서식·보기 탭 ④찾기 및 바꾸기 창 `DDBFindDialog`(Ctrl+F/Ctrl+H, 모두 찾기 목록 클릭 이동, 대소문자·전체 일치·수식에서, 바꾸기·모두 바꾸기) ⑤틀 고정(엑셀식: 선택 칸 위쪽 행·왼쪽 열, 첫 행/첫 열, 취소) — [보기] 탭 ⑥데이터 유효성 검사 `DDBValidDialog`(목록/정수/소수/숫자/날짜/텍스트 길이 + 제한 방법, 설명·오류 메시지) → FortuneSheet `dataVerification`(applyOp add), 목록은 ▼ 단추, 잘못 입력 시 막고 한국어 메시지(MutationObserver로 영어 문구 교체 `ddbValidMsg`) ⑦상태줄 합계·평균·개수·최대·최소 한국어(`DDB_FS_KO.formula`), 확인/취소 버튼 한국어 ⑧엑셀 단축키: Ctrl+F/H, Ctrl+9/Ctrl+Shift+9(행 숨기기/취소), Ctrl+0/Ctrl+Shift+0(열), Ctrl+Shift+L(필터), Ctrl+Space/Shift+Space(열/행 선택), Ctrl+D/R, F4, **Alt 키 순서**(Alt→H O W 열 너비, H O H 행 높이, H O I/A 자동 맞춤, H O U R/C/O/L 숨기기, H F D F/R 찾기·바꾸기, W F F/R/C 틀 고정, A V V 유효성, A S S 정렬, A T 필터) — 누르면 왼쪽 위에 다음 키 안내 ⑨[데이터]·[보기] 탭 추가. ⚠️ 표 프로그램은 키를 document 단계에서 먼저 받아 글자를 칸에 넣어 버림 → 단축키는 **window 캡처 단계**에서 가로채고 Alt 단독 keydown도 막아야 함. 편집 중 판정 = `.luckysheet-input-box` zIndex "19"
-- **화면 직접 검증 방법(v550, 사용자 도움 불필요)**: /tmp/bp `vite.iife.mjs`로 한 파일 빌드 → `mk.py pre.js post.js out.html`로 CSS·JS·테스트 스크립트를 HTML 하나에 넣음(pre=localStorage 준비, post=ddb-open-table 등 이벤트·`window.__ddbWb`(표 API)·`__ddbTblDbg` 호출 후 결과를 노란 상자로 표시) → outputs에 저장 → present_files → 15초 기다려 screenshot_file_preview. 미리보기 창이 가려져 있으면 빈 화면 → 다시 시도. getAllSheets()는 방금 바꾼 내용이 늦게 반영될 수 있음 → 판정은 화면/DOM으로
-- [보류] 보안 단계(공개 배포 저장소·PAT·CI 전환·난독화·법적 문서·Private 전환), Microsoft Store(MSIX), 폰 푸시(FCM), 팀 권한
-- 결정됨: 표 닫기 시 수정분은 항상 새 탭(덮어쓰기 안 함). Ctrl+S도 새 탭.
-- 결정됨: 일반 메모창(AI메모 외)은 작성 내용 통째로 메모 1개(현행 유지). 스킨 등 모든 디자인 설정은 '디자인' 탭에.
+## ★ 위치 바꾸기 공통 규칙
+- 순서/위치 바꾸기 = **1초 누르기 → 끌면 놓일 자리 점선 미리보기 → 놓으면 이동**. 짧게 누르면 클릭. 창 이동은 제목줄 바로 끌기(1초 누르기는 단추·항목 자리 바꿀 때만).
+- 목록·단추 순서는 `DDBHoldSort`(items/render/onChange/horizontal), 자유 위치는 같은 흐름 직접 구현(예: DDBTimerClock).
+- 설정은 그 단추/물건 위 오른쪽 클릭으로 연다.
+
+## 결정된 사항
+- 표 닫기 시 수정분은 항상 새 탭(덮어쓰기 안 함). Ctrl+S도 새 탭. 닫기 확인창 유지.
+- 일반 메모창(AI메모 외)은 작성 내용 통째로 메모 1개.
+- 디자인 관련 설정은 전부 설정창 '🎨 디자인' 탭에.
+- 가계부 색: 입금(+)=파랑, 출금(-)=빨강. 통화 서식 `₩#,##0`.
+- 메모 Enter·→·←는 목록 안에서 그 자리 펼치기/접기. 편집은 더블클릭·✏수정.
+- 폰 알림은 아침 6:30 한 번(브리핑 알림 본문에 D-Day·일정·피드백 합침).
+- 폰 가계부는 조회 전용(입력·수정은 PC).
 
 ## 구조
-- 렌더러: `src/legacy/app.js` 단일 파일(~1.8만 줄, 역추출 압축코드 → 변수명 단일문자). 빌드 `vite`.
-- 표: `@fortune-sheet/react`(FortuneSheet). 이미지편집: `fabric.js`(전역 `window.fabric`, 코드상 `fab`). React=`O`, jsx=`o.jsx/o.jsxs`, createPortal=`Rr`.
-- 모바일: `mobile/`(Capacitor). 클라우드: Supabase(`user_data` upsert 동기화 + 팀/RLS). 배포: GitHub Actions `build.yml` → 릴리스에 설치파일 첨부.
+- 렌더러: `src/legacy/app.js` 단일 파일(~1.8만 줄, 압축코드 역추출 → 변수명 한 글자). 빌드 `vite`. 전역 톤 CSS는 `src/legacy/app.css` 끝 `DDB-UX-TUNE`·`DDB-SKINS` 블록.
+- React=`O`, jsx=`o.jsx/o.jsxs`, createPortal=`Rr`.
+- 표: `@fortune-sheet/react`(FortuneSheet). 이미지편집: `fabric.js`(전역 `window.fabric`, 코드상 `fab`).
+- 모바일: `mobile/`(Capacitor, 일반 React `app.jsx`). 빌드체크 `esbuild src/app.jsx --loader:.jsx=jsx` → `vite build`. 웹 배포는 사용자가 `mobile/deploy.bat`. APK는 CI(build.yml android 잡).
+- 클라우드: Supabase(`user_data` upsert 동기화 + 팀/RLS, 사진은 Storage `photos` 버킷). 배포: GitHub Actions `build.yml` → 릴리스(prerelease로 만들고 첨부 후 publish 잡이 공개).
 
 ## 빌드·배포 절차
-1. `src/legacy/app.js` 수정 → `node --check` **그리고 반드시 `esbuild` 파싱 체크**(node는 통과해도 rollup/vite가 거부하는 구문 있음).
-2. `/tmp/bp`에서 `vite build`(세션 경계마다 /tmp/bp 초기화됨 → src/config 복사 후 `npm install` 재실행).
-   ⚠️ 빌드 명령을 한 줄로 이을 때 /tmp/bp가 없으면 `rm -rf $R/dist`만 실행돼 dist가 지워진 적 있음 → 먼저 /tmp/bp 존재 확인, 복사는 `cp ... && rm ... && cp ...`로 묶을 것.
+1. `src/legacy/app.js` 수정 → `node --check` **그리고 반드시 `esbuild` 파싱 체크**(node는 통과해도 vite가 거부하는 구문 있음).
+2. `/tmp/bp`에서 `vite build`(세션마다 초기화됨 → src/config 복사 후 `npm install`). /tmp/bp 존재 먼저 확인, 복사는 `cp … && rm … && cp …`로 묶기(dist 지워진 적 있음).
 3. dist를 `$R/dist` **와** `$R/electron-app/dist` 양쪽에 복사.
-4. 버전은 **3곳 동시** 갱신: `const DDB_VERSION`("1.00.XX"), 마커 `children: "v4XX"`, `electron-app/package.json` version("1.0.XX", 앞자리 0 금지).
-5. git commit. push는 사용자가 GitHub Desktop에서(샌드박스엔 깃 인증 없음). CI 실패(Server Error)는 대개 일시적 → Re-run.
+4. 버전 **3곳 동시** 갱신: `const DDB_VERSION`("1.00.XX"), 마커 `children: "v5XX"`, `electron-app/package.json` version("1.0.XX", 앞자리 0 금지).
+5. git commit. push는 사용자가 GitHub Desktop에서. CI 실패(Server Error)는 대개 일시적 → Re-run.
+6. 폰 기능(플러그인·권한·capacitor.config)을 바꾸면 `mobile/native-since.txt`를 그 릴리스 버전으로 올릴 것(선택 기능이면 대체 동작 두고 안 올림).
 
-## ★ 위치 바꾸기 공통 규칙 (사용자 지정 — 앞으로 모든 기능에 동일 적용)
-- 무엇이든 순서/위치 바꾸기 = **1초 누르기 → 끌면 놓일 자리를 점선으로 미리보기 → 놓으면 그 자리로 이동**. 짧게 누르면 그냥 클릭. 목록·단추 순서는 `DDBHoldSort`(items/render/onChange/horizontal) 재사용, 자유 위치(구석 등)는 같은 흐름으로 직접(예: DDBTimerClock onDown + 점선 고스트).
-- 설정은 그 단추/물건 위에서 오른쪽 클릭으로 연다(퀵커맨드·시계 공통).
+## 검증 방법
+- 화면 직접 검증: /tmp/bp `vite.iife.mjs`로 한 파일 빌드 → `mk.py pre.js post.js out.html` → 미리보기 스크린샷. `getAllSheets()`는 늦게 반영될 수 있음 → 판정은 화면/DOM으로.
+- 실동작: 사용자가 run.bat 실행 → 내장 브라우저로 http://localhost:8080 (비로그인이라 실데이터 안전). 입력은 네이티브 setter+input 이벤트.
+- 재시작 흉내 시 localStorage `restore_once_v1`='1' 필요(비로그인이면 기본값으로 시작하는 설계).
+- Tailwind CDN은 미리보기에서 차단됨 → 목업은 인라인 CSS. `cursor-*-resize` 등 클래스는 빌드 CSS에 없을 수 있음 → 인라인 style.
 
-## 배운 점 (반복 금지)
-- app.js 편집 후 node --check만 믿지 말 것 — `esbuild.transformSync`로도 파싱 확인(IIFE/맵 괄호 짝 실수를 node는 통과시킴).
-- FortuneSheet 테두리: config.borderInfo 직접수정+리로드는 반영 안 됨 → 네이티브 `wbRef.getCellFormat`… 즉 `setCellFormat(row,col,"bd",{borderType,color,style,range})` 사용(즉시 반영).
-- FortuneSheet 저장 시 입력 중인 셀 미확정 문제 → `getAllSheets()` 전에 `document.activeElement.blur()`로 강제 확정.
-- 표 저장은 "현재 내용으로 새 탭 추가"가 사용자가 원하는 방식(눈에 보이게). 닫기 확인창(예/아니오)은 유지.
-- 표 기본 우클릭 메뉴는 `cellContextMenu:[]`,`headerContextMenu:[]`로 끄고 커스텀 메뉴를 onContextMenu로 표시.
-- 커스텀 메뉴/대화상자 배경은 불투명. 엑셀식 메뉴는 흰 배경·어두운 글씨.
-- **[대비 규칙·반복지적]** 어두운 배경 패널에서는 글씨 대비를 충분히. 섹션/라벨에 `text-white/45`·`/50`·`/55` 같은 낮은 불투명도 쓰지 말 것(흐릿함). 라벨은 최소 `text-white/80`, 본문 `text-white/85` 이상. 새 패널/대화상자 만들 때마다 배경색 대비 글씨가 읽히는지 반드시 확인. (예: 이미지편집 '도형 서식' 패널에서 반복 지적됨)
-- UX/UI 통일(심미적사용성·제이콥·피츠): 전역 톤은 `src/legacy/app.css` 맨끝 `DDB-UX-TUNE` 블록(버튼 전환·:focus-visible 링·스크롤바 통일·::selection·disabled 흐림). 상단 툴바(calBtnOrder)·TileBar는 사용자가 순서변경/숨김 가능 → 고정 구분선 금지(재배치 시 어긋남). 메뉴 묶음(힉·밀러)은 기능추가/창추가 메뉴 그룹헤더로. 대화상자 CTA(폰 레스토프)는 주요=bg-blue-500, 보조=bg-white/10 관례 유지.
-- 스킨: `settings.uiSkin`(기본default/classic·modern·minimal + 신규 workshop·midnight). 선택 UI 2곳(447353·1353052). `DDBAnnivBanner`가 `document.documentElement`에 `data-ddbskin` 지정. app.css 끝 `DDB-SKINS` 블록이 스킨별로 파랑 유틸(.bg-blue-*/.text-blue-*/.border-blue-*/.ring/.accent) → 악센트 변수(--sk 황동/청록)로 치환+배경 글로우. 전체 레이아웃 리스킨은 인라인 색 하드코딩이라 위험 → 악센트+배경만 테마화(색 스킨). 깊은 레이아웃안은 목업 momentplan_design_v2(황동/슬레이트 작업일지)로 별도. **workshop 스킨 달력 리디자인 적용**: 달력 그리드에 `ddbc-grid`, 요일행에 `ddbc-dow` 훅 클래스 부착(998376·965172) → app.css `DDB-SKIN workshop 달력` 블록이 따뜻한 슬레이트 패널+황동 요일선/격자/hover로 치환. 레이아웃 전면 리라이트는 안 함(CSS만, 안전·opt-in).
-- 'frontend-design' 플러그인 설치됨(스킬 `frontend-design:frontend-design`). 'UI/UX Pro Max'는 디렉토리에 없음 → 2번째 스킨은 자체 디자인(미드나잇).
-- **업데이트 SmartScreen 경고 대책(v512)**: 경고 원인=브라우저로 받은 설치파일에 붙는 '인터넷에서 받은 파일' 표시(MOTW). UP9 "업데이트 설치" 버튼이 Electron이면 `ddbNative.updateInstall(url)`→main.js `ddb-update-install`이 Node https로 직접 다운로드(`ddbDownloadFile`, github/githubusercontent만 허용, 리다이렉트 추적, .part→rename) 후 `설치파일 --updated /S --force-run` 실행+app.quit. 진행률은 `ddb-update-progress`. 실패 시 브라우저 폴백. 웹(run.bat)엔 ddbNative 없음→기존대로 브라우저. 이 기능이 든 버전을 한 번은 수동 설치해야 그 다음부터 적용. 근본 해결은 코드서명(OV 인증서) 또는 Microsoft Store(MSIX, 개인 등록 무료) — Azure Artifact Signing은 개인=미국·캐나다만.
-- 설정창 탭(i4): 달력·기능·🎨디자인·언어·사생활·피드백·잠금·단축키. '글꼴·크기'·'패널' 탭은 디자인으로 합침(`x === "design"` 블록 3개 연속 렌더). 디자인 관련 새 설정은 무조건 디자인 탭에 넣을 것(사용자: 애매하게 나누면 찾기 힘듦).
-- 테스트로 앱 재시작 흉내낼 때 localStorage에 `restore_once_v1`='1' 넣어야 저장 데이터를 불러옴(비로그인이면 기본값으로 시작하는 설계).
-- 통화 서식은 `₩#,##0`(¤는 깨진 기호로 보임). 정렬 아이콘은 화살표 말고 "문단 줄 정렬" SVG가 직관적.
-- 버그 제보 시 먼저 사용자가 **어느 버전(v4XX)** 을 보는지 확인 — 구버전(캐시/미배포) 때문인 경우 많음. 로컬 테스트는 run.bat(=dist 서빙) + Ctrl+Shift+R.
-- `ddb_tables`(독립 표 창)·메모 입력 등 localStorage 전용 데이터는 Supabase 동기화 대상에 넣어야 다른 기기에서 보임(`_tbl`,`_ps`,`_fb`처럼 upsert data에 추가 + 로드 시 복원).
-- 큰 신규기능은 구현 전에 문제점·대안 먼저 제시(사용자 조건). 테스트만으로 완료하지 말고 화면/동작 확인.
-- 가계부 색상 통일: 입금(+)=파랑, 출금(-)=빨강(일반 가계부 앱 관례). 선택 pill·요약 카드·금액입력 테두리 모두 동일 규칙 유지.
-- 가계부 요약은 얇은 한 줄 대신 대시보드 카드 4개(입금합계·출금합계·순수지·총건수)로 표시. 금액유형 선택은 2줄 카드(아이콘+이름), 비활성에도 테두리 상시 표시해 한눈에 구분.
-- Tailwind CDN(`cdn.tailwindcss.com`)은 프리뷰 패널에서 네트워크 차단으로 로드 안 됨 → 목업 검증은 인라인 CSS로 작성해야 레이아웃이 제대로 보임.
-- 모바일(`mobile/`)은 PC와 달리 깔끔한 일반 React(app.jsx 등). 빌드체크: `esbuild src/app.jsx --loader:.jsx=jsx` → `vite build`. 배포는 사용자가 `mobile/deploy.bat`(= `npm run build` + `surge dist momentplan-buglow-2026.surge.sh`) 실행. PC식 3곳 버전표기는 모바일엔 해당 없음.
-- 모바일은 `amount` 있는 이벤트(가계부)를 달력에서 숨김(app.jsx evByDate 필터). 가계부 탭(월별 조회 전용) 추가함 — 입력·수정은 PC에서, 폰은 조회만(동기화 충돌 방지).
-- '그날 일기' 관련 데이터원 3종: ⑴`ddbLogAct(kind,detail)`→localStorage `ddb_act_<날짜>`(메모·tool·일정·할일·검색·image), 날짜별 칸 분리라 조회 빠름, 보관 370일(기존 7.7일서 늘림), 동기화 안 됨, `DDBTimelinePanel`("🕒 오늘 활동")이 표시(날짜 ◀▶ 365일). ⑵`state.aiDaily[날짜]={tables,images}` 썸네일(최대30), 동기화됨, `DDBMemoOverview`(메모 상세)가 digDay로 표시. 메모상세 '일기'는 `sel==="aimemo"`일 때만 뜨는 날짜 strip(2×2: 📌일정·📊표·🖼이미지·🕒그날 한 일). 열 때 sel 기본=aimemo로 설정해 바로 일기가 보이게 함. '그날 한 일' 칸은 ddb_act 로그(todo/tool/search/memo/image)+그날 가계부(events amount)를 시각순 통합 표시, 이미지는 썸네일. 이미지 저장 시: 작은 썸네일(≤150px)→aiDaily(동기화)+ddbLogAct("image")마커, **큰 미리보기(≤1280px jpeg0.62)→`ddb_imgbig_<날짜>`(localStorage, 비동기, 60/일, 370일 보관)**. 라이트박스는 big 우선, 없으면 썸네일. ⚠️aiDaily는 state라 동기화됨+날짜 prune 없음 → 큰이미지 절대 넣지 말 것(용량 폭증). 라이트박스는 background-size:contain으로 화면 채움(작은 원본은 soft). 구버전 저장분은 big 없어서 soft.
-- `DDBTileBar`=상단 색색 버튼 바 = 핀고정 D-Day(ddays의 pinTop)+창추가 기능(settings.quickActions). '창추가/기능추가' 메뉴는 494542 근처 — 그룹 헤더(🔎검색/🛠도구/📌바로가기)로 정리함. 바 타일은 셀기반 드래그 재배치(0.7s 롱프레스)라 강제 정렬 금지(레이아웃 깨짐) — 사용자가 직접 배치. D-Day 남은일수 계산은 `ddbPinInfo(dd)`(isYearly 처리).
-- 우측 세로탭 '창 추가' 메뉴(1709xxx): 버그였음 — 메뉴 폭을 버튼(세로탭~45px) 폭에 맞추고 위로 열려 거의 안 보였음. 폭 224px 고정+화면 안 보정+아래로 열림+그룹 헤더로 수정.
-- 생일·기념일 배너 `DDBAnnivBanner`(렌더목록에 mount): ddays 전체를 ddbPinInfo로 계산, `settings.annivNotify={daysBefore(기본7),daily(기본true)}`, 상단중앙 고정, localStorage `ddb_anniv_dismiss`로 그날 닫기.
-- 메모 패널(`jw`, 1076xxx): 기본 모드 "list"(목록 먼저). 항목 펼치기(Enter/→/Ctrl+→)는 `setFocusId`(읽기뷰, 커서 없음)로 — 이전엔 하단 작성칸 편집모드로 점프해 커서 깜빡/꼬임. 읽기뷰 헤더에 ✏ 수정 버튼(편집 진입). **qT 단일클릭=펼치기(onToggleExpand, 읽기·커서없음), 더블클릭=편집**(R함수의 setTimeout을 u(!0)→i()로 변경). jw 키: →=펼치기(expanded=true), ←=접기, Enter=solo focusId. 이전엔 클릭이 200ms 뒤 u(!0) 편집진입→커서 깜빡 민원. **근본원인(v510 수정)**: qT 텍스트 읽기분기가 첫줄 `k`만 렌더하고 본문 `E`를 아예 안 그렸음 → 펼쳐도 변화 없음. 이제 `b && T`면 본문 읽기전용 표시, 접힘+본문있음이면 "⌄ 펼치기", Enter는 자동 펼침 후 읽기뷰.
-- 메모 키 동작(v511 확정): Enter·→·←는 **목록 안에서 그 자리 펼치기/접기**(Enter=토글). 별도 읽기화면(← 목록으로/수정)으로 넘기지 말 것 — 사용자가 "이상한 동작"이라 함. 편집은 더블클릭·수정버튼.
-- **자체 검증(사용자 도움 불필요)**: /tmp/bp에서 `vite.iife.mjs`(format iife, inlineDynamicImports, outDir dist-iife)로 빌드 → index.html script를 `defer`로 → 같은 bash 호출 안에서 `python3 -m http.server 8080 &` + jsdom 스크립트(/tmp/memotest2.cjs: 새 메모→네이티브 setter→Ctrl+Enter→목록→keydown 디스패치→textContent 판정). jsdom은 type=module 실행 못 함.
-- **실동작 검증 방법(필수)**: 사용자가 run.bat 실행 → 내장 브라우저(mcp__Claude_Browser)로 http://localhost:8080 열기(별도 프로필·비로그인이라 실데이터 안전) → 테스트 메모는 textarea에 네이티브 setter+input 이벤트로 넣고 Ctrl+Enter → 클릭/키 후 `document.body.innerText`·`activeElement`로 판정. 코드만 보고 "고쳤다" 하지 말 것. 샌드박스 playwright는 네트워크 차단으로 불가. 탐색기는 click 티어라 run.bat 직접 실행 불가. 메모 패널 기본크기 380×820, `ddb_memo_wh`에 크기 저장(Td 효과)·복원(ddbMemoWH, 생성 5곳).
-- 국가별 공휴일: 설정 → "🎌 공휴일 표시" 체크 → "나라(공휴일)" 드롭다운(`settings.holidays.country`, `DDB_COUNTRIES`, `ddbLoadHolidays`→`window.__ddbHolMap`). 달력 셀(996172)이 __ddbHolMap로 공휴일명 표시. **설정 '🌐 언어' 탭에도 나라 선택 드롭다운 추가**(접근성). 언어↔나라 매핑 `DDB_REGION`(lang→{hol,locale,hour12,weekStart}). `ddbSetLang(l)`=DDB_LANG+localStorage"ddb_lang"+"ddb-lang"이벤트(리로드 없음). 첫 실행 국가선택 모달 `DDBCountrySetup`(렌더목록): localStorage "ddb_setup_done" 없으면 표시(기존 데이터 있으면 조용히 플래그만), 선택 시 holidays.country+언어 설정. 기본 한국(ko).
-- 달력 칸 일정 넘침: `_evCap`(calRowH>0이면 높이맞춤, 아니면 4) 초과 시 `be.slice`로 접고 "+N개 더" 칩 → 클릭하면 그날 팝업(`he`/state `te`) 전체 표시. 칸 996700 근처.
-- AI 자동정리(`DDBAiFlusher`)는 'AI메모' 탭(id "aimemo")에만 작동 → 캘린더/알림/피드백 연동. 일반 카테고리 탭은 작성 패널 열려있을 때 정오에 초안을 그 탭 items로 자동저장(`persistDraft` 노ун 타이머)+닫을 때 저장. ai메모=캘린더, 일반메모=그 카테고리에 차곡차곡.
-- 표 창 수정여부: DDBLibGrid가 열린 뒤 0.9초 시점 셀값·서식 서명(baseSig)과 비교 → `window.__ddbTblDirty()`, 새 탭 저장 `window.__ddbTblSaveNew()`. 탭 이름은 `ddbNextTblName`(최대 번호+1). Tailwind `cursor-*-resize` 클래스는 빌드 CSS에 없을 수 있음 → 커서는 인라인 style로.
-- AI메모 삽입 버튼: DDBDocEditor가 줄 끝 공백을 지움 → "기호 " 뒤에 자리표시 글("알림 내용")을 넣고 그 부분을 선택해 바로 덮어쓰게 함. 피드백 판정은 기호로 시작하기만 하면 됨(공백 불필요).
-- **업데이트 알림 타이밍 버그(v518 수정)**: CI가 Release 껍데기를 먼저 만들고 설치파일은 몇~10분 뒤 첨부 → 그 사이 앱이 "새 버전"을 감지하면 exe가 없어 릴리스 페이지(브라우저)로 보냄. 이제 UP9는 내 OS용 설치파일이 첨부된 경우에만 알림, 없으면 4분마다 재확인(평소 1시간마다). Electron에선 exe 아닌 주소로 브라우저 열지 않음.
-- **근본 해결(v519, build.yml)**: 릴리스를 처음엔 prerelease(시험판)로 만들고, 설치파일 첨부 후 마지막 `publish` 잡이 `gh release edit --prerelease=false --latest`로 공개. releases/latest는 시험판을 안 보여주므로 **이미 설치된 옛 버전 앱도** 빈 릴리스를 못 봄. app_meta 갱신(bumpmeta)도 publish 뒤로.
-- **도킹 창 높이**: 상태의 `panel.slotH`는 클라우드 동기화로 옛 값에 덮일 수 있음 → 기기 로컬 `ddb_slot_h`(키: 메모="m:"+memoTabId, 그 외 "t:"+type)를 우선 사용(`ddbSlotH`). 높이 미지정 메모 창은 `DDB_SLOT_MINH`(340). 사용자: 창 기본 크기 작아서 매번 늘리는 것 극혐 — 새 창/패널 기본 크기는 넉넉하게, 바꾼 크기는 항상 기억.
-- 마우스 올렸을 때 나타나는 버튼(이동 등)은 절대 글 사이에 끼워 넣지 말 것(레이아웃 밀림) → absolute로 겹쳐 띄우고, 읽기전용에선 아예 숨김.
-- **셀 서식(DDBCellFmtDialog, v522)**: 확인 누를 때 바뀐 항목만 적용(dirty). 테두리는 border-none 후 남은 선 재적용. 무늬 채우기 = bg에 "ddbpat:무늬:무늬색:배경색" 저장 + CanvasRenderingContext2D.fillStyle setter 패치(ddbInstallPatternFill)로 캔버스 무늬 변환. FortuneSheet 지원 한계: 들여쓰기·셀에 맞춤·위/아래 첨자·시트보호는 미지원(대화상자에 "미지원" 표시), 채우기/양쪽/균등 정렬은 근사 표시+안내. tb 자동줄바꿈 = "2"(문자). 회전 rt 0~180(음수각=90-각), 세로쓰기 tr "3". 미리보기 검증: 대화상자만 esbuild로 묶은 하네스(/tmp/bp/h) + jsdom.
-- **표 인쇄(v523)**: `ddbBuildPrint(sheet,page,opt)`가 FortuneSheet 시트(data·config.merge/borderInfo/columnlen/rowlen/숨김)를 페이지별 HTML로 변환(열·행 분할, 반복 행/열, 수동 나누기, 배율·맞춤, 가운데 맞춤, 눈금선/머리글 인쇄). 인쇄는 숨은 iframe + @page size. 페이지 설정은 표 탭 객체 `tables[i].page`에 저장(ddb_tables). 화면 눈금선/머리글 보기는 `wbRef.setContext`. 리본 메뉴는 DDBPortalPop. 아이콘은 엑셀 그림 복제 금지 → 직접 그린 SVG(`ddbIco`). Ctrl+P = 인쇄 화면.
-- **표 리본 버튼 무반응 근본원인(v524)**: FortuneSheet `getSelection()`이 한 칸 선택 시 row/column 끝값이 비어(null) 올 수 있음 → setCellFormatByRange 루프가 0회 → 아무 일도 안 일어남. `sel()`이 항상 `ddbNormSel`로 [시작,끝] 채워 반환하도록 수정. 새 서식 코드도 반드시 sel() 경유.
-- 홈 리본 메뉴는 `HM[키]`(렌더마다 채움) → `lmenuItems`가 먼저 HM을 봄. 큰 단추(LBigRaw)는 본체=실행, ▼=메뉴(엑셀 분할 단추).
-- **FortuneSheet ref에는 setContext가 없음**(내부 훅 전용) → 시트/컨텍스트 값 변경은 `wbRef.current.applyOp([{op:"add", id: 시트id(없으면 ctx 루트), path:[...], value}])`. 조건부 서식 = 시트의 `luckysheet_conditionformat_save`(type "default" 규칙만 신뢰; FortuneSheet의 dataBar/colorGradation 계산 코드는 버그 → 색조는 정적 칠하기로 대체, 데이터 막대 미지원). 인쇄 시 조건부 서식은 `ddbCFMap`으로 직접 계산. 페이지 나누기 점선 = `ddbBuildPrint(...,{breaksOnly})` 좌표 + `.luckysheet-scrollbar-x/y` 스크롤값으로 그리드 위에 겹쳐 그림.
-- **D-Day 공통 규칙**: PC `ddbDdInfo`(app.js) = 폰 `ddayInfo`(mobile/src/dday.js). 음력=`isLunar`(date의 월·일을 음력으로 보고 해마다 양력 변환, korean-lunar-calendar), 100일 단위=`countUp`(시작일=1일째). PC는 라이브러리를 비동기 로드(`PT()`→`window.__ddbLunarCls`). 폰 알림은 `mobile/src/remind.js`(설치형 앱=LocalNotifications 30일치 9시 예약, 웹=열 때 카드+알림 1회). 폰은 PC의 memoTabs·feedbackMemos를 보기 전용으로 받아옴(sync.js pcExtras) — push 때 절대 덮어쓰지 않음.
-- **안드로이드 APK(v527)**: android/ 폴더는 저장소에 안 넣고 CI에서 `npx cap add android`로 매번 생성 → 매니페스트에 POST_NOTIFICATIONS·SCHEDULE_EXACT_ALARM sed 추가 → `assembleDebug`. 서명은 `mobile/android-signing/debug.keystore`(alias androiddebugkey/pw android)를 ~/.android에 복사해 고정(업데이트 설치 가능). ⚠️공개 저장소에 키 있음 → 보안 단계 때 GitHub Secret으로 옮길 것. 아침 브리핑: `mobile/public/runners/background.js`(Background Runner, 15분 간격, CapacitorKV에 설정·발송일 저장) + 앱 카드 `src/brief.js`(CapacitorHttp로 CORS 우회; 웹은 환율만). 자료: Yahoo chart API(비공식·지연), open.er-api.com(환율, 하루 1회 갱신), Google News RSS(제목만). android 잡은 publish의 needs에 포함(첨부가 publish 뒤에 되면 prerelease로 되돌려지는 문제 방지).
-- CI 실패 원인 확인법: 저장소가 공개라 `https://api.github.com/repos/buglow2/doodle-day-buddy/actions/runs?per_page=1` → `/runs/<id>/jobs`(어느 잡·단계 실패) → `/check-runs/<job id>/annotations`를 web_fetch로 직접 볼 수 있음(로그 원문은 인증 필요). Capacitor 8 CLI는 Node 22+ 필요(android 잡 node 22). bumpmeta는 `if: always() && publish 성공`(다른 잡 실패 시 건너뛰던 문제).
-- **폰 알림 하나로(사용자 결정)**: 아침 6:30 한 번. 브리핑 켜짐 → 백그라운드 브리핑 알림 본문 맨 앞에 그날 D-Day·🔔일정·피드백(`cfg.rem` = 앱이 `mp_rem_cache`로 넘김), 별도 LocalNotifications 예약은 취소. 브리핑 꺼짐 → 같은 시각에 LocalNotifications로 따로. android 잡: setup-android + sdkmanager(API 36), 실패 시 로그 요약을 `::error` 주석으로 출력(annotations API로 원인 확인 가능).
-- **퀵커맨드·알람(v531)**: `settings.quickCmd={order,hidden,stripOn(기본 false),edgeOn,edgePos(top/mid/bot),presets}`, 아이콘 `ddbQcIcon(k)`(`ddbQcCfg`/`ddbSetQc`), `settings.alarms=[{id,label,hm,days(0=일),on}]`(`ddbAlarmNext`, 울린 기록 localStorage `ddb_alarm_fired`), 폰 무음=`timerClock.phoneSound`. 서랍↔카드 연결은 window 이벤트(`ddb-qc-dragstart/dragend/open/run/chunkdrag`), 서랍 단추 끌기 시작하면 AI메모가 자동으로 퀵커맨드 화면으로. 폰: pcExtras가 timerClock.phone 켜졌을 때만 timers·alarms·tsound 전달, 알람은 LocalNotifications `schedule.on{weekday(일=1),hour,minute}` 반복, 소리/무음은 채널 `mp_timer_snd`/`mp_timer_mute`(importance 5/2).
-- **타이머(v530)**: `settings.timers=[{id,label,at,phone}]`(동기화됨), 시계 설정 `settings.timerClock={pos,showNow,warnMin,sound,phone,hidden}`. `DDBTimerClock`(렌더목록 DDBAnnivBanner 옆)·`DDBTimerPick`·`DDBAiSendMode`·`ddbAiChunks/ddbAiRemoveChunk`. 폰은 sync.js pcExtras→timers, remind.js `scheduleTimers`(id 7800000~). 검증 하네스: aitimer 코드+스텁을 esbuild로 묶어 jsdom(/tmp/bp/h2), drop 이벤트에 dataTransfer 직접 붙여 테스트.
-- **폰 앱 업데이트(v535)**: `mobile/src/update.js`. B=`@capgo/capacitor-updater`(수동 모드: autoUpdate false, statsUrl "" → Capgo 서버 안 씀) `download→next`(다음 실행 적용)/`set`(지금), main.jsx에서 `notifyAppReady()` 즉시(안 하면 10초 뒤 자동 되돌림). 정보=releases/latest의 `mobile-web.json`{version,nativeSince,zipHash}+`mobile-web-<v>.zip`. **폰 기능(플러그인·권한·capacitor.config) 바꿀 때마다 `mobile/native-since.txt`를 그 릴리스 버전으로 올릴 것** → 옛 APK는 화면 갱신 대신 A(APK 설치) 안내. A=`@capacitor/file-transfer`로 캐시에 받고 `@capacitor-community/file-opener`로 설치 화면(REQUEST_INSTALL_PACKAGES). versionCode=a*1e6+b*1e4+c. 고정 링크용으로 버전 없는 `MomentPlan-Android.apk`도 첨부(→ releases/latest/download/MomentPlan-Android.apk). 화면 버전은 vite define `__MP_WEB_VER__`(CI MP_VER).
-- **[치명 버그·v536 수정] 폰 알림이 하나도 안 울리던 근본 원인**: Capacitor 3+는 플러그인 JS를 import해야 `registerPlugin`으로 등록됨. 예전 코드는 `window.Capacitor.Plugins.LocalNotifications`/`.BackgroundRunner`로 찾아서 항상 비어 있었음(러너 등록 이름은 `CapacitorBackgroundRunner`) → D-Day·일정·타이머 예약 0건, 아침 브리핑 설정 미전달. 이제 `import { LocalNotifications } from '@capacitor/local-notifications'`, `import { BackgroundRunner } from '@capacitor/background-runner'`. 새 폰 플러그인도 반드시 import로 쓸 것. 브리핑은 안전망 예약 알림(`scheduleBriefFallback`, 정확한 알람 7일치, id 880000+날짜)도 걸고 러너가 같은 id로 내용 교체. 브리핑 카드에 백그라운드 진단(`briefStatus` → 러너 'status' 이벤트: lastCheckin·sent·hasCfg).
-- **APK 서명 고정(v537)**: `~/.android/debug.keystore` 복사만으론 CI에서 실제로 그 열쇠로 서명되는지 보장 안 됨(1.0.99가 폰에서 설치 거부됨) → gradle에 `-Pandroid.injected.signing.store.file=…/debug.keystore`(비번 android, alias androiddebugkey)로 직접 지정 + 빌드마다 서명 SHA-256을 `::notice`로 기록(정답 E6:AF:26:00…). 열쇠가 바뀐 APK는 폰에서 기존 앱 삭제 후 설치해야 함.
-- ⚠️ 폰 터치 끌기: 터치가 시작된 요소를 DOM에서 제거하면 이후 touchmove/touchend가 document로 안 옴 → 끄는 요소는 숨기기만(높이 0) 하고 요소에도 리스너. 폰 기능 추가 시 native-since를 꼭 올려야 하는지 판단(선택 기능이면 대체 동작으로 두고 안 올림 → 자동 갱신 유지).
-- ⚠️ `aitimer.js`(outputs)는 임시 사본 — 이제 app.js가 원본(DDBRecoverBanner가 그 블록 안에 있음). 다시 덮어쓰지 말 것.
-- ⚠️ state 전체가 localStorage(`Ef`)에 저장되고 그대로 클라우드에 올라감 → state에 사진·큰 글을 무한정 쌓으면 결국 10MB 한도로 로그인 풀림·저장 실패. 새 기능이 state를 키우면 반드시 보관(아카이브)·한도 설계를 같이 할 것.
-- ⚠️ 클라우드 업로드(qS의 m)는 반드시 pull 후에만, 빈 상태로 덮어쓰기 금지. localStorage엔 큰 데이터 금지(가득 차면 로그인 토큰 저장 실패 → 빈 화면 시작).
-- 이미지 원본 보관 = `ddbSaveFullImg(day, thumb, url)`/`ddbGetFullImg(day, thumb)`(IndexedDB). 썸네일은 `ddbMakeThumb(img)`. 큰 데이터는 절대 localStorage에 넣지 말 것(한도 초과로 조용히 실패).
-- 폰 '오늘' 탭 순서 `mp_today_order`, 공통 `HoldSort`(app.jsx, 터치·마우스, touchmove passive:false로 스크롤 막음). 폰 push는 합치기(`mp_deleted_ids`로 폰에서 지운 것만 제거). 자동 로그인 = `currentUser()`가 getSession 우선 + `onAuth`(onAuthStateChange).
-- APK 빌드 필수 수정: ①setup-android 액션 쓰지 말고 러너 기본 SDK(`$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager`) ②`android/app/build.gradle` flatDir에 `../../node_modules/@capacitor/background-runner/android/src/main/libs` 추가(없으면 "Could not find :android-js-engine-release:").
+## ⚠️ 반복 금지 핵심 주의사항 (한 줄씩)
+- app.js 편집 후 node --check만 믿지 말고 `esbuild.transformSync`로도 파싱 확인.
+- state 전체가 localStorage(`Ef`)에 저장·클라우드에 올라감 → state에 사진·큰 글 무한정 쌓지 말 것(10MB 넘으면 로그인 풀림·빈 화면). 새 기능이 state를 키우면 보관·한도 설계 같이.
+- localStorage에 큰 데이터 금지 → 큰 그림·원본은 IndexedDB(`ddbSaveFullImg`/`ddbGetFullImg`). `aiDaily`엔 썸네일만.
+- 클라우드 업로드는 반드시 pull 후에만, 빈 상태로 클라우드 덮어쓰기 금지(`pulledRef`/`cloudNRef`).
+- localStorage 전용 데이터(`ddb_tables` 등)는 Supabase upsert data에 넣어야 다른 기기에 보임.
+- 폰은 PC의 memoTabs·feedbackMemos를 보기 전용으로 받음 → push 때 덮어쓰지 말 것(폰 push는 합치기).
+- 도킹 창 높이는 동기화되는 `panel.slotH` 말고 기기 로컬 `ddb_slot_h` 우선.
+- FortuneSheet: `setCellValuesByRange`에 칸 수 다른 2차원 배열 넘기면 **앱 전체 멈춤** → 항상 직사각형.
+- FortuneSheet: `getSelection()` 한 칸 선택 시 끝값 null 가능 → 서식 코드는 반드시 `sel()`(=`ddbNormSel`) 경유.
+- FortuneSheet ref엔 setContext 없음 → `applyOp([{op:"add",id,path,value}])`. 테두리는 `setCellFormat(...,"bd",…)`. 저장 전 `document.activeElement.blur()`.
+- FortuneSheet는 window resize 신호에만 다시 그림 → 표 창 크기 바뀌면 resize 이벤트 보냄. mergeCells는 범위 '배열'.
+- 표 단축키는 FortuneSheet가 document 단계에서 먼저 받음 → **window 캡처 단계**에서 가로채고 Alt 단독 keydown도 막기. 편집 중 판정 = `.luckysheet-input-box` zIndex "19".
+- 표 기본 우클릭 메뉴는 `cellContextMenu:[]`,`headerContextMenu:[]`로 끄고 커스텀 메뉴.
+- 리본 아이콘은 엑셀 그림 복제 금지 → 직접 그린 SVG(`ddbIco`).
+- 상단 툴바·TileBar는 사용자가 순서 바꿈 → 고정 구분선·강제 정렬 금지.
+- 폰 플러그인은 반드시 `import`로 사용(`window.Capacitor.Plugins.X`로 찾으면 비어 있음 → 알림 0건이었던 치명 버그).
+- 폰 터치 끌기: 터치 시작한 요소를 DOM에서 빼면 touchmove/end가 안 옴 → 숨기기만(높이 0) + 요소에도 리스너.
+- 폰 업데이트(@capgo) `notifyAppReady()`를 즉시 호출(안 하면 10초 뒤 되돌림).
+- APK: setup-android 액션 쓰지 말 것, flatDir에 background-runner libs 추가, 서명은 gradle `-Pandroid.injected.signing.store.file`로 직접 지정(지문 E6:AF:26…).
+- `aitimer.js`(outputs)는 임시 사본 — app.js가 원본, 덮어쓰지 말 것.
+- AI메모 삽입: DDBDocEditor가 줄 끝 공백을 지움 → 기호 뒤에 자리표시 글을 넣고 선택 상태로.
+
+## 현재 미완료·확인 필요·보류
+- **사용자 조치 필요**: 폰이 옛 APK(1.0.98 이전) → 기존 앱 삭제 후 고정 링크(`releases/latest/download/MomentPlan-Android.apk`)로 1회 설치. 그 뒤 자동 갱신.
+- **실기(실제 사용) 확인 필요 — PC**: 앱 안 업데이트 설치(SmartScreen 회피, v512~519) · 표 탭 끌어 버리기(v515) · 작업일지 스킨 전체 창 적용(v521) · 셀 서식 대화상자(v522) · 표 리본 1~3단계(v523~525) · AI메모 문단 보내기·구석 타이머 시계·퀵커맨드·타이머/알람 창(v530~533) · D-Day 음력/양력 표기(v534) · 이미지 내보내기 줄바꿈(v533) · 타이머 여러 PC 중복 울림 방지(v538) · AI메모 고화질 원본·편집 화면 선명도(v543~544) · 데이터 유실 안전장치(v545~546) · 표 점선/최대화/Esc/캡처 복사(v547) · D-Day 목록 단추·사진 확대(v548) · 사진 클라우드 보관(v549) · 표 v554 일부(대부분 화면 검증됨).
+- **실기 확인 필요 — 폰**: 아침 브리핑·알림(v527·v536) · PC 타이머 폰 알림(APK 재빌드 필요) · 앱 업데이트 A+B(v535) · 자동 로그인·D-Day 필터·오늘 탭 순서(v538·v542·v548) · 뉴스 맞춤 탭(APK 1.0.104).
+- **배포 필요**: 폰 웹 D-Day 알림 등(v526) → `mobile/deploy.bat`.
+- **점검 후보**: 1342xxx `vm` 호버 목록(bottom-full 애니메이션형) 포털 전환.
+- **알려진 한계**: PC는 user_data 실시간 구독 없음(두 PC 동시 켜면 알람 둘 다 울림) · 폰 실시간 푸시는 FCM 필요.
+- **보류**: 보안 단계(공개 저장소의 APK 서명 키 → GitHub Secret, PAT·CI 전환·난독화·법적 문서·Private 전환), Microsoft Store(MSIX), 폰 푸시(FCM), 팀 권한, 코드서명 인증서.
+
+## 기록 규칙
+- 작업 하나가 끝나면: CLAUDE.md에는 **미완료 항목만** 갱신(완료되면 여기서 지움), 상세 기록(무엇을·왜·어떻게, 함수명·키 이름)은 `docs/작업기록.md` 끝에 추가.
+- 새로 알게 된 '반복 금지' 주의사항은 위 ⚠️ 목록에 한 줄로 추가하고 상세는 작업기록에.
+
+자세한 과거 기록·기능별 구현 메모는 docs/작업기록.md 참고(필요할 때만 읽기).
