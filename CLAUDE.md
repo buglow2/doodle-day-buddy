@@ -54,6 +54,7 @@
 - 화면 직접 검증: /tmp/bp `vite.iife.mjs`로 한 파일 빌드 → `mk.py pre.js post.js out.html` → 미리보기 스크린샷. `getAllSheets()`는 늦게 반영될 수 있음 → 판정은 화면/DOM으로.
 - 실동작: 사용자가 run.bat 실행 → 내장 브라우저로 http://localhost:8080 (비로그인이라 실데이터 안전). 입력은 네이티브 setter+input 이벤트.
 - 재시작 흉내 시 localStorage `restore_once_v1`='1' 필요(비로그인이면 기본값으로 시작하는 설계).
+- 이미지 편집기 시험: fabric은 실행 중 CDN에서 받으므로 미리보기에선 안 뜸 → `npm pack fabric@5.3.0`의 dist/fabric.min.js를 테스트 HTML에 직접 넣기.
 - Tailwind CDN은 미리보기에서 차단됨 → 목업은 인라인 CSS. `cursor-*-resize` 등 클래스는 빌드 CSS에 없을 수 있음 → 인라인 style.
 
 ## ⚠️ 반복 금지 핵심 주의사항 (한 줄씩)
