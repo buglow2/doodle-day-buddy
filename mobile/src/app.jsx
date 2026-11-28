@@ -186,24 +186,26 @@ function Today({ evByDate, ddays, reminders, feedback, timers, alarms, tsound, o
         {lunarText(t)}{holidayName(t) ? ' · ' : ''}<span style={{ color: '#fca5a5' }}>{holidayName(t) || ''}</span>
         <span style={{ float: 'right', fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>칸을 1초 누르고 끌면 순서 변경</span>
       </div>
-      <HoldSort items={visible} onChange={reorder} render={k => <div style={{ marginBottom: 4 }}>{SEC[k]}</div>} ghost={k => <div style={{ padding: '14px 16px', border: '1px solid #fbbf24', borderRadius: 12, fontSize: 15, fontWeight: 700, color: '#fde68a' }}>{({ timers: '⏱ PC 타이머·알람', remind: '🔔 오늘 알림', brief: '☀️ 아침 브리핑', feedback: '💬 확인할 피드백', events: '📅 오늘 일정', dday: '⏳ 다가오는 D-Day' })[k]} — 놓을 곳으로 끌기</div>} />
+      <HoldSort items={visible} onChange={reorder} render={k => <div style={{ marginBottom: 4 }}>{SEC[k]}</div>} label={k => ({ timers: '⏱ PC 타이머·알람', remind: '🔔 오늘 알림', brief: '☀️ 아침 브리핑', feedback: '💬 확인할 피드백', events: '📅 오늘 일정', dday: '⏳ 다가오는 D-Day' })[k]} />
     </div>
   );
 }
 
 // ★공통 규칙(PC와 같음): 1초 누르기 → 끌면 놓일 자리를 점선으로 미리보기 → 놓으면 그 자리로. 짧게 누르면 그냥 누르기.
-function HoldSort({ items, render, onChange, ghost }) {
-  // ⚠️ 끌고 있는 칸을 화면에서 빼 버리면(DOM 제거) 폰은 손가락 움직임·떼기 신호를 그 칸에만 보내서 앱이 못 받음 → '끌기 상태'에서 안 끝나던 원인.
-  //    그래서 끄는 칸은 지우지 않고 높이 0으로 접어 두고, 그 칸 자체에도 신호를 받는 귀(리스너)를 붙임. 6초 동안 움직임이 없으면 자동 취소.
+function HoldSort({ items, render, onChange, label }) {
+  // 1초 누르면 '순서 바꾸기 모드': 모든 칸이 제목 한 줄(ROW px)로 작게 접힘 → 손가락을 한 칸 높이만큼만 움직여도 자리 이동.
+  // ⚠️ 손가락이 처음 닿은 요소를 DOM에서 빼면 폰이 이후 움직임·떼기 신호를 앱에 안 줌 → 끄는 칸의 원래 내용은 높이 0으로 숨겨 남겨 둠.
+  const ROW = 54;
   const [drag, setDrag] = useState(null);
-  const refs = React.useRef({}); const tm = React.useRef(null); const st = React.useRef(null); const idle = React.useRef(null);
+  const refs = React.useRef({}); const box = React.useRef(null); const tm = React.useRef(null); const st = React.useRef(null); const idle = React.useRef(null);
   const itemsRef = React.useRef(items); itemsRef.current = items; const cbRef = React.useRef(onChange); cbRef.current = onChange;
   const pt = e => (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
   const finish = (commit) => { const s = st.current; clearTimeout(tm.current); clearTimeout(idle.current); st.current = null; if (s && s.detach) s.detach(); if (s && s.armed) { setDrag(null); if (commit && s.to != null && s.to !== s.i) { const arr = itemsRef.current.slice(); const [x] = arr.splice(s.i, 1); arr.splice(s.to, 0, x); cbRef.current(arr); } } };
   const mv = e => { const s = st.current; if (!s) return; const p = pt(e);
     if (!s.armed) { if (Math.abs(p.clientY - s.sy) + Math.abs(p.clientX - s.sx) > 10) finish(false); return; }
     if (e.cancelable) e.preventDefault(); clearTimeout(idle.current); idle.current = setTimeout(() => finish(false), 6000);
-    let to = 0; s.rects.forEach((rc, j) => { if (j !== s.i && rc && p.clientY > rc.top + rc.height / 2) to++; }); s.to = to; setDrag(d => d && { ...d, y: p.clientY, to }); };
+    // 처음 누른 칸의 작은 줄이 손가락 아래에 있다고 보고, 움직인 거리 ÷ 줄 높이 만큼 자리 이동
+    const n = itemsRef.current.length; const to = Math.max(0, Math.min(n - 1, s.i + Math.round((p.clientY - s.sy) / ROW))); s.to = to; setDrag(d => d && { ...d, y: p.clientY, to }); };
   const up = () => finish(true);
   const down = k => e => { if (e.button) return; const p = (e.touches && e.touches[0]) || e; finish(false); const el = e.currentTarget;
     const s = { k, sx: p.clientX, sy: p.clientY, armed: false };
@@ -212,15 +214,21 @@ function HoldSort({ items, render, onChange, ghost }) {
     targets.forEach(t => { t.addEventListener('touchmove', mv, opt); t.addEventListener('touchend', up); t.addEventListener('touchcancel', up); t.addEventListener('mousemove', mv); t.addEventListener('mouseup', up); });
     s.detach = () => targets.forEach(t => { t.removeEventListener('touchmove', mv, opt); t.removeEventListener('touchend', up); t.removeEventListener('touchcancel', up); t.removeEventListener('mousemove', mv); t.removeEventListener('mouseup', up); });
     st.current = s;
-    tm.current = setTimeout(() => { const s2 = st.current; if (!s2 || s2 !== s) return; const its = itemsRef.current; const rects = its.map(x => refs.current[x] ? refs.current[x].getBoundingClientRect() : null); const i = its.indexOf(k); const r = rects[i]; if (!r) return finish(false); try { navigator.vibrate && navigator.vibrate(30); } catch {} Object.assign(s, { armed: true, rects, i, to: i }); idle.current = setTimeout(() => finish(false), 6000); setDrag({ k, i, to: i, y: s.sy, dy: s.sy - r.top, h: r.height, w: r.width, x: r.left }); }, 1000); };
+    tm.current = setTimeout(() => { const s2 = st.current; if (!s2 || s2 !== s) return; const its = itemsRef.current; const i = its.indexOf(k); if (i < 0) return finish(false); const r = box.current ? box.current.getBoundingClientRect() : { left: 0, width: window.innerWidth }; try { navigator.vibrate && navigator.vibrate(30); } catch {} Object.assign(s, { armed: true, i, to: i }); idle.current = setTimeout(() => finish(false), 6000); setDrag({ k, i, to: i, y: s.sy, w: r.width, x: r.left }); }, 1000); };
   useEffect(() => () => finish(false), []);
-  // 화면 순서: 끄는 칸은 제자리에 '접힌 채' 남겨 두고(신호 받기용), 다른 칸들 사이에 점선 자리를 넣음
+  // 접힌 모드에서 처음 누른 칸의 줄이 손가락 위치에 오도록 목록을 그만큼 내려 줌(위쪽 여백)
+  const [pad, setPad] = useState(0);
+  React.useLayoutEffect(() => { if (!drag) { setPad(0); return; } if (pad) return; try { const r = box.current.getBoundingClientRect(); const want = drag.y - ROW / 2 - drag.i * ROW; setPad(Math.max(0, want - r.top)); } catch {} }, [!!drag]);
+  const lab = k => (label ? label(k) : k);
+  const rowSt = { height: ROW - 8, marginBottom: 8, display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 12, fontSize: 15, fontWeight: 700, boxSizing: 'border-box' };
   let seq = items.map(k => ({ k }));
   if (drag) { const others = items.filter(k => k !== drag.k).map(k => ({ k })); others.splice(drag.to, 0, { ph: true }); seq = others; seq.splice(Math.min(drag.i, seq.length), 0, { k: drag.k, hidden: true }); }
-  return <div onContextMenu={e => { if (st.current) e.preventDefault(); }}>
-    {seq.map(v => v.ph ? <div key="ph" style={{ height: drag.h, border: '2px dashed #fbbf24', borderRadius: 12, background: 'rgba(251,191,36,0.12)', marginBottom: 4 }} />
-      : <div key={v.k} ref={el => { if (!drag) refs.current[v.k] = el; }} onTouchStart={down(v.k)} onMouseDown={down(v.k)} style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: drag ? 'none' : 'auto', ...(v.hidden ? { height: 0, overflow: 'hidden', opacity: 0 } : {}) }}>{render(v.k)}</div>)}
-    {drag ? <div style={{ position: 'fixed', left: drag.x, top: drag.y - 28, width: drag.w, pointerEvents: 'none', zIndex: 9999, opacity: 0.92, transform: 'scale(1.03)', boxShadow: '0 12px 30px rgba(0,0,0,0.6)', borderRadius: 12, background: '#0b1020' }}>{ghost ? ghost(drag.k) : render(drag.k)}</div> : null}
+  return <div ref={box} onContextMenu={e => { if (st.current) e.preventDefault(); }}>
+    {drag ? <div style={{ height: pad }} /> : null}
+    {/* 같은 key의 같은 div를 계속 쓰므로 끄는 칸(hidden)의 원래 내용은 DOM에서 안 빠지고 숨기기만 됨 → 손가락 신호 유지 */}
+    {seq.map(v => v.ph ? <div key="ph" style={{ ...rowSt, border: '2px dashed #fbbf24', background: 'rgba(251,191,36,0.12)' }} />
+      : <div key={v.k} ref={el => { refs.current[v.k] = el; }} onTouchStart={drag ? undefined : down(v.k)} onMouseDown={drag ? undefined : down(v.k)} style={v.hidden ? { height: 0, overflow: 'hidden', opacity: 0 } : drag ? { ...rowSt, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#e5e7eb' } : { WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'auto' }}>{v.hidden || !drag ? render(v.k) : lab(v.k)}</div>)}
+    {drag ? <div style={{ ...rowSt, position: 'fixed', left: drag.x, top: drag.y - ROW / 2, width: drag.w, pointerEvents: 'none', zIndex: 9999, opacity: 0.95, transform: 'scale(1.03)', boxShadow: '0 12px 30px rgba(0,0,0,0.6)', background: '#1f2937', border: '1px solid #fbbf24', color: '#fde68a', marginBottom: 0, justifyContent: 'space-between' }}><span>{lab(drag.k)}</span><span style={{ fontSize: 12, fontWeight: 400 }}>↕ 놓을 곳에서 손 떼기</span></div> : null}
   </div>;
 }
 
