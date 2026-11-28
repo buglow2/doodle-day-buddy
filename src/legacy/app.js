@@ -2117,7 +2117,18 @@ function DDBLibGrid({ content, onCommit, onSaveNew, page, onPage, title }) {
     // v550: 정렬 — 한 칸만 골랐으면 엑셀처럼 이어진 표 전체로 넓히고, 첫 줄이 글자 머리글이면 빼고 정렬. 기준 = 고른 칸의 열
     const sortRegion = () => { const r = sel(); if (!r || !wbRef.current) return null; if (r.row[0] !== r.row[1] || r.column[0] !== r.column[1]) return { r, key: r.column[0] }; let sh = null; try { const shs = wbRef.current.getAllSheets() || []; sh = shs.find(x => x && x.status == 1) || shs[0]; } catch (e) {} const d = (sh && sh.data) || []; const has = (y, x) => { const c = d[y] && d[y][x]; return !!(c && (c.v != null && c.v !== "" || c.m)); }; let r1 = r.row[0], r2 = r.row[0], c1 = r.column[0], c2 = r.column[0]; let grow = true; while (grow) { grow = false; if (r1 > 0) for (let x = c1; x <= c2; x++) if (has(r1 - 1, x)) { r1--; grow = true; break; } for (let x = c1; x <= c2; x++) if (has(r2 + 1, x)) { r2++; grow = true; break; } if (c1 > 0) for (let y = r1; y <= r2; y++) if (has(y, c1 - 1)) { c1--; grow = true; break; } for (let y = r1; y <= r2; y++) if (has(y, c2 + 1)) { c2++; grow = true; break; } } return { r: { row: [r1, r2], column: [c1, c2] }, key: r.column[0] }; };
     const cmpV = (av, bv) => { const ae = av === "" || av == null, be = bv === "" || bv == null; if (ae && be) return 0; if (ae) return 1; if (be) return -1; const an = Number(av), bn = Number(bv); if (!isNaN(an) && !isNaN(bn)) return an - bn; return String(av).localeCompare(String(bv), "ko"); };
-    const doSort = (rg, levels, header) => { try { const ae = document.activeElement; if (ae && ae.blur) ae.blur(); } catch (e) {} try { const cells = wbRef.current.getCellsByRange(rg); if (!cells || !cells.length) return; const vals = cells.map(row => (row || []).map(c => c ? (c.v != null ? c.v : (c.m != null ? c.m : "")) : "")); const head = header ? vals.slice(0, 1) : []; const body = header ? vals.slice(1) : vals; const c0 = rg.column[0]; body.sort((a, b) => { for (const lv of levels) { const k = lv.col - c0; const v = cmpV(a[k], b[k]); if (v) { const em = (a[k] === "" || a[k] == null) || (b[k] === "" || b[k] == null); return em ? v : (lv.asc ? v : -v); } } return 0; }); wbRef.current.setCellValuesByRange(head.concat(body), rg); } catch (e) {} };
+    // v553: 정렬 = 엑셀처럼 '줄 통째로' 이동 — 값뿐 아니라 칸 서식(색·굵게·글꼴·맞춤·숫자 서식)·테두리·수식도 그 줄과 함께 움직임. 수식의 상대참조는 옮겨 간 줄에 맞게 바뀜(=A2*B2가 4행으로 가면 =A4*B4)
+    const doSort = (rg, levels, header) => { try { const ae = document.activeElement; if (ae && ae.blur) ae.blur(); } catch (e) {} try { const wb = wbRef.current; const sh = curSheet(); const d = (sh && sh.data) || []; const r1 = rg.row[0] + (header ? 1 : 0), r2 = rg.row[1], c1 = rg.column[0], c2 = rg.column[1]; if (r2 <= r1) return;
+        const merges = Object.values((sh && sh.config && sh.config.merge) || {}).filter(m => m && !(m.r + m.rs - 1 < r1 || m.r > r2 || m.c + m.cs - 1 < c1 || m.c > c2)); if (merges.length) { alert("정렬할 범위에 병합된 칸이 있어요. 병합을 풀고 다시 정렬해 주세요. (엑셀과 같은 규칙)"); return; }
+        const bm = ddbBorderMap(sh); const FK = ["bg", "ff", "fc", "bl", "it", "fs", "cl", "un", "vt", "ht", "tb", "tr", "rt", "ct"];
+        const rows = []; for (let r = r1; r <= r2; r++) { const cells = [], bds = []; for (let c = c1; c <= c2; c++) { const x = d[r] && d[r][c]; cells.push(x ? JSON.parse(JSON.stringify(x)) : null); bds.push(bm[r + "_" + c] || null); } rows.push({ r, cells, bds }); }
+        const keyv = (row, col) => { const x = row.cells[col - c1]; return x ? (x.v != null ? x.v : (x.m != null ? x.m : "")) : ""; };
+        rows.sort((a, b) => { for (const lv of levels) { const av = keyv(a, lv.col), bv = keyv(b, lv.col); const v = cmpV(av, bv); if (v) { const em = (av === "" || av == null) || (bv === "" || bv == null); return em ? v : (lv.asc ? v : -v); } } return 0; });
+        // 범위 테두리 지우고 다시 그림
+        try { wb.setCellFormat(r1, c1, "bd", { borderType: "border-none", color: "#000000", style: "1", range: [{ row: [r1, r2], column: [c1, c2] }] }); } catch (e) {}
+        rows.forEach((row, i) => { const R = r1 + i; row.cells.forEach((x, j) => { const C = c1 + j; const nv = {}; FK.forEach(k => { nv[k] = x && x[k] != null ? x[k] : null; }); if (x && x.f) { nv.f = ddbShiftRefs(x.f, R - row.r, 0); delete nv.v; try { wb.setCellValue(R, C, nv); } catch (e) {} } else { nv.v = x && x.v != null ? x.v : ""; if (x && x.m != null) nv.m = x.m; try { wb.setCellValue(R, C, nv); } catch (e) {} } const e = row.bds[j]; if (e) { const map = { t: "border-top", b: "border-bottom", l: "border-left", r: "border-right" }; Object.keys(map).forEach(sd => { if (e[sd]) try { wb.setCellFormat(R, C, "bd", { borderType: map[sd], color: e[sd].color || "#000000", style: String(e[sd].style || "1"), range: [{ row: [R, R], column: [C, C] }] }); } catch (er) {} }); } }); });
+        if (onCommit) { try { onCommit("DDBFS:" + JSON.stringify(wb.getAllSheets())); } catch (e) {} }
+    } catch (e) {} };
     const looksHeader = rg => { try { const cells = wbRef.current.getCellsByRange(rg) || []; const f = (cells[0] || []).map(c => c ? (c.v != null ? c.v : c.m) : ""); const s2 = (cells[1] || []).map(c => c ? (c.v != null ? c.v : c.m) : ""); return f.some(v => v !== "" && v != null && isNaN(Number(v))) && (cells.length > 1) && !(s2.length && s2.every((v, i) => typeof v === typeof f[i] && isNaN(Number(v)) === isNaN(Number(f[i])) && isNaN(Number(v)))); } catch (e) { return false; } };
     const sortRange = asc => { const g = sortRegion(); if (!g) return; doSort(g.r, [{ col: g.key, asc }], looksHeader(g.r)); };
     const [sortDlg, setSortDlg] = O.useState(false);
@@ -2155,7 +2166,7 @@ function DDBLibGrid({ content, onCommit, onSaveNew, page, onPage, title }) {
     const FMT_KEYS = ["bg", "ff", "fc", "bl", "it", "fs", "cl", "un", "vt", "ht", "tr", "tb", "rt"];
     const shiftF = (f, dr, dc) => ddbShiftRefs(f, dr, dc); const _oldShiftF = (f, dr, dc) => String(f).replace(/("[^"]*")|(\$?)([A-Z]{1,3})(\$?)(\d+)(?![\w(])/g, (m, str, d1, col, d2, row) => { if (str) return str; let ci = 0; for (const ch of col) ci = ci * 26 + (ch.charCodeAt(0) - 64); ci -= 1; const nc = d1 ? ci : ci + dc, nr = d2 ? +row : +row + dr; if (nc < 0 || nr < 1) return "#REF!"; return d1 + ddbColName(nc) + d2 + nr; });
     const opNum = (a, b, op) => { const x = Number(a), y = Number(b); const xe = a === "" || a == null, ye = b === "" || b == null; if (op === "none") return b; if ((!xe && isNaN(x)) || (!ye && isNaN(y))) return b; const X = xe ? 0 : x, Y = ye ? 0 : y; return op === "add" ? X + Y : op === "sub" ? X - Y : op === "mul" ? X * Y : op === "div" ? (Y === 0 ? "#DIV/0!" : X / Y) : b; };
-    const pasteSpecial = async (mode, opt) => { opt = opt || {}; const r = sel(); if (!r || !wbRef.current) return; let C = window.__ddbTblClip; const wb = wbRef.current; try { const ct = await navigator.clipboard.readText(); if (C && ct && ct.replace(/\r/g, "").replace(/\n+$/, "") !== String(C.tsv || "").replace(/\n+$/, "")) C = null; /* 그 뒤에 다른 곳에서 복사함 → 그 글을 씀 */ } catch (e) {}
+    const pasteSpecial = async (mode, opt) => { opt = opt || {}; const r = sel(); if (!r || !wbRef.current) return; let C = window.__ddbTblClip; const wb = wbRef.current; try { const ct = await navigator.clipboard.readText(); const nz = x => String(x || "").replace(/\s+/g, ""); if (C && ct && nz(ct) && nz(ct) !== nz(C.tsv)) C = null; /* 그 뒤에 다른 곳에서 복사함 → 그 글을 씀 */ } catch (e) {}
         if (!C) { // 앱 밖에서 복사한 글 → 값으로만 붙여넣기
             try { const txt = await navigator.clipboard.readText(); if (!txt) return; let d = txt.replace(/\r/g, "").split("\n").map(l => l.split("\t")); while (d.length && d[d.length - 1].length === 1 && d[d.length - 1][0] === "") d.pop(); { const nc = d.reduce((m, x) => Math.max(m, x.length), 1); d.forEach(row => { while (row.length < nc) row.push(""); }); } if (opt.transpose) d = d[0].map((_, j) => d.map(row => row[j] != null ? row[j] : "")); wb.setCellValuesByRange(d, { row: [r.row[0], r.row[0] + d.length - 1], column: [r.column[0], r.column[0] + d[0].length - 1] }); } catch (e) {} return; }
         const sr = C.r, H = C.cells.length, W = (C.cells[0] || []).length; const tr0 = r.row[0], tc0 = r.column[0];
@@ -5016,7 +5027,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.115";
+const DDB_VERSION = "1.00.116";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -6569,7 +6580,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v552"
+                children: "v553"
             }), (() => {
                 const S = [{
                     k: "cal",
