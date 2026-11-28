@@ -1232,7 +1232,7 @@ function DDBImageEditor() {
             o.jsxs("div", { className: "flex flex-col gap-2", children: [
                 o.jsx("button", { onClick: async () => { try { await doSave(); } catch (e) {} setAskCloseImg(false); setOpen(false); }, className: "w-full px-4 py-2 rounded-lg text-sm font-semibold bg-blue-500 hover:bg-blue-400 text-white cursor-pointer border-none", children: "저장 후 종료" }),
                 o.jsx("button", { onClick: () => { setAskCloseImg(false); setOpen(false); }, className: "w-full px-4 py-2 rounded-lg text-sm bg-white/10 hover:bg-white/15 text-white/85 cursor-pointer border border-white/15", children: "저장 안 하고 종료" }),
-                o.jsx("button", { onClick: () => setAskCloseImg(false), className: "w-full px-4 py-2 rounded-lg text-sm bg-transparent hover:bg-white/5 text-white/60 cursor-pointer border border-white/10", children: "취소 (계속 편집)" })
+                o.jsx("button", { "data-ddb-esc": "1", onClick: () => setAskCloseImg(false), className: "w-full px-4 py-2 rounded-lg text-sm bg-transparent hover:bg-white/5 text-white/60 cursor-pointer border border-white/10", children: "취소 (계속 편집)" })
             ] })
         ] }) }),
         showImgSet && o.jsx("div", { className: "absolute inset-0 flex items-center justify-center", style: { backgroundColor: "rgba(0,0,0,0.55)", zIndex: 74 }, onMouseDown: e => { e.stopPropagation(); if (e.target === e.currentTarget) setShowImgSet(false); }, children: o.jsxs("div", { className: "bg-gray-900 border border-white/20 rounded-2xl p-5 w-[340px] max-w-[92vw] flex flex-col gap-3", children: [
@@ -2585,6 +2585,12 @@ function DDBTableDropZones() {
     ] })] }), document.body);
 }
 function ddbNextTblName(list) { let mx = 0; (list || []).forEach(t => { const m = /^표\s*(\d+)$/.exec(String((t && t.name) || "").trim()); if (m) mx = Math.max(mx, +m[1]); }); return "표 " + (Math.max(mx, (list || []).length) + 1); }
+// ===== v556: 공통 규칙 — 확인창·대화상자는 Esc = 취소 =====
+// 취소 단추에 data-ddb-esc="1"을 붙이면 Esc로 그 단추가 눌림. 표시가 없어도 화면 위에 떠 있는 확인창(고정 위치·덮개)의 '취소/닫기' 단추를 찾아 누름. 가장 위(나중에 그려진) 창부터
+try { window.addEventListener("keydown", e => { if (e.key !== "Escape" || e.defaultPrevented) return; const vis = el => { if (!el || !el.isConnected) return false; const r = el.getBoundingClientRect(); if (!r.width || !r.height) return false; const cs = getComputedStyle(el); return cs.visibility !== "hidden" && cs.display !== "none"; };
+    let btns = [].slice.call(document.querySelectorAll('[data-ddb-esc="1"]')).filter(vis);
+    if (!btns.length) btns = [].slice.call(document.querySelectorAll("button")).filter(b => /^\s*(취소|닫기)(\s|\(|·|$)/.test(b.textContent || "") && vis(b) && (() => { let p = b.parentElement; while (p && p !== document.body) { const cs = getComputedStyle(p); if ((cs.position === "fixed" || /\binset-0\b/.test(p.className || "")) && Number(cs.zIndex || 0) >= 20) return true; p = p.parentElement; } return false; })());
+    if (!btns.length) return; e.preventDefault(); e.stopPropagation(); btns[btns.length - 1].click(); }, true); } catch (e) {}
 function DDBTableWindow() {
     const [open, setOpen] = O.useState(false);
     const [tables, setTables] = O.useState(() => { try { const v = JSON.parse(localStorage.getItem("ddb_tables") || "null"); if (Array.isArray(v) && v.length) return v.map(t => (t.content != null) ? t : { id: t.id || ("t" + Date.now() + Math.random()), name: t.name || "표", content: ddbGridToMd((t.cells && t.cells[0]) || ["열1", "열2", "열3"], (t.cells || []).slice(1)) }); } catch {} return [{ id: "t" + Date.now(), name: "표 1", content: ddbGridToMd(["열1", "열2", "열3"], [["", "", ""], ["", "", ""]]) }]; });
@@ -2643,7 +2649,7 @@ function DDBTableWindow() {
                 o.jsx("button", { onClick: () => { try { if (window.__ddbTblSaveNew) window.__ddbTblSaveNew(); else if (window.__ddbTblFlushNow) window.__ddbTblFlushNow(); } catch (e) {} setAskClose(false); setOpen(false); }, className: "flex-1 px-3 py-2 rounded text-xs cursor-pointer border-none text-white", style: { background: "#16a34a" }, children: "예 (새 탭으로 저장)" }),
                 o.jsx("button", { onClick: () => { setAskClose(false); setOpen(false); }, className: "flex-1 px-3 py-2 rounded text-xs cursor-pointer border text-white/85", style: { background: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.2)" }, children: "아니오 (저장 안 함)" })
             ] }),
-            o.jsx("button", { onClick: () => setAskClose(false), className: "text-white/80 hover:text-white text-xs cursor-pointer bg-transparent border-none", children: "취소 (계속 편집)" })
+            o.jsx("button", { "data-ddb-esc": "1", onClick: () => setAskClose(false), className: "text-white/80 hover:text-white text-xs cursor-pointer bg-transparent border-none", children: "취소 (계속 편집)  ·  Esc" })
         ] })] }) : null
     ] }), document.body);
 }
@@ -5151,7 +5157,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.118";
+const DDB_VERSION = "1.00.119";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -6704,7 +6710,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v555"
+                children: "v556"
             }), (() => {
                 const S = [{
                     k: "cal",
