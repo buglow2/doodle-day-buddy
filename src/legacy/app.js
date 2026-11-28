@@ -2350,10 +2350,72 @@ function ddbSaveBigImg(day, dataUrl) { try { const key = ddbBigImgKey(day); let 
 function ddbHashStr(s) { s = String(s || ""); let h = 5381; for (let i = 0; i < s.length; i += 3) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + "_" + s.length; }
 let _ddbImgDbP = null;
 function ddbImgDb() { if (_ddbImgDbP) return _ddbImgDbP; _ddbImgDbP = new Promise((res, rej) => { try { const rq = indexedDB.open("ddb_images", 2); rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains("full")) db.createObjectStore("full", { keyPath: "k" }); if (!db.objectStoreNames.contains("bak")) db.createObjectStore("bak", { keyPath: "k" }); }; rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); } catch (e) { rej(e); } }); _ddbImgDbP.catch(() => { _ddbImgDbP = null; }); return _ddbImgDbP; }
-async function ddbSaveFullImg(day, thumb, url) { try { if (!url) return; const db = await ddbImgDb(); await new Promise((res, rej) => { const tx = db.transaction("full", "readwrite"); const os = tx.objectStore("full"); os.put({ k: day + "|" + ddbHashStr(thumb), day, t: Date.now(), url }); try { const cut = Date.now() - 370 * 864e5; os.openCursor().onsuccess = ev => { const cur = ev.target.result; if (!cur) return; if ((cur.value.t || 0) < cut) cur.delete(); cur.continue(); }; } catch (e) {} tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } catch (e) {} }
+async function ddbSaveFullImg(day, thumb, url) { try { if (!url) return; const db = await ddbImgDb(); await new Promise((res, rej) => { const tx = db.transaction("full", "readwrite"); const os = tx.objectStore("full"); os.put({ k: day + "|" + ddbHashStr(thumb), day, t: Date.now(), url }); try { ddbPhotoOnSaved(url); } catch (e) {} try { const cut = Date.now() - 370 * 864e5; os.openCursor().onsuccess = ev => { const cur = ev.target.result; if (!cur) return; if ((cur.value.t || 0) < cut) cur.delete(); cur.continue(); }; } catch (e) {} tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } catch (e) {} }
+// ===== v549: 사진 보관 ②폴더(원본 파일) + ③클라우드(2560px WebP, Supabase Storage 'photos/<사용자>/<날짜>/<지문>.webp') =====
+// 설정은 기기마다(localStorage ddb_photo_cfg): { cloud: 기본 켜짐, dir: 원본 저장 폴더(PC 설치형만) }
+function ddbPhotoCfg() { try { return Object.assign({ cloud: true, dir: "" }, JSON.parse(localStorage.getItem("ddb_photo_cfg") || "{}")); } catch (e) { return { cloud: true, dir: "" }; } }
+function ddbSetPhotoCfg(p) { const n = Object.assign(ddbPhotoCfg(), p || {}); try { localStorage.setItem("ddb_photo_cfg", JSON.stringify(n)); } catch (e) {} try { window.dispatchEvent(new CustomEvent("ddb-photo-cfg")); } catch (e) {} if (n.cloud) setTimeout(() => ddbPhotoSync(), 500); return n; }
+let _ddbPhotoStat = { busy: false, done: 0, left: 0, err: "", usage: null };
+function ddbPhotoStatSet(p) { _ddbPhotoStat = Object.assign({}, _ddbPhotoStat, p); try { window.dispatchEvent(new CustomEvent("ddb-photo-stat")); } catch (e) {} }
+async function ddbPhotoUser() { try { const c = $a(); if (!c) return null; const { data } = await c.auth.getSession(); return (data && data.session && data.session.user) || null; } catch (e) { return null; } }
+function ddbToWebp(url, max, q) { return new Promise(res => { try { const im = new Image(); im.onload = () => { try { const r = Math.min(1, (max || 2560) / Math.max(im.width, im.height)); const cv = document.createElement("canvas"); cv.width = Math.max(1, Math.round(im.width * r)); cv.height = Math.max(1, Math.round(im.height * r)); const g = cv.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(im, 0, 0, cv.width, cv.height); cv.toBlob(b => res(b), "image/webp", q || 0.9); } catch (e) { res(null); } }; im.onerror = () => res(null); im.src = url; } catch (e) { res(null); } }); }
+function ddbPhotoPath(uid, k) { const i = String(k).indexOf("|"); return uid + "/" + String(k).slice(0, i) + "/" + String(k).slice(i + 1).replace(/[^a-z0-9_]/gi, "_") + ".webp"; }
+async function ddbPhotoUsage() { try { const c = $a(); const u = await ddbPhotoUser(); if (!c || !u) return null; const { data, error } = await c.rpc("my_photo_usage"); if (error) return null; const v = typeof data === "string" ? JSON.parse(data) : data; ddbPhotoStatSet({ usage: v }); return v; } catch (e) { return null; } }
+// 이 PC에 보관된 원본 중 아직 클라우드에 안 올린 것 → 하나씩 올림 (꺼져 있거나 로그인 안 했으면 건너뜀)
+async function ddbPhotoSync() {
+    if (_ddbPhotoStat.busy) return; const cfg = ddbPhotoCfg(); if (!cfg.cloud) return;
+    const c = $a(); const u = await ddbPhotoUser(); if (!c || !u) return;
+    ddbPhotoStatSet({ busy: true, err: "" });
+    try {
+        const db = await ddbImgDb();
+        const recs = await new Promise(res => { const out = []; const rq = db.transaction("full").objectStore("full").openCursor(); rq.onsuccess = ev => { const cur = ev.target.result; if (!cur) return res(out); const v = cur.value; if (v && /^\d{4}-\d\d-\d\d\|/.test(v.k) && !v.cloud && v.url) out.push(v); cur.continue(); }; rq.onerror = () => res(out); });
+        recs.sort((a, b) => (b.t || 0) - (a.t || 0)); // 최근 것부터
+        ddbPhotoStatSet({ left: recs.length });
+        let done = 0;
+        for (const r of recs) {
+            if (!ddbPhotoCfg().cloud) break;
+            const blob = await ddbToWebp(r.url, 2560, 0.9); if (!blob) { await ddbPhotoMark(r.k); continue; }
+            const { error } = await c.storage.from("photos").upload(ddbPhotoPath(u.id, r.k), blob, { contentType: "image/webp", upsert: true });
+            if (error) { const m = String(error.message || error); ddbPhotoStatSet({ err: /row-level|policy|security/i.test(m) ? "저장 한도가 찼거나 권한이 없어 올리지 못했어요" : ("올리기 실패: " + m) }); break; }
+            await ddbPhotoMark(r.k); done++; ddbPhotoStatSet({ done: _ddbPhotoStat.done + 1, left: recs.length - done });
+        }
+    } catch (e) { ddbPhotoStatSet({ err: "올리기 실패: " + (e && e.message || e) }); }
+    ddbPhotoStatSet({ busy: false }); ddbPhotoUsage();
+}
+async function ddbPhotoMark(k) { try { const db = await ddbImgDb(); await new Promise(res => { const tx = db.transaction("full", "readwrite"); const os = tx.objectStore("full"); const rq = os.get(k); rq.onsuccess = () => { const v = rq.result; if (v) { v.cloud = 1; os.put(v); } }; tx.oncomplete = res; tx.onerror = res; }); } catch (e) {} }
+// 이 PC에 원본이 없을 때 클라우드에서 받아 오기(받은 것은 이 PC에도 보관 → 다음엔 바로)
+async function ddbPhotoCloudGet(day, hash) {
+    try { const c = $a(); const u = await ddbPhotoUser(); if (!c || !u || !hash) return null; const k = day + "|" + hash;
+        const { data, error } = await c.storage.from("photos").download(ddbPhotoPath(u.id, k)); if (error || !data) return null;
+        const url = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(data); }); if (!url) return null;
+        try { const db = await ddbImgDb(); const tx = db.transaction("full", "readwrite"); tx.objectStore("full").put({ k, day, t: Date.now(), url, cloud: 1 }); } catch (e) {}
+        return url;
+    } catch (e) { return null; }
+}
+// 새 그림이 보관될 때: ②폴더에 원본 파일 + ③클라우드 올리기 예약
+function ddbPhotoOnSaved(url) { const cfg = ddbPhotoCfg(); try { if (cfg.dir && window.ddbNative && window.ddbNative.saveCapture) window.ddbNative.saveCapture(url, cfg.dir); } catch (e) {} if (cfg.cloud) { clearTimeout(window.__ddbPhotoT); window.__ddbPhotoT = setTimeout(() => ddbPhotoSync(), 4000); } }
+try { setTimeout(() => ddbPhotoSync(), 20000); setInterval(() => ddbPhotoSync(), 10 * 60000); window.addEventListener("online", () => setTimeout(() => ddbPhotoSync(), 3000)); } catch (e) {}
+function DDBPhotoPanel() {
+    const [cfg, setCfg] = O.useState(ddbPhotoCfg); const [st, setSt] = O.useState(_ddbPhotoStat); const [user, setUser] = O.useState(null);
+    O.useEffect(() => { const a = () => setCfg(ddbPhotoCfg()), b = () => setSt(_ddbPhotoStat); window.addEventListener("ddb-photo-cfg", a); window.addEventListener("ddb-photo-stat", b); ddbPhotoUser().then(u => { setUser(u); if (u) ddbPhotoUsage(); }); return () => { window.removeEventListener("ddb-photo-cfg", a); window.removeEventListener("ddb-photo-stat", b); }; }, []);
+    const mb = n => n >= 1073741824 ? (n / 1073741824).toFixed(2) + "GB" : Math.round((n || 0) / 1048576) + "MB";
+    const us = st.usage; const pct = us && us.limit ? Math.min(100, Math.round(us.used / us.limit * 100)) : 0;
+    const native = !!(window.ddbNative && window.ddbNative.pickCaptureDir);
+    return o.jsxs("div", { className: "flex flex-col gap-3 text-sm", children: [
+        o.jsxs("div", { children: [o.jsx("div", { className: "text-white/90 font-semibold", children: "☁ 클라우드 보관 (2560px 선명한 사본)" }), o.jsx("div", { className: "text-white/80 text-[11px] mt-0.5", children: "캡처·편집해 저장한 그림을 로그인한 계정 클라우드에 올려 다른 PC·폰에서도 선명하게 봅니다. 본인만 볼 수 있어요." })] }),
+        o.jsxs("label", { className: "flex items-center gap-2 cursor-pointer text-white/85", children: [o.jsx("input", { type: "checkbox", checked: !!cfg.cloud, onChange: e => setCfg(ddbSetPhotoCfg({ cloud: e.target.checked })) }), "이 PC의 그림을 클라우드에 올리기"] }),
+        !user ? o.jsx("div", { className: "text-amber-200 text-[12px]", children: "☁ 로그인해야 클라우드에 올라갑니다." }) : us ? o.jsxs("div", { children: [o.jsxs("div", { className: "flex justify-between text-[12px] text-white/85", children: [o.jsx("span", { children: "사용 " + mb(us.used) + " / " + mb(us.limit) + " · " + (us.count || 0) + "장" }), o.jsx("span", { children: pct + "%" })] }), o.jsx("div", { style: { height: 7, borderRadius: 9, background: "rgba(255,255,255,0.12)", marginTop: 4, overflow: "hidden" }, children: o.jsx("div", { style: { width: pct + "%", height: "100%", background: pct >= 90 ? "#ef4444" : pct >= 70 ? "#f59e0b" : "#3b82f6" } }) })] }) : o.jsx("div", { className: "text-white/80 text-[12px]", children: "사용량 확인 중…" }),
+        st.busy ? o.jsx("div", { className: "text-sky-200 text-[12px]", children: "올리는 중… 남은 " + st.left + "장" }) : null,
+        st.err ? o.jsx("div", { className: "text-red-300 text-[12px]", children: st.err }) : null,
+        user ? o.jsx("button", { onClick: () => ddbPhotoSync(), disabled: st.busy || !cfg.cloud, className: "self-start px-3 py-1 rounded bg-blue-500 text-white text-xs border-none cursor-pointer", children: "지금 올리기" }) : null,
+        o.jsx("div", { className: "border-t border-white/10" }),
+        o.jsxs("div", { children: [o.jsx("div", { className: "text-white/90 font-semibold", children: "📁 폴더에 원본 저장 (이 PC)" }), o.jsx("div", { className: "text-white/80 text-[11px] mt-0.5", children: "저장할 때마다 원본 그대로의 PNG 파일을 지정한 폴더에도 남깁니다(용량 제한 없음, 이 PC에만)." })] }),
+        native ? o.jsxs("div", { className: "flex items-center gap-2 flex-wrap", children: [o.jsx("span", { className: "text-white/85 text-[12px] break-all", children: cfg.dir || "꺼짐 (폴더 미지정)" }), o.jsx("button", { onClick: async () => { const d = await window.ddbNative.pickCaptureDir(); if (d) setCfg(ddbSetPhotoCfg({ dir: d })); }, className: "px-2 py-1 rounded bg-white/10 text-white text-xs border border-white/20 cursor-pointer", children: cfg.dir ? "폴더 바꾸기" : "폴더 고르기" }), cfg.dir ? o.jsx("button", { onClick: () => setCfg(ddbSetPhotoCfg({ dir: "" })), className: "px-2 py-1 rounded bg-white/10 text-white text-xs border border-white/20 cursor-pointer", children: "끄기" }) : null] }) : o.jsx("div", { className: "text-white/80 text-[12px]", children: "설치형 PC 앱에서만 쓸 수 있어요." })
+    ] });
+}
 // v548: 그날 이 PC에 보관된 원본 그림 전부(시각순) — 키(지문)가 안 맞을 때 시각으로 찾기용
 async function ddbGetDayFulls(day) { try { const db = await ddbImgDb(); return await new Promise(res => { const out = []; const rq = db.transaction("full").objectStore("full").openCursor(IDBKeyRange.bound(day + "|", day + "|\uffff")); rq.onsuccess = ev => { const c = ev.target.result; if (!c) { out.sort((a, b) => (a.t || 0) - (b.t || 0)); return res(out); } out.push({ k: c.value.k, t: c.value.t || 0, url: c.value.url }); c.continue(); }; rq.onerror = () => res([]); }); } catch (e) { return []; } }
-async function ddbGetFullImgByKey(day, key) { try { const db = await ddbImgDb(); return await new Promise(res => { const rq = db.transaction("full").objectStore("full").get(day + "|" + key); rq.onsuccess = () => res(rq.result ? rq.result.url : null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
+async function ddbGetFullImgByKey(day, key) { try { const db = await ddbImgDb(); return await new Promise(res => { const rq = db.transaction("full").objectStore("full").get(day + "|" + key); rq.onsuccess = () => res(rq.result ? rq.result.url : null); rq.onerror = () => res(null); }).then(u => u || ddbPhotoCloudGet(day, key)); } catch (e) { return null; } }
 // 예전 방식(localStorage)의 큰 그림 → IndexedDB로 옮기고 localStorage 비우기 (localStorage가 가득 차서 로그인 정보·데이터 저장이 실패하던 원인 제거)
 async function ddbMigrateLegacyImgs() { try { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("ddb_imgbig_") === 0) keys.push(k); } if (!keys.length) return; const db = await ddbImgDb(); for (const k of keys) { let arr = []; try { arr = JSON.parse(localStorage.getItem(k) || "[]"); } catch (e) {} const day = k.slice(11); await new Promise(res => { const tx = db.transaction("full", "readwrite"); arr.forEach((u, i) => tx.objectStore("full").put({ k: "legacy|" + day + "|" + i, day, t: Date.now(), url: u })); tx.oncomplete = res; tx.onerror = res; }); localStorage.removeItem(k); } } catch (e) {} }
 async function ddbGetLegacyBigs(day) { const ls = ddbGetBigImgs(day); if (ls.length) return ls; try { const db = await ddbImgDb(); return await new Promise(res => { const out = []; const rq = db.transaction("full").objectStore("full").openCursor(IDBKeyRange.bound("legacy|" + day + "|", "legacy|" + day + "|\uffff")); rq.onsuccess = ev => { const c = ev.target.result; if (!c) { out.sort((a, b) => a.i - b.i); return res(out.map(x => x.u)); } out.push({ i: +String(c.value.k).split("|")[2], u: c.value.url }); c.continue(); }; rq.onerror = () => res([]); }); } catch (e) { return []; } }
@@ -2362,7 +2424,7 @@ async function ddbBakPut(rec) { try { const db = await ddbImgDb(); await new Pro
 async function ddbBakGet() { try { const db = await ddbImgDb(); return await new Promise(res => { const rq = db.transaction("bak").objectStore("bak").get("autobak"); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
 function ddbCountData(d) { try { d = d || {}; return (d.events || []).length + (d.ddays || []).length + (d.todos || []).length + (d.memoTabs || []).reduce((t, x) => t + ((x && x.items) || []).length, 0) + (d.memoTabs || []).filter(x => x && x.aiText && String(x.aiText).trim()).length; } catch (e) { return 0; } }
 try { setTimeout(() => ddbMigrateLegacyImgs(), 1500); } catch (e) {}
-async function ddbGetFullImg(day, thumb) { try { const db = await ddbImgDb(); return await new Promise(res => { const rq = db.transaction("full").objectStore("full").get(day + "|" + ddbHashStr(thumb)); rq.onsuccess = () => res(rq.result ? rq.result.url : null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
+async function ddbGetFullImg(day, thumb) { try { const db = await ddbImgDb(); return await new Promise(res => { const rq = db.transaction("full").objectStore("full").get(day + "|" + ddbHashStr(thumb)); rq.onsuccess = () => res(rq.result ? rq.result.url : null); rq.onerror = () => res(null); }).then(u => u || ddbPhotoCloudGet(day, ddbHashStr(thumb))); } catch (e) { return null; } }
 // 동기화용 작은 그림(목록·다른 기기용) — 예전 150~200px 저화질 → 320px 선명하게
 function ddbMakeThumb(img, maxW, maxH, q) { const r = Math.min((maxW || 240) / img.width, (maxH || 300) / img.height, 1) || 1; const cv = document.createElement("canvas"); cv.width = Math.max(1, Math.round(img.width * r)); cv.height = Math.max(1, Math.round(img.height * r)); const g = cv.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(img, 0, 0, cv.width, cv.height); return cv.toDataURL("image/jpeg", q || 0.62); }
 function ddbGetBigImgs(day) { try { return JSON.parse(localStorage.getItem(ddbBigImgKey(day)) || "[]"); } catch (e) { return []; } }
@@ -3798,7 +3860,7 @@ function DDBMemoOverview() {
         o.jsx("div", { className: "fixed inset-0", style: { zIndex: 2147483000, backgroundColor: "rgba(0,0,0,0.55)" }, onClick: () => setOpen(!1) }),
         lightbox && o.jsxs("div", { className: "fixed inset-0 flex items-center justify-center", style: { zIndex: 2147483200, background: "rgba(0,0,0,0.92)" }, onClick: () => setLightbox(null), children: [
             /* v548: 원본이 있으면 화면 가득, 작은 미리보기뿐이면 억지로 키우지 않음(뭉개짐) + 안내 */
-            (lightbox.lo && lightbox.lo[lightbox.idx]) ? o.jsxs("div", { onClick: e => e.stopPropagation(), style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }, children: [o.jsx("img", { src: lightbox.list[lightbox.idx], style: { width: 480, maxWidth: "80vw", height: "auto", borderRadius: 6, background: "#fff" } }), o.jsx("div", { style: { color: "#fde68a", fontSize: 13, background: "rgba(0,0,0,0.6)", padding: "6px 14px", borderRadius: 8, textAlign: "center", lineHeight: 1.5 }, children: ["이 그림은 작은 미리보기만 남아 있어요(원본 없음).", o.jsx("br", {}), "원본은 그 그림을 캡처·저장한 PC에만 보관됩니다. (v543 이전에 저장한 그림은 원본이 없음)"] })] })
+            (lightbox.lo && lightbox.lo[lightbox.idx]) ? o.jsxs("div", { onClick: e => e.stopPropagation(), style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }, children: [o.jsx("img", { src: lightbox.list[lightbox.idx], style: { width: 480, maxWidth: "80vw", height: "auto", borderRadius: 6, background: "#fff" } }), o.jsx("div", { style: { color: "#fde68a", fontSize: 13, background: "rgba(0,0,0,0.6)", padding: "6px 14px", borderRadius: 8, textAlign: "center", lineHeight: 1.5 }, children: ["이 그림은 작은 미리보기만 남아 있어요(원본 없음).", o.jsx("br", {}), "원본은 그 그림을 저장한 PC 또는 클라우드(설정 → 기능 → 🖼 사진 보관)에 있어야 보여요. (v543 이전 그림은 원본 없음)"] })] })
             : o.jsx("div", { onClick: e => e.stopPropagation(), style: { width: "92vw", height: "88vh", backgroundImage: "url(" + lightbox.list[lightbox.idx] + ")", backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat" } }),
             lightbox.list.length > 1 && o.jsx("button", { onClick: e => { e.stopPropagation(); lbMove(-1); }, style: { position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", width: 48, height: 48, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", fontSize: 26, cursor: "pointer" }, children: "‹" }),
             lightbox.list.length > 1 && o.jsx("button", { onClick: e => { e.stopPropagation(); lbMove(1); }, style: { position: "absolute", right: 18, top: "50%", transform: "translateY(-50%)", width: 48, height: 48, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", fontSize: 26, cursor: "pointer" }, children: "›" }),
@@ -4778,7 +4840,7 @@ function vt() {
    (Supabase 대시보드 → Settings → API → Project URL / anon public key)
    비워두면: 기존처럼 설정 화면에서 직접 입력하는 방식으로 작동합니다.
 ──────────────────────────────────────────────── */
-const DDB_VERSION = "1.00.111";
+const DDB_VERSION = "1.00.112";
 const DDB_CASH_ON = !1;
 const DDB_EMBED = {
     url: "https://hqeukjoalmcpmjuslxmm.supabase.co",
@@ -6331,7 +6393,7 @@ function um({
                 })]
             }), o.jsx(DDBTileBar, {}), o.jsx("span", {
                 className: "text-white/40 text-[10px] px-2 select-none font-mono flex-shrink-0",
-                children: "v548"
+                children: "v549"
             }), (() => {
                 const S = [{
                     k: "cal",
@@ -13591,6 +13653,7 @@ function c4({
                     
                     o.jsx(DDBAccordion, { title: "라이선스 인증 (정품 등록)", icon: "🔑", children: o.jsx(DDBLicensePanel, {}) }),
                     o.jsx(DDBAccordion, { title: "백업·복구 (데이터 보호)", icon: "💾", children: o.jsx(DDBBackupPanel, {}) }),
+                    o.jsx(DDBAccordion, { title: "사진 보관 (폴더·클라우드)", icon: "🖼", children: o.jsx(DDBPhotoPanel, {}) }),
                     o.jsxs(DDBAccordion, { title: "팀 (회사용)", icon: "👥", children: [
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["팀 달력만 사용", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "개인 달력 없이 팀 달력으로 시작 (회사용)" })] }), o.jsx("input", { type: "checkbox", checked: !!c.teamOnly, onChange: k => y("teamOnly", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] }),
                         o.jsxs("label", { className: "flex items-center justify-between gap-2 cursor-pointer py-1", children: [o.jsxs("span", { className: "text-white/75 text-sm", children: ["팀 보기 시 팀 선택 창 표시", o.jsx("span", { className: "block text-white/35 text-[10px]", children: "여러 팀을 자주 바꿀 때 켜세요" })] }), o.jsx("input", { type: "checkbox", checked: !!c.teamAlwaysPick, onChange: k => y("teamAlwaysPick", k.target.checked), className: "w-4 h-4 flex-shrink-0" })] }),
