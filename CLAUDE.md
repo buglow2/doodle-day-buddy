@@ -67,6 +67,7 @@
 - FortuneSheet: `getSelection()` 한 칸 선택 시 끝값 null 가능 → 서식 코드는 반드시 `sel()`(=`ddbNormSel`) 경유.
 - FortuneSheet ref엔 setContext 없음 → `applyOp([{op:"add",id,path,value}])`. 테두리는 `setCellFormat(...,"bd",…)`. 저장 전 `document.activeElement.blur()`.
 - FortuneSheet는 window resize 신호에만 다시 그림 → 표 창 크기 바뀌면 resize 이벤트 보냄. mergeCells는 범위 '배열'.
+- Electron 기본 메뉴줄이 Alt를 가로챔 → main.js `Menu.setApplicationMenu(null)` 유지(지우지 말 것).
 - 표 단축키는 FortuneSheet가 document 단계에서 먼저 받음 → **window 캡처 단계**에서 가로채고 Alt 단독 keydown도 막기. 편집 중 판정 = `.luckysheet-input-box` zIndex "19".
 - 표 기본 우클릭 메뉴는 `cellContextMenu:[]`,`headerContextMenu:[]`로 끄고 커스텀 메뉴.
 - 리본 아이콘은 엑셀 그림 복제 금지 → 직접 그린 SVG(`ddbIco`).
@@ -80,7 +81,7 @@
 
 ## 현재 미완료·확인 필요·보류
 - **사용자 조치 필요**: 폰이 옛 APK(1.0.98 이전) → 기존 앱 삭제 후 고정 링크(`releases/latest/download/MomentPlan-Android.apk`)로 1회 설치. 그 뒤 자동 갱신.
-- **실기(실제 사용) 확인 필요 — PC**: 앱 안 업데이트 설치(SmartScreen 회피, v512~519) · 표 탭 끌어 버리기(v515) · 작업일지 스킨 전체 창 적용(v521) · 셀 서식 대화상자(v522) · 표 리본 1~3단계(v523~525) · AI메모 문단 보내기·구석 타이머 시계·퀵커맨드·타이머/알람 창(v530~533) · D-Day 음력/양력 표기(v534) · 이미지 내보내기 줄바꿈(v533) · 타이머 여러 PC 중복 울림 방지(v538) · AI메모 고화질 원본·편집 화면 선명도(v543~544) · 데이터 유실 안전장치(v545~546) · 표 점선/최대화/Esc/캡처 복사(v547) · D-Day 목록 단추·사진 확대(v548) · 사진 클라우드 보관(v549) · 표 v554 일부(대부분 화면 검증됨).
+- **실기(실제 사용) 확인 필요 — PC**: 앱 안 업데이트 설치(SmartScreen 회피, v512~519) · 표 탭 끌어 버리기(v515) · 작업일지 스킨 전체 창 적용(v521) · 셀 서식 대화상자(v522) · 표 리본 1~3단계(v523~525) · AI메모 문단 보내기·구석 타이머 시계·퀵커맨드·타이머/알람 창(v530~533) · D-Day 음력/양력 표기(v534) · 이미지 내보내기 줄바꿈(v533) · 타이머 여러 PC 중복 울림 방지(v538) · AI메모 고화질 원본·편집 화면 선명도(v543~544) · 데이터 유실 안전장치(v545~546) · 표 점선/최대화/Esc(v547) · 캡처 자동 복사(v555, main.js에서 복사 — 새 설치본 필요) · Alt 단축키·기본 행열 크기·우클릭 메뉴 구분(v555) · D-Day 목록 단추·사진 확대(v548) · 사진 클라우드 보관(v549) · 표 v554 일부(대부분 화면 검증됨).
 - **실기 확인 필요 — 폰**: 아침 브리핑·알림(v527·v536) · PC 타이머 폰 알림(APK 재빌드 필요) · 앱 업데이트 A+B(v535) · 자동 로그인·D-Day 필터·오늘 탭 순서(v538·v542·v548) · 뉴스 맞춤 탭(APK 1.0.104).
 - **배포 필요**: 폰 웹 D-Day 알림 등(v526) → `mobile/deploy.bat`.
 - **점검 후보**: 1342xxx `vm` 호버 목록(bottom-full 애니메이션형) 포털 전환.

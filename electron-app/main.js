@@ -1,5 +1,9 @@
 // MomentPlan — Electron 실행기
-const { app, BrowserWindow, shell, ipcMain, desktopCapturer, screen, globalShortcut, clipboard, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, desktopCapturer, screen, globalShortcut, clipboard, nativeImage, dialog, Menu } = require('electron');
+// v555: 기본 메뉴줄 없앰 — Alt를 누르면 숨은 메뉴줄이 키를 가로채서 표의 Alt 단축키(Alt→H O W 등)가 안 먹고 글자가 칸에 입력되던 원인. (Ctrl+R 새로고침 같은 기본 단축키도 같이 사라져 표의 Ctrl+R 채우기와 안 겹침)
+try { Menu.setApplicationMenu(null); } catch (e) {}
+// v555: 캡처 결과를 메인 프로세스에서 바로 클립보드에 복사(화면 쪽 복사가 실패해도 항상 복사됨). 설정에서 '자동 복사'를 끈 경우만 안 함
+function ddbCopyShot(dataUrl) { try { const img = nativeImage.createFromDataURL(String(dataUrl || '')); if (!img.isEmpty()) clipboard.writeImage(img); } catch (e) {} }
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -215,7 +219,7 @@ async function createWindow() {
     } catch (e) {}
   }
   ipcMain.on('ddb-region-cancel', () => { try { if (overlayWin) { overlayWin.close(); overlayWin = null; } } catch (e) {} });
-  ipcMain.on('ddb-region-result', (_e, croppedUrl) => { try { if (overlayWin) { overlayWin.close(); overlayWin = null; } } catch (e) {} try { if (croppedUrl && win) { win.webContents.send('ddb-screenshot', croppedUrl); if (win.isMinimized()) win.restore(); win.show(); win.focus(); } } catch (e) {} });
+  ipcMain.on('ddb-region-result', (_e, croppedUrl) => { try { if (overlayWin) { overlayWin.close(); overlayWin = null; } } catch (e) {} try { if (croppedUrl && capPrefs.autoCopy !== false) ddbCopyShot(croppedUrl); } catch (e) {} try { if (croppedUrl && win) { win.webContents.send('ddb-screenshot', croppedUrl); if (win.isMinimized()) win.restore(); win.show(); win.focus(); } } catch (e) {} });
   ipcMain.handle('ddb-capture-region', async () => { await startRegionCapture(); return true; });
 
   // ── 스크롤 캡처 ──────────────────────
@@ -249,7 +253,7 @@ async function createWindow() {
     } catch (e) { stopScroll(); }
   });
   ipcMain.on('ddb-scroll-cancel', () => { stopScroll(); });
-  ipcMain.on('ddb-scroll-done', (_e, finalUrl) => { stopScroll(); try { if (finalUrl && win) { win.webContents.send('ddb-screenshot', finalUrl); if (win.isMinimized()) win.restore(); win.show(); win.focus(); } } catch (e) {} });
+  ipcMain.on('ddb-scroll-done', (_e, finalUrl) => { stopScroll(); try { if (finalUrl && capPrefs.autoCopy !== false) ddbCopyShot(finalUrl); } catch (e) {} try { if (finalUrl && win) { win.webContents.send('ddb-screenshot', finalUrl); if (win.isMinimized()) win.restore(); win.show(); win.focus(); } } catch (e) {} });
   let capHotkey = '', capMode = 'region';
   ipcMain.handle('ddb-set-capture-hotkey', (_e, accel, mode) => {
     try {
@@ -260,6 +264,7 @@ async function createWindow() {
       const ok = globalShortcut.register(accel, async () => {
         if (capMode === 'region') { startRegionCapture(); return; }
         const url = await captureScreenDataUrl();
+        try { if (url && capPrefs.autoCopy !== false) ddbCopyShot(url); } catch (e) {}
         try { win && win.webContents.send('ddb-screenshot', url); } catch (e) {}
         try { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } } catch (e) {}
       });
